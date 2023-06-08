@@ -1,0 +1,77 @@
+.ContactMain {
+  height: 100%;
+  width: 100%;
+}
+
+.FormParent {
+  display: flex;
+  justify-content: center;
+}
+
+.SubmitButton,
+.SubmitButton:hover,
+.SubmitButton:active,
+.SubmitButton:focus {
+  background-color: #3c4992 !important;
+  border-color: #3c4992 !important;
+}
+
+.ConsultationButton {
+  background-color: #341f9d;
+  border-radius: 8px;
+  border-style: none;
+  color: white;
+  font-size: 20px;
+  font-weight: 500;
+  outline: none;
+  padding: 10px 25px;
+  position: relative;
+  text-align: center;
+  text-decoration: none;
+  transition: 500ms;
+  vertical-align: baseline;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.ConsultationButton:hover,
+.ConsultationButton:focus {
+  background-color: #5965ec;
+}
+
+.ConsultationForm {
+  width: 400px;
+  height: 600px;
+  border-radius: 10px;
+  overflow: hidden !important;
+}
+
+.ContactRow {
+  margin-bottom: 50px;
+}
+
+.ContactInfo {
+  font-size: 20px;
+}
+
+.ButtonCol {
+  display: flex;
+  align-items: center;
+}
+
+@media only screen and (max-width: 576px) {
+  .ContactInfo {
+    font-size: 16px;
+  }
+
+  .ContactCol {
+    margin-bottom: 20px;
+  }
+}
+
+@media only screen and (max-width: 1199px) {
+  .FormParent {
+    margin-top: 30px;
+  }
+}

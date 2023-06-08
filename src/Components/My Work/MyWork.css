@@ -1,0 +1,50 @@
+.PastWorkCol {
+  padding: 0px 0px 0px 0px;
+  border: solid transparent;
+  border-width: 30px 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.WorkCard {
+  padding: 0px 0px 0px 0px;
+  height: 220px;
+  border: none;
+  border-radius: 10px 0px 10px 0px;
+  background-position-x: center;
+  background-repeat: no-repeat;
+  background-size: 70%;
+  background-position-y: center;
+  background-color: white;
+}
+
+.Proximy {
+  background-image: url('../../assets/proximy-logo.png');
+  border-color: rgb(91, 141, 239);
+  border: 2px solid rgb(91, 141, 239);
+}
+
+.MidstrideTechnologies {
+  background-image: url('../../assets/midstride-white.png');
+  background-color: #19658E;
+}
+
+.Minebright {
+  background-image: url('../../assets/minebright-logo.png');
+  border: 2px solid rgb(255, 212, 38);
+}
+
+.DigitalRise {
+  background-image: url('../../assets/digitalrise-logo.svg');
+  background-color: #0666c2;
+}
+
+.TechNuCom {
+  background-image: url('../../assets/technucom-logo.png');
+  border: 2px solid #ffa100;
+}
+
+.Chick-fil-ATorontoEatonCentre {
+  background-image: url('../../assets/cfaeatoncentre.png');
+  border: 2px solid #DB1932;  
+}

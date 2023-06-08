@@ -1,0 +1,49 @@
+.HomeMain {
+  padding: 33vh 100px 0px 100px;
+  color: white;
+}
+
+.HomeContent {
+  max-width: 950px;
+}
+
+.HomeMainTitle {
+  font-size: 45px;
+  font-weight: 900;
+  position: relative;
+  color: white;
+}
+
+.TellMeMoreParent {
+  display: flex;
+  padding-top: 15px;
+  position: relative;
+}
+
+.TellMeMore:hover {
+  cursor: pointer;
+}
+
+@media only screen and (max-height: 1000px) and (max-width: 992px) {
+  .HomeMain {
+    padding: 130px 50px 0px 40px;
+  }
+
+  .HomeMainTitle {
+    font-size: 30px;
+  }
+
+  .TellMeMoreParent {
+    padding-bottom: 5vh;
+  }
+}
+
+@media only screen and (max-height: 750px) and (max-width: 992px) {
+  .HomeMain {
+    padding: 100px 50px 0px 30px;
+  }
+
+  .HomeMainTitle {
+    font-size: 25px;
+  }
+}
