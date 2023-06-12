@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.css": "/static/css/main.92156ab1.css",
-    "main.js": "/static/js/main.67aef986.js",
-    "static/media/people-at-whiteboard.jpg": "/static/media/people-at-whiteboard.fc68a68bd6060afb1b5d.jpg",
+    "main.css": "/static/css/main.089fe5c2.css",
+    "main.js": "/static/js/main.501b1de2.js",
     "static/media/ezra.jpg": "/static/media/ezra.1bf9948ad045e00918c3.jpg",
     "static/media/HMST-banner.jpg": "/static/media/HMST-banner.e392a19ff95e8d3e1702.jpg",
+    "static/media/values.jpg": "/static/media/values.40f7f8e3490a60e0ceb9.jpg",
     "static/media/cfaeatoncentre.png": "/static/media/cfaeatoncentre.49af85cad75c3d30d336.png",
     "static/media/proximy-logo.png": "/static/media/proximy-logo.485ce016ed99f3abea60.png",
     "static/media/technucom-logo.png": "/static/media/technucom-logo.f47d1bdf0ca6489523c8.png",
@@ -12,11 +12,11 @@
     "static/media/layered-waves-haikei.svg": "/static/media/layered-waves-haikei.8429c6ad78c39a44a7e5.svg",
     "static/media/digitalrise-logo.svg": "/static/media/digitalrise-logo.0085f143538adf7c0700.svg",
     "index.html": "/index.html",
-    "main.92156ab1.css.map": "/static/css/main.92156ab1.css.map",
-    "main.67aef986.js.map": "/static/js/main.67aef986.js.map"
+    "main.089fe5c2.css.map": "/static/css/main.089fe5c2.css.map",
+    "main.501b1de2.js.map": "/static/js/main.501b1de2.js.map"
   },
   "entrypoints": [
-    "static/css/main.92156ab1.css",
-    "static/js/main.67aef986.js"
+    "static/css/main.089fe5c2.css",
+    "static/js/main.501b1de2.js"
   ]
 }
