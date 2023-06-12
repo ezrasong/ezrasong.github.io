@@ -1,14 +1,11 @@
 {
   "files": {
     "main.css": "/static/css/main.92156ab1.css",
-    "main.js": "/static/js/main.d0f13e67.js",
-    "static/media/home-background.mp4": "/static/media/home-background.f6e28b1a62bc7cd61404.mp4",
+    "main.js": "/static/js/main.67aef986.js",
     "static/media/people-at-whiteboard.jpg": "/static/media/people-at-whiteboard.fc68a68bd6060afb1b5d.jpg",
-    "static/media/whoweworkwith.png": "/static/media/whoweworkwith.d34b3fafbc5aab643254.png",
-    "static/media/flat2.webp": "/static/media/flat2.cd998a1e2885d9bc97b3.webp",
-    "static/media/working-people.webp": "/static/media/working-people.933ba36a6324771f414c.webp",
+    "static/media/ezra.jpg": "/static/media/ezra.1bf9948ad045e00918c3.jpg",
+    "static/media/HMST-banner.jpg": "/static/media/HMST-banner.e392a19ff95e8d3e1702.jpg",
     "static/media/cfaeatoncentre.png": "/static/media/cfaeatoncentre.49af85cad75c3d30d336.png",
-    "static/media/home-background-poster.jpg": "/static/media/home-background-poster.29625206dfdb48e0df6c.jpg",
     "static/media/proximy-logo.png": "/static/media/proximy-logo.485ce016ed99f3abea60.png",
     "static/media/technucom-logo.png": "/static/media/technucom-logo.f47d1bdf0ca6489523c8.png",
     "static/media/minebright-logo.png": "/static/media/minebright-logo.c132d4fc4e1eb8dddf71.png",
@@ -16,10 +13,10 @@
     "static/media/digitalrise-logo.svg": "/static/media/digitalrise-logo.0085f143538adf7c0700.svg",
     "index.html": "/index.html",
     "main.92156ab1.css.map": "/static/css/main.92156ab1.css.map",
-    "main.d0f13e67.js.map": "/static/js/main.d0f13e67.js.map"
+    "main.67aef986.js.map": "/static/js/main.67aef986.js.map"
   },
   "entrypoints": [
     "static/css/main.92156ab1.css",
-    "static/js/main.d0f13e67.js"
+    "static/js/main.67aef986.js"
   ]
 }
