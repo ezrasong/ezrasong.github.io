@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/static/css/main.089fe5c2.css",
-    "main.js": "/static/js/main.501b1de2.js",
+    "main.js": "/static/js/main.3e59da4d.js",
     "static/media/ezra.jpg": "/static/media/ezra.1bf9948ad045e00918c3.jpg",
     "static/media/HMST-banner.jpg": "/static/media/HMST-banner.e392a19ff95e8d3e1702.jpg",
     "static/media/values.jpg": "/static/media/values.40f7f8e3490a60e0ceb9.jpg",
@@ -13,10 +13,10 @@
     "static/media/digitalrise-logo.svg": "/static/media/digitalrise-logo.0085f143538adf7c0700.svg",
     "index.html": "/index.html",
     "main.089fe5c2.css.map": "/static/css/main.089fe5c2.css.map",
-    "main.501b1de2.js.map": "/static/js/main.501b1de2.js.map"
+    "main.3e59da4d.js.map": "/static/js/main.3e59da4d.js.map"
   },
   "entrypoints": [
     "static/css/main.089fe5c2.css",
-    "static/js/main.501b1de2.js"
+    "static/js/main.3e59da4d.js"
   ]
 }
