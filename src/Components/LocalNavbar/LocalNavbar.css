@@ -1,19 +1,9 @@
 .Navbar {
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: saturate(180%) blur(20px);
   font-size: 18px;
   align-content: flex-start;
   height: 60px;
-}
-
-.GreyNavbar {
-  background-color: rgba(0, 0, 0, 0.6);
-  backdrop-filter: saturate(180%) blur(20px);
-  transition: 0.5s;
-}
-
-.TransparentNavbar {
-  background-color: transparent;
-  box-shadow: none;
-  transition: 0.5s;
 }
 
 .CollapseBackgroundDark {

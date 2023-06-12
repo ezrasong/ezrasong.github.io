@@ -25,6 +25,11 @@ function Footer() {
                   </a>
                 </Col>
               </Row>
+              <Row style={{ padding: '3px 0px' }}>
+                <Col xs={6} style={{ paddingLeft: '0px' }}>
+                  <a href="mailto:ezrasong@gmail.com" target="_blank" rel="noreferrer" className="FooterLink">Gmail</a>
+                </Col>
+              </Row>
             </div>
           </Col>
         </Row>

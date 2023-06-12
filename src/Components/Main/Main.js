@@ -4,12 +4,11 @@ import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "re
 import About from "../About/About";
 import Home from "../Home/Home";
 import Contact from "../Contact/Contact";
-import OurClients from "../My Work/MyWork";
+import MyWork from "../MyWork/MyWork";
 import "../../hamburgers.css";
 import { Row, Col, Container } from 'react-bootstrap';
-import { MdKeyboardArrowRight } from "react-icons/md";
 import homeBackground from "../../assets/HMST-banner.jpg";
-import whiteboard from "../../assets/people-at-whiteboard.jpg";
+import values from "../../assets/values.jpg";
 
 const bodyScrollLock = require("body-scroll-lock");
 const disableBodyScroll = bodyScrollLock.disableBodyScroll;
@@ -92,12 +91,11 @@ const Main = forwardRef((props, ref) => {
                                         <div>
                                             <div className="OurValues">My&nbsp;Values</div>
                                             <div className="OurValuesText">
-                                                Since our launch, we have been steadfast in upholding our core values of uncompromising quality and excellent communication. We are committed to delivering software that meets the highest standards of excellence, and guided by our belief in the importance of transparency and collaboration. At every stage of our parternship, we ensure to maintain mutual understanding and alignment with our clients.
-                                            </div>
+                                                Integrity, honesty, and hard work are the core values that define who I am. With unwavering integrity, I uphold strong moral principles and strive to be transparent and fair in all my actions. Honesty is the foundation of my relationships, as I believe in being truthful and sincere, fostering trust and open communication. I embrace the power of hard work, dedicating myself to achieving my goals and continually learning and growing. These values guide my decisions and interactions, shaping my character and enabling me to make a positive impact on the world around me.                                            </div>
                                         </div>
                                     </div>
                                 </Col>
-                                <Col lg={{ span: 6, order: 1 }} className="ImageCol"><img src={whiteboard} alt="JP Abadir" className="WhiteboardImage" /></Col>
+                                <Col lg={{ span: 6, order: 1 }} className="ImageCol"><img src={values} alt="JP Abadir" className="WhiteboardImage" /></Col>
                             </Row>
                         </Container>
                     </div>
@@ -105,12 +103,12 @@ const Main = forwardRef((props, ref) => {
                         style={{ width: "100%", justifyContent: "center", display: "flex" }}
                     >
                         <Element
-                            name="clients"
+                            name="mywork"
                             style={{ width: "100%", background: "rgb(48, 46, 58, 0.04)" }}
                             className="d-flex justify-content-center"
                         >
                             <div className="element d-flex justify-content-center">
-                                <OurClients />
+                                <MyWork />
                             </div>
                         </Element>
                     </div>
