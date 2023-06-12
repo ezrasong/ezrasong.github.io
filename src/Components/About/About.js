@@ -1,44 +1,31 @@
 import React from 'react';
 import './About.css';
 import { Row, Col, Container } from 'react-bootstrap';
-import flat2 from "../../assets/flat2.webp";
-import workingpeople from "../../assets/working-people.webp";
-import whoweworkwith from "../../assets/whoweworkwith.png";
+import ezra from "../../assets/ezra.jpg";
+
 
 function About() {
   return (
-    <div className="pt-4">
-      <Container fluid className="AboutContainer">
-        <Row>
-          <div className="Subtitle" style={{ marginBottom: '20px' }}>About Us</div>
-          <Col md={4} className='AboutCol'>
-            <img src={flat2} alt="People at work" style={{ height: '160px', width: '100%', objectFit: 'cover' }} />
-            <div className='AboutSubtitle'>What we do</div>
-            <p>
-              Since 2021, we've delivered custom software solutions to clients from a diverse range of industries, including healthcare, social media, tourism, wellness, and mining. Our services include technical advisory, staff augmentation, design, and development. We build all of our clients' software from our Toronto office at 1 Dundas St W. Feel free to drop by!
-            </p>
-          </Col>
-          <Col md={4} className='AboutCol'>
-            <img src={whoweworkwith} alt="People chatting" style={{ height: '160px', width: '100%', objectFit: 'cover' }} />
-            <div className='AboutSubtitle'>Who we work with</div>
-            <div>
-              <p>
-                We pride ourselves on being able to serve a diverse range of clients, including both non-technical and technical teams. We welcome working with businesses of all sizes, from startups to large enterprises, as well as non-profit organizations and government agencies. We are proud to be a bilingual team fluent in English and French, and equally comfortable serving clients in either language.
-              </p>
+    <div>
+      <Container className="element px-0">
+        <Row className="OurValuesRow">
+          <Col lg={{ span: 6, order: 1 }} style={{ order: 2 }} className="OurValuesColumn">
+            <div className="d-flex flex-column justify-content-between h-100">
+              <div>
+                <div className="OurValues">About&nbsp;Me</div>
+                <div className="OurValuesText">
+                  Hello, I'm Ezra Song, a student at Northview Heights Secondary School and in the H.M.S.T program. I am a passionate coder and lifelong learner. I have been immersed in the world of coding since 2020, and I continue to explore and develop my skills every day.
+
+                  My journey into coding began with a deep curiosity and a desire to create something meaningful. As I dived into the vast realm of programming, I discovered the endless possibilities it offers for problem-solving, innovation, and creativity.
+
+                  Throughout my coding endeavors, I have delved into various programming languages and technologies, allowing me to tackle diverse projects and expand my knowledge. I am particularly enthusiastic about web development and software engineering, where I find the perfect blend of logic, aesthetics, and user experience.               </div>
+              </div>
             </div>
           </Col>
-          <Col md={4} className='AboutCol'>
-            <img src={workingpeople} alt="People collaborating" style={{ height: '160px', width: '100%', objectFit: 'cover' }} />
-            <div className='AboutSubtitle'>Our process</div>
-            <p>
-              By closely partnering with our clients, we gain a comprehensive understanding of their goals and tailor our process to best suit their needs. If you are a technical client, we will adapt our process to your workflows and tech stack. If you are a non-technical client, we will guide you through the process of building software from start to finish, ensuring that you are satisfied with each step along the way.
-            </p>
-          </Col>
-          <br />
-          <br />
+          <Col lg={{ span: 6, order: 1 }} className="ImageCol"><img src={ezra} alt="JP Abadir" className="WhiteboardImage" /></Col>
         </Row>
-      </Container >
-    </div >
+      </Container>
+    </div>
   );
 }
 

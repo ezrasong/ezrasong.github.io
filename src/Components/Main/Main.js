@@ -8,8 +8,7 @@ import OurClients from "../My Work/MyWork";
 import "../../hamburgers.css";
 import { Row, Col, Container } from 'react-bootstrap';
 import { MdKeyboardArrowRight } from "react-icons/md";
-import homeBackground from "../../assets/home-background.mp4";
-import homeBackgroundPoster from '../../assets/home-background-poster.jpg';
+import homeBackground from "../../assets/HMST-banner.jpg";
 import whiteboard from "../../assets/people-at-whiteboard.jpg";
 
 const bodyScrollLock = require("body-scroll-lock");
@@ -52,17 +51,10 @@ const Main = forwardRef((props, ref) => {
                     onClick={closeToggle}
                     style={{ position: "relative", width: "100%" }}
                 >
-                    <video
+                    <img
                         src={homeBackground}
                         className="BackgroundVideo Overlay"
-                        type="video/mov"
-                        playsInline
-                        loop
-                        autoPlay
-                        muted
-                        poster={homeBackgroundPoster}
                     />
-                    <div className="Overlay DarkOverlay" />
                     <div
                         style={{
                             width: "100%",
@@ -98,13 +90,10 @@ const Main = forwardRef((props, ref) => {
                                 <Col lg={{ span: 6, order: 1 }} style={{ order: 2 }} className="OurValuesColumn">
                                     <div className="d-flex flex-column justify-content-between h-100">
                                         <div>
-                                            <div className="OurValues">Our&nbsp;Values</div>
+                                            <div className="OurValues">My&nbsp;Values</div>
                                             <div className="OurValuesText">
                                                 Since our launch, we have been steadfast in upholding our core values of uncompromising quality and excellent communication. We are committed to delivering software that meets the highest standards of excellence, and guided by our belief in the importance of transparency and collaboration. At every stage of our parternship, we ensure to maintain mutual understanding and alignment with our clients.
                                             </div>
-                                        </div>
-                                        <div className="d-flex">
-                                            <a href="/jpabadir" style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: 'black' }} className="MeetOurFounder"><div>Meet our founder</div><MdKeyboardArrowRight color="red" style={{ transform: 'translateY(2px)' }} className="ms-3" /></a>
                                         </div>
                                     </div>
                                 </Col>
