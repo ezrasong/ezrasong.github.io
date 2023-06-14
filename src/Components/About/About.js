@@ -14,7 +14,7 @@ function About() {
               <div>
                 <div className="OurValues">About&nbsp;Me</div>
                 <div className="OurValuesText">
-                  Hello, I'm Ezra Song, a student at Northview Heights Secondary School and in the H.M.S.T program. I am a passionate coder and lifelong learner. I have been immersed in the world of coding since 2020, and I continue to explore and develop my skills every day.
+                  Hello, I'm Ezra Song, a student at Northview Heights Secondary School and in the H.M.S.T program. I am a passionate coder. I have been immersed in the world of coding since 2020, and I continue to explore and develop my skills every day.
 
                   My journey into coding began with a deep curiosity and a desire to create something meaningful. As I dived into the vast realm of programming, I discovered the endless possibilities it offers for problem-solving, innovation, and creativity.
 

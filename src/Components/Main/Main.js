@@ -7,7 +7,7 @@ import Contact from "../Contact/Contact";
 import MyWork from "../MyWork/MyWork";
 import "../../hamburgers.css";
 import { Row, Col, Container } from 'react-bootstrap';
-import homeBackground from "../../assets/HMST-banner.jpg";
+import homeBackground from "../../assets/p.jpg";
 import values from "../../assets/values.jpg";
 
 const bodyScrollLock = require("body-scroll-lock");
