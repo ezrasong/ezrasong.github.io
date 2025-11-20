@@ -27,15 +27,16 @@
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.2;
+  renderer.setClearColor(0x000000, 0);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x02050b, 0.08);
+  scene.fog = new THREE.FogExp2(0x110d0a, 0.08);
 
 const camera = new THREE.PerspectiveCamera(
   48,
   window.innerWidth / window.innerHeight,
   0.1,
-  60
+  80
 );
 camera.position.set(0.2, 0.9, 6.4);
 const orbitState = {
@@ -45,7 +46,7 @@ const orbitState = {
   minPolar: 0.35,
   maxPolar: 1.4,
   minRadius: 4.2,
-  maxRadius: 9,
+  maxRadius: 14,
 };
 const orbitPointer = { x: 0, y: 0, azimuth: 0, polar: 0 };
 let orbiting = false;
@@ -144,32 +145,33 @@ const orbitKeys = {
     vec3 viewDir = normalize(uCameraPosition - vWorldPosition);
     float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 2.3);
     float swirl = snoise(normal * 2.2 + uTime * 0.2);
-    vec3 tint = mix(vec3(0.05, 0.08, 0.12), uTint, 0.35 + swirl * 0.15);
+    vec3 tint = mix(vec3(0.15, 0.18, 0.24), uTint, 0.45 + swirl * 0.18);
     vec3 dispersion = vec3(
-      0.5 + 0.15 * sin(uTime * 0.45 + vWorldPosition.x * 3.0),
-      0.55 + 0.15 * cos(uTime * 0.35 + vWorldPosition.y * 2.4),
-      0.62 + 0.15 * sin(uTime * 0.28 + vWorldPosition.z * 2.0)
+      0.82 + 0.12 * sin(uTime * 0.45 + vWorldPosition.x * 3.0),
+      0.86 + 0.12 * cos(uTime * 0.35 + vWorldPosition.y * 2.4),
+      0.78 + 0.12 * sin(uTime * 0.28 + vWorldPosition.z * 2.0)
     );
     float thinFilm = sin((normal.x + normal.y + normal.z + uTime * 0.4) * 4.0);
     vec3 filmColor = vec3(
-      0.7 + 0.3 * sin(thinFilm + 0.0),
-      0.7 + 0.3 * sin(thinFilm + 2.0),
-      0.85 + 0.3 * sin(thinFilm + 4.0)
+      0.95 + 0.2 * sin(thinFilm + 0.0),
+      0.88 + 0.2 * sin(thinFilm + 1.7),
+      0.8 + 0.2 * sin(thinFilm + 3.2)
     );
     vec3 color = tint + dispersion * 0.18;
     color = mix(color, filmColor, fresnel * 0.6);
     if (uHasPreview > 0.5) {
-      vec3 sampleNormal = normalize(mix(normal, viewDir, 0.15));
+      vec3 sampleNormal = normalize(mix(normal, viewDir, 0.1));
       vec2 previewUV = vec2(
         atan(sampleNormal.z, sampleNormal.x) / (6.28318) + 0.5,
         sampleNormal.y * 0.5 + 0.5
       );
-      previewUV += swirl * 0.02;
+      previewUV += swirl * 0.025;
       vec3 preview = texture2D(uPreviewMap, previewUV).rgb;
-      float previewBlend = 0.18 + fresnel * 0.18;
+      float previewBlend = clamp(0.55 + fresnel * 0.45, 0.55, 0.98);
       color = mix(color, preview, previewBlend);
+      color += preview * 0.22;
     }
-    color += vec3(0.8, 0.9, 1.0) * fresnel * 0.35;
+    color += vec3(1.05, 1.0, 0.85) * fresnel * 0.3;
     float alpha = clamp(0.12 + fresnel * 0.45, 0.12, 0.65);
     gl_FragColor = vec4(color, alpha);
   }
@@ -197,8 +199,8 @@ const orbitKeys = {
     float n = snoise(vWorldPosition * 1.4 + uTime * 0.3);
     float ripple = snoise(vWorldPosition * 2.6 - uTime * 0.55);
     float brightness = smoothstep(0.0, 1.0, n * 0.5 + 0.5);
-    vec3 base = mix(uTint * 0.3, uTint, brightness);
-    base += vec3(0.08, 0.2, 0.35) * ripple * 0.45;
+    vec3 base = mix(uTint * 0.4, uTint, brightness);
+    base += vec3(0.22, 0.18, 0.1) * ripple * 0.35;
     if (uHasPreview > 0.5) {
       vec3 normal = normalize(vWorldPosition);
       vec2 previewUV = vec2(
@@ -263,19 +265,329 @@ const orbitKeys = {
     return texture;
   }
 
-const hemi = new THREE.HemisphereLight(0x8ab3ff, 0x020205, 0.7);
+const hemi = new THREE.HemisphereLight(0xf9f0de, 0x050403, 0.7);
 scene.add(hemi);
-const rimLight = new THREE.PointLight(0x67ffe0, 1.2, 25, 2);
+const rimLight = new THREE.PointLight(0xffd6a3, 1.2, 25, 2);
 rimLight.position.set(-5, 3.5, 2);
 scene.add(rimLight);
-const fillLight = new THREE.PointLight(0x3c60ff, 0.9, 20, 2);
+const fillLight = new THREE.PointLight(0xf3e7d3, 0.9, 20, 2);
 fillLight.position.set(4, -2, 3);
 scene.add(fillLight);
-const ambient = new THREE.AmbientLight(0x0b1220, 0.35);
+const ambient = new THREE.AmbientLight(0x1a1410, 0.35);
 scene.add(ambient);
-const spot = new THREE.SpotLight(0x7fffe0, 0.8, 20, Math.PI / 6, 0.4, 1.5);
+const spot = new THREE.SpotLight(0xffe4be, 0.8, 20, Math.PI / 6, 0.4, 1.5);
 spot.position.set(2, 5, 5);
 scene.add(spot);
+
+const lightingPalettes = [
+  {
+    name: "dawn",
+    range: [5, 9],
+    fog: 0x0c1a2e,
+    fogDensity: 0.065,
+    hemiSky: 0xe2f4ff,
+    hemiGround: 0x040610,
+    rim: 0xa7ddff,
+    fill: 0x64c9ff,
+    ambient: 0x14243e,
+    spot: 0xf7fdff,
+    rimIntensity: 1.35,
+    fillIntensity: 1,
+    ambientIntensity: 0.55,
+    spotIntensity: 1.15,
+    rimPosition: [-5.2, 3.9, 2.8],
+    fillPosition: [4.2, -1.4, 4.4],
+    spotPosition: [1.2, 6.4, 4.8],
+    tint: "#9fd4ff",
+    tintStrength: 0.32,
+    bubbleTint: "#92b9ff",
+    exposure: 1.2,
+    background: ["#020c1d", "#041731", "#030a1c"],
+    flare: "rgba(155, 224, 255, 0.4)",
+    flareSoft: "rgba(155, 224, 255, 0.2)",
+    hero: {
+      bg: "rgba(10, 20, 40, 0.32)",
+      border: "rgba(157, 216, 255, 0.24)",
+      shadow: "0 60px 130px rgba(4, 8, 24, 0.35)",
+      highlight: "rgba(157, 216, 255, 0.28)",
+    },
+    surface: {
+      bg: "rgba(7, 15, 32, 0.18)",
+      border: "rgba(127, 198, 255, 0.2)",
+      shadow: "0 48px 110px rgba(4, 8, 20, 0.28)",
+      highlight: "rgba(140, 205, 255, 0.24)",
+    },
+  },
+  {
+    name: "day",
+    range: [9, 17],
+    fog: 0x071835,
+    fogDensity: 0.055,
+    hemiSky: 0xdff3ff,
+    hemiGround: 0x03050c,
+    rim: 0xbfe3ff,
+    fill: 0x6ad5ff,
+    ambient: 0x12233f,
+    spot: 0xf2fbff,
+    rimIntensity: 1.25,
+    fillIntensity: 1.08,
+    ambientIntensity: 0.58,
+    spotIntensity: 1.35,
+    rimPosition: [-4.4, 3.4, 2.4],
+    fillPosition: [5.2, -1.2, 3.8],
+    spotPosition: [1.9, 6.1, 5.4],
+    tint: "#b6e1ff",
+    tintStrength: 0.3,
+    bubbleTint: "#a9c8ff",
+    exposure: 1.35,
+    background: ["#031433", "#051e4a", "#020a1f"],
+    flare: "rgba(180, 232, 255, 0.45)",
+    flareSoft: "rgba(180, 232, 255, 0.2)",
+    hero: {
+      bg: "rgba(9, 22, 42, 0.3)",
+      border: "rgba(188, 228, 255, 0.22)",
+      shadow: "0 60px 140px rgba(5, 10, 26, 0.38)",
+      highlight: "rgba(200, 236, 255, 0.32)",
+    },
+    surface: {
+      bg: "rgba(6, 16, 32, 0.16)",
+      border: "rgba(168, 224, 255, 0.18)",
+      shadow: "0 52px 120px rgba(5, 9, 22, 0.28)",
+      highlight: "rgba(194, 236, 255, 0.24)",
+      sheen: "rgba(198, 232, 255, 0.12)",
+    },
+  },
+  {
+    name: "dusk",
+    range: [17, 21],
+    fog: 0x081027,
+    fogDensity: 0.085,
+    hemiSky: 0xbad0ff,
+    hemiGround: 0x030308,
+    rim: 0x9fbefc,
+    fill: 0x657dff,
+    ambient: 0x101431,
+    spot: 0xe1e5ff,
+    rimIntensity: 1.55,
+    fillIntensity: 0.92,
+    ambientIntensity: 0.6,
+    spotIntensity: 1.15,
+    rimPosition: [-6.2, 3.4, 2.1],
+    fillPosition: [3.8, -1.7, 4.3],
+    spotPosition: [0.8, 5.3, 4.4],
+    tint: "#99b2ff",
+    tintStrength: 0.38,
+    bubbleTint: "#92a5ff",
+    exposure: 1.08,
+    background: ["#050b1e", "#090e28", "#030614"],
+    flare: "rgba(146, 182, 255, 0.45)",
+    flareSoft: "rgba(146, 182, 255, 0.2)",
+    hero: {
+      bg: "rgba(8, 15, 30, 0.26)",
+      border: "rgba(150, 176, 255, 0.24)",
+      shadow: "0 65px 130px rgba(5, 6, 24, 0.36)",
+      highlight: "rgba(150, 176, 255, 0.3)",
+    },
+    surface: {
+      bg: "rgba(6, 11, 24, 0.14)",
+      border: "rgba(134, 160, 255, 0.18)",
+      shadow: "0 54px 115px rgba(5, 5, 18, 0.28)",
+      highlight: "rgba(154, 176, 255, 0.24)",
+    },
+  },
+  {
+    name: "night",
+    range: [21, 5],
+    fog: 0x010414,
+    fogDensity: 0.12,
+    hemiSky: 0xb4c0ff,
+    hemiGround: 0x020203,
+    rim: 0x8fb1ff,
+    fill: 0x4457ff,
+    ambient: 0x060818,
+    spot: 0xaecfff,
+    rimIntensity: 1.25,
+    fillIntensity: 0.55,
+    ambientIntensity: 0.45,
+    spotIntensity: 0.9,
+    rimPosition: [-3.8, 3.6, 1.8],
+    fillPosition: [4.8, -2.1, 4.4],
+    spotPosition: [2.5, 4.6, 5.2],
+    tint: "#8eb6ff",
+    tintStrength: 0.48,
+    bubbleTint: "#7a8eff",
+    exposure: 0.88,
+    background: ["#010414", "#03071c", "#000207"],
+    flare: "rgba(166, 190, 255, 0.3)",
+    flareSoft: "rgba(166, 190, 255, 0.16)",
+    hero: {
+      bg: "rgba(4, 7, 18, 0.22)",
+      border: "rgba(158, 181, 255, 0.22)",
+      shadow: "0 55px 140px rgba(1, 2, 6, 0.38)",
+      highlight: "rgba(180, 200, 255, 0.2)",
+    },
+    surface: {
+      bg: "rgba(3, 4, 10, 0.12)",
+      border: "rgba(140, 166, 255, 0.18)",
+      shadow: "0 52px 120px rgba(1, 2, 6, 0.3)",
+      highlight: "rgba(180, 200, 255, 0.18)",
+      sheen: "rgba(180, 200, 255, 0.08)",
+    },
+  },
+];
+
+const defaultBackgroundStops = ["#120e0a", "#1c1611", "#070604"];
+const defaultHeroStyle = {
+  bg: "rgba(22, 16, 12, 0.38)",
+  border: "rgba(255, 238, 215, 0.14)",
+  shadow: "0 45px 90px rgba(12, 8, 5, 0.4)",
+  highlight: "rgba(255, 231, 205, 0.22)",
+};
+const defaultSurfaceStyle = {
+  bg: defaultHeroStyle.bg,
+  border: defaultHeroStyle.border,
+  shadow: defaultHeroStyle.shadow,
+  highlight: defaultHeroStyle.highlight,
+  sheen: "rgba(255, 255, 245, 0.05)",
+};
+
+const lightingTargets = {
+  fog: scene.fog.color.clone(),
+  hemiSky: hemi.color.clone(),
+  hemiGround: hemi.groundColor.clone(),
+  rim: rimLight.color.clone(),
+  fill: fillLight.color.clone(),
+  ambient: ambient.color.clone(),
+  spot: spot.color.clone(),
+  rimIntensity: rimLight.intensity,
+  fillIntensity: fillLight.intensity,
+  ambientIntensity: ambient.intensity,
+  spotIntensity: spot.intensity,
+  rimPosition: rimLight.position.clone(),
+  fillPosition: fillLight.position.clone(),
+  spotPosition: spot.position.clone(),
+};
+
+const paletteTintColor = new THREE.Color("#9ecbff");
+let paletteTintTarget = 0.25;
+let paletteTintMix = 0.25;
+let fogDensityTarget = scene.fog.density;
+let exposureTarget = renderer.toneMappingExposure;
+const rootStyle = typeof document !== "undefined" ? document.documentElement.style : null;
+let activeLightingPalette = null;
+let paletteInitialized = false;
+const paletteCheckInterval = 45;
+let paletteCheckTimer = paletteCheckInterval;
+
+function applyPaletteCSS(palette) {
+  if (!rootStyle) return;
+  const bg = palette.background?.length === 3 ? palette.background : defaultBackgroundStops;
+  rootStyle.setProperty("--background-top", bg[0]);
+  rootStyle.setProperty("--background-mid", bg[1]);
+  rootStyle.setProperty("--background-bottom", bg[2]);
+  const hero = { ...defaultHeroStyle, ...(palette.hero || {}) };
+  rootStyle.setProperty("--hero-card-bg", hero.bg);
+  rootStyle.setProperty("--hero-card-border", hero.border);
+  rootStyle.setProperty("--hero-card-shadow", hero.shadow);
+  rootStyle.setProperty("--hero-card-highlight", hero.highlight);
+  const surface = {
+    ...defaultSurfaceStyle,
+    bg: hero.bg,
+    border: hero.border,
+    shadow: hero.shadow,
+    highlight: hero.highlight,
+    ...(palette.surface || {}),
+  };
+  rootStyle.setProperty("--surface-bg", surface.bg);
+  rootStyle.setProperty("--surface-border", surface.border);
+  rootStyle.setProperty("--surface-shadow", surface.shadow);
+  rootStyle.setProperty("--surface-highlight", surface.highlight);
+  rootStyle.setProperty("--surface-sheen", surface.sheen ?? defaultSurfaceStyle.sheen);
+  const flare = palette.flare || hero.highlight;
+  const flareSoft = palette.flareSoft || flare;
+  rootStyle.setProperty("--background-flare", flare);
+  rootStyle.setProperty("--background-flare-soft", flareSoft);
+}
+
+function paletteMatchesHour(hour, palette) {
+  const [start, end] = palette.range;
+  if (start <= end) {
+    return hour >= start && hour < end;
+  }
+  return hour >= start || hour < end;
+}
+
+function getLightingPalette() {
+  const hour = new Date().getHours();
+  return lightingPalettes.find((entry) => paletteMatchesHour(hour, entry)) || lightingPalettes[0];
+}
+
+function setLightingPalette(palette, immediate = false) {
+  if (!palette) return;
+  lightingTargets.fog.set(palette.fog ?? scene.fog.color.getHex());
+  lightingTargets.hemiSky.set(palette.hemiSky ?? hemi.color.getHex());
+  lightingTargets.hemiGround.set(palette.hemiGround ?? hemi.groundColor.getHex());
+  lightingTargets.rim.set(palette.rim ?? rimLight.color.getHex());
+  lightingTargets.fill.set(palette.fill ?? fillLight.color.getHex());
+  lightingTargets.ambient.set(palette.ambient ?? ambient.color.getHex());
+  lightingTargets.spot.set(palette.spot ?? spot.color.getHex());
+  lightingTargets.rimIntensity = palette.rimIntensity ?? rimLight.intensity;
+  lightingTargets.fillIntensity = palette.fillIntensity ?? fillLight.intensity;
+  lightingTargets.ambientIntensity = palette.ambientIntensity ?? ambient.intensity;
+  lightingTargets.spotIntensity = palette.spotIntensity ?? spot.intensity;
+  if (palette.rimPosition) {
+    lightingTargets.rimPosition.set(...palette.rimPosition);
+  } else {
+    lightingTargets.rimPosition.copy(rimLight.position);
+  }
+  if (palette.fillPosition) {
+    lightingTargets.fillPosition.set(...palette.fillPosition);
+  } else {
+    lightingTargets.fillPosition.copy(fillLight.position);
+  }
+  if (palette.spotPosition) {
+    lightingTargets.spotPosition.set(...palette.spotPosition);
+  } else {
+    lightingTargets.spotPosition.copy(spot.position);
+  }
+  fogDensityTarget = palette.fogDensity ?? scene.fog.density;
+  exposureTarget = palette.exposure ?? renderer.toneMappingExposure;
+  paletteTintColor.set(palette.bubbleTint || palette.tint || "#9cb8ff");
+  paletteTintTarget = palette.tintStrength ?? 0.22;
+  applyPaletteCSS(palette);
+  if (immediate) {
+    scene.fog.color.copy(lightingTargets.fog);
+    hemi.color.copy(lightingTargets.hemiSky);
+    hemi.groundColor.copy(lightingTargets.hemiGround);
+    rimLight.color.copy(lightingTargets.rim);
+    fillLight.color.copy(lightingTargets.fill);
+    ambient.color.copy(lightingTargets.ambient);
+    spot.color.copy(lightingTargets.spot);
+    rimLight.intensity = lightingTargets.rimIntensity;
+    fillLight.intensity = lightingTargets.fillIntensity;
+    ambient.intensity = lightingTargets.ambientIntensity;
+    spot.intensity = lightingTargets.spotIntensity;
+    rimLight.position.copy(lightingTargets.rimPosition);
+    fillLight.position.copy(lightingTargets.fillPosition);
+    spot.position.copy(lightingTargets.spotPosition);
+    scene.fog.density = fogDensityTarget;
+    renderer.toneMappingExposure = exposureTarget;
+    paletteTintMix = paletteTintTarget;
+  }
+}
+
+function maybeUpdateLightingPalette(force = false) {
+  const palette = getLightingPalette();
+  if (!palette) return;
+  const paletteChanged = !activeLightingPalette || palette.name !== activeLightingPalette.name;
+  if (force || paletteChanged) {
+    setLightingPalette(palette, force || !paletteInitialized);
+    activeLightingPalette = palette;
+    paletteInitialized = true;
+  }
+}
+
+maybeUpdateLightingPalette(true);
 
   const particleLayers = [];
   function createDustLayer(count, spread, size, opacity, color, speed) {
@@ -310,20 +622,55 @@ scene.add(spot);
   const outerGeometry = new THREE.SphereGeometry(1, 96, 96);
   const innerGeometry = new THREE.SphereGeometry(0.65, 48, 48);
 
+const targetLookAt = new THREE.Vector3(0, 0.2, 0);
+const parallaxMouse = new THREE.Vector2(0, 0);
+
 const bounds = {
   x: 4.2,
   y: 2.6,
   z: 4.5,
 };
 
-function randomVelocity() {
-  return new THREE.Vector3(
-    (Math.random() - 0.5) * 1.05,
-    (Math.random() - 0.5) * 0.9,
-    (Math.random() - 0.5) * 1.05
+function getZoomRatio() {
+  return THREE.MathUtils.clamp(
+    (orbitState.radius - orbitState.minRadius) / (orbitState.maxRadius - orbitState.minRadius),
+    0,
+    1
   );
 }
 
+function refreshBounds() {
+  const ratio = getZoomRatio();
+  const focusDistance = camera.position.distanceTo(targetLookAt);
+  const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
+  const verticalExtent = 2 * Math.tan(halfFov) * focusDistance;
+  const horizontalExtent = verticalExtent * camera.aspect;
+  const depthExtent = focusDistance * 0.9;
+  bounds.x = Math.max(3.8, horizontalExtent * (0.7 + ratio * 0.4) + 0.4);
+  bounds.y = Math.max(2.5, verticalExtent * (0.45 + ratio * 0.35) + 0.3);
+  bounds.z = Math.max(5, depthExtent * (0.8 + ratio * 1.2) + 1.2);
+}
+
+function randomVelocity() {
+  const intensity = 0.8 + Math.random() * 0.7;
+  return new THREE.Vector3(
+    (Math.random() - 0.5) * 1.7 * intensity,
+    (Math.random() - 0.5) * 1.1 * intensity,
+    (Math.random() - 0.5) * 1.7 * intensity
+  );
+}
+
+function clampVectorToBounds(target, radius = 0.8) {
+  const maxX = Math.max(0.1, bounds.x - radius);
+  const maxY = Math.max(0.1, bounds.y - radius);
+  const maxZ = Math.max(0.1, bounds.z - radius);
+  target.x = THREE.MathUtils.clamp(target.x, -maxX, maxX);
+  target.y = THREE.MathUtils.clamp(target.y, -maxY, maxY);
+  target.z = THREE.MathUtils.clamp(target.z, -maxZ, maxZ);
+  return target;
+}
+
+refreshBounds();
   function randomizeBasePosition(data, bubble, bubbleList = bubbleRegistry) {
     let attempts = 0;
     let base;
@@ -349,6 +696,7 @@ function randomVelocity() {
         return dist < radius + otherRadius + padding;
       })
     );
+    clampVectorToBounds(base, radius);
     data.basePosition.copy(base);
     bubble.position.copy(base);
     data.velocity.copy(randomVelocity());
@@ -442,40 +790,85 @@ const dropletMaterial = new THREE.MeshStandardMaterial({
   metalness: 0.2,
   roughness: 0.2,
 });
-  const droplets = [];
-  for (let i = 0; i < 26; i += 1) {
-    const droplet = new THREE.Mesh(dropletGeometry, dropletMaterial);
-    droplet.position.set(
-      (Math.random() - 0.5) * 6,
-      Math.random() * 4 - 1,
-      Math.random() * -4
-    );
-    droplet.userData = {
-      base: droplet.position.clone(),
-      speed: 0.5 + Math.random() * 0.5,
-    };
-    scene.add(droplet);
-    droplets.push(droplet);
-  }
+const dropletSettings = {
+  minActive: 22,
+  maxActive: 120,
+  radiusMin: 4.5,
+  radiusMax: 14,
+  verticalSpread: 5.2,
+};
+const droplets = [];
+
+function randomizeDropletPosition(droplet) {
+  const radius = THREE.MathUtils.randFloat(dropletSettings.radiusMin, dropletSettings.radiusMax);
+  const angle = Math.random() * Math.PI * 2;
+  const depthOffset = THREE.MathUtils.randFloat(2, 9);
+  droplet.position.set(
+    Math.cos(angle) * radius,
+    THREE.MathUtils.randFloatSpread(dropletSettings.verticalSpread),
+    Math.sin(angle) * radius - depthOffset
+  );
+  droplet.userData.base.copy(droplet.position);
+  droplet.userData.speed = 0.35 + Math.random() * 0.6;
+}
+
+for (let i = 0; i < dropletSettings.maxActive; i += 1) {
+  const droplet = new THREE.Mesh(dropletGeometry, dropletMaterial);
+  droplet.visible = false;
+  droplet.userData = {
+    base: new THREE.Vector3(),
+    speed: 0.4,
+    active: false,
+  };
+  randomizeDropletPosition(droplet);
+  scene.add(droplet);
+  droplets.push(droplet);
+}
+
+let activeDropletTarget = 0;
+function updateDropletActivity(force = false) {
+  const target = Math.round(
+    THREE.MathUtils.lerp(dropletSettings.minActive, dropletSettings.maxActive, getZoomRatio())
+  );
+  if (!force && target === activeDropletTarget) return;
+  activeDropletTarget = target;
+  droplets.forEach((droplet, idx) => {
+    const shouldBeActive = idx < target;
+    if (shouldBeActive) {
+      if (!droplet.userData.active) {
+        randomizeDropletPosition(droplet);
+        droplet.userData.active = true;
+      }
+      droplet.visible = true;
+    } else if (droplet.userData.active) {
+      droplet.visible = false;
+      droplet.userData.active = false;
+    }
+  });
+}
+
+updateDropletActivity(true);
 
 const bubbleBursts = [];
 const tempBurstPosition = new THREE.Vector3();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+const dragPlane = new THREE.Plane();
+const dragPlaneNormal = new THREE.Vector3();
 const planeIntersection = new THREE.Vector3();
 const dragStart = new THREE.Vector2();
 const pointerWorld = new THREE.Vector3();
 const pointerPrevWorld = new THREE.Vector3();
 const dragVelocity = new THREE.Vector3();
+const dragTarget = new THREE.Vector3();
+const cameraDirection = new THREE.Vector3();
 let pointerWorldTime = 0;
 let activePointerId = null;
 let selectedBubble = null;
 let dragging = false;
 let pointerDownTime = 0;
 const dragThreshold = 0.02;
-  const parallaxMouse = new THREE.Vector2(0, 0);
-const targetLookAt = new THREE.Vector3(0, 0.2, 0);
+  const isPromptActive = () => document.body.classList.contains("prompt-active");
 
   const panel = document.getElementById("bubble-panel");
   const panelTitle = document.getElementById("bubble-panel-title");
@@ -486,6 +879,8 @@ const targetLookAt = new THREE.Vector3(0, 0.2, 0);
   const panelLink = document.getElementById("bubble-panel-link");
   const panelClose = document.getElementById("bubble-panel-close");
   const panelOverlay = document.getElementById("bubble-panel-overlay");
+  const introPrompt = document.getElementById("intro-prompt");
+  const introEnter = document.getElementById("intro-enter");
 
   const emailLink = document.querySelector('[data-link="email"]');
   const phoneLink = document.querySelector('[data-link="phone"]');
@@ -498,161 +893,228 @@ const targetLookAt = new THREE.Vector3(0, 0.2, 0);
   const extracurricularList = document.getElementById("extracurricular-list");
   const educationBlock = document.getElementById("education-block");
 
-  if (emailLink && profileLinks.email) {
-    emailLink.href = `mailto:${profileLinks.email}`;
-    emailLink.textContent = profileLinks.email;
-  }
-  if (phoneLink && profileLinks.phone) {
-    const tel = profileLinks.phone.replace(/[^+\d]/g, "");
-    phoneLink.href = `tel:${tel}`;
-    phoneLink.textContent = profileLinks.phone;
-  }
-  if (linkedinLink && profileLinks.linkedin) {
-    linkedinLink.href = profileLinks.linkedin;
-  }
-  if (githubLink && profileLinks.github) {
-    githubLink.href = profileLinks.github;
-  }
-
-  if (statsList && stats.length) {
-    statsList.innerHTML = "";
-    stats.forEach((stat) => {
-      const li = document.createElement("li");
-      const value = document.createElement("span");
-      value.textContent = stat.value;
-      li.appendChild(value);
-      li.appendChild(document.createTextNode(stat.label));
-      statsList.appendChild(li);
+  if (introPrompt) {
+    document.body.classList.add("prompt-active");
+    const dismissPrompt = () => {
+      introPrompt.classList.add("hidden");
+      document.body.classList.remove("prompt-active");
+      setTimeout(() => introPrompt.remove(), 500);
+    };
+    introPrompt.addEventListener("click", (event) => {
+      if (event.target === introPrompt) {
+        dismissPrompt();
+      }
+    });
+    if (introEnter) {
+      introEnter.addEventListener("click", dismissPrompt);
+    }
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && document.body.classList.contains("prompt-active")) {
+        dismissPrompt();
+      }
     });
   }
 
-  if (skillsGrid) {
-    skillsGrid.innerHTML = "";
-    skills.forEach((skill) => {
-      const card = document.createElement("article");
-      card.className = "service-card";
-      const icon = document.createElement("div");
-      icon.className = "service-icon";
-      icon.textContent = skill.icon || "✷";
-      const title = document.createElement("h3");
-      title.textContent = skill.title;
-      const list = document.createElement("ul");
-      (skill.items || []).forEach((item) => {
+  function renderSiteContent(siteData = window.SITE_DATA || {}) {
+    if (!siteData) return;
+    const {
+      profileLinks: profile = {},
+      stats: statsData = [],
+      skills: skillsData = [],
+      experiences: expData = [],
+      featuredProjects: featured = [],
+      extracurriculars: extra = [],
+      education: educationData = {},
+    } = siteData;
+
+    if (emailLink) {
+      if (profile.email) {
+        emailLink.href = `mailto:${profile.email}`;
+        emailLink.textContent = profile.email;
+      }
+    }
+    if (phoneLink) {
+      if (profile.phone) {
+        const tel = profile.phone.replace(/[^+\d]/g, "");
+        phoneLink.href = `tel:${tel}`;
+        phoneLink.textContent = profile.phone;
+      }
+    }
+    if (linkedinLink && profile.linkedin) {
+      linkedinLink.href = profile.linkedin;
+    }
+    if (githubLink && profile.github) {
+      githubLink.href = profile.github;
+    }
+
+    if (statsList) {
+      statsList.innerHTML = "";
+      statsData.forEach((stat) => {
         const li = document.createElement("li");
-        li.textContent = item;
-        list.appendChild(li);
+        const value = document.createElement("span");
+        value.textContent = stat.value;
+        li.appendChild(value);
+        li.appendChild(document.createTextNode(stat.label));
+        statsList.appendChild(li);
       });
-      card.appendChild(icon);
-      card.appendChild(title);
-      card.appendChild(list);
-      skillsGrid.appendChild(card);
-    });
-  }
+    }
 
-  if (experienceList) {
-    experienceList.innerHTML = "";
-    experiences.forEach((exp) => {
-      const article = document.createElement("article");
-      article.className = "timeline-card";
-      const header = document.createElement("header");
-      const title = document.createElement("h3");
-      title.textContent = `${exp.role} · ${exp.company}`;
-      const meta = document.createElement("div");
-      meta.className = "timeline-meta";
-      meta.textContent = `${exp.range}${exp.location ? ` • ${exp.location}` : ""}`;
-      header.appendChild(title);
-      header.appendChild(meta);
-      const summary = document.createElement("p");
-      summary.textContent = exp.summary;
-      article.appendChild(header);
-      article.appendChild(summary);
-      if (exp.highlights?.length) {
+    if (skillsGrid) {
+      skillsGrid.innerHTML = "";
+      skillsData.forEach((skill) => {
+        const card = document.createElement("article");
+        card.className = "service-card";
+        const icon = document.createElement("div");
+        icon.className = "service-icon";
+        icon.textContent = skill.icon || "✷";
+        const title = document.createElement("h3");
+        title.textContent = skill.title;
         const list = document.createElement("ul");
-        exp.highlights.forEach((point) => {
+        (skill.items || []).forEach((item) => {
           const li = document.createElement("li");
-          li.textContent = point;
+          li.textContent = item;
           list.appendChild(li);
         });
-        article.appendChild(list);
-      }
-      experienceList.appendChild(article);
-    });
-  }
-
-  if (projectGrid) {
-    projectGrid.innerHTML = "";
-    featuredProjects.forEach((project) => {
-    const card = document.createElement("article");
-    card.className = "project-card";
-    const tag = document.createElement("p");
-    tag.className = "tag";
-    tag.textContent = "GitHub";
-    const title = document.createElement("h3");
-    title.textContent = project.title;
-    const desc = document.createElement("p");
-    desc.textContent = project.description;
-    if (project.image) {
-      const thumb = document.createElement("div");
-      thumb.className = "project-thumb";
-      const img = document.createElement("img");
-      img.src = project.image;
-      img.alt = `${project.title} preview`;
-      thumb.appendChild(img);
-      card.appendChild(thumb);
+        card.appendChild(icon);
+        card.appendChild(title);
+        card.appendChild(list);
+        skillsGrid.appendChild(card);
+      });
     }
-    card.appendChild(tag);
-    card.appendChild(title);
-    card.appendChild(desc);
-      if (project.stack?.length) {
-        const tagsWrap = document.createElement("div");
-        tagsWrap.className = "project-tags";
-        project.stack.forEach((item) => {
-          const span = document.createElement("span");
-          span.textContent = item;
-          tagsWrap.appendChild(span);
-        });
-        card.appendChild(tagsWrap);
-      }
-      const footer = document.createElement("footer");
-      const link = document.createElement("a");
-      link.href = project.link;
-      link.target = "_blank";
-      link.rel = "noreferrer";
-      link.textContent = "View repo ↗";
-      footer.appendChild(link);
-      card.appendChild(footer);
-      projectGrid.appendChild(card);
-    });
+
+    if (experienceList) {
+      experienceList.innerHTML = "";
+      expData.forEach((exp) => {
+        const article = document.createElement("article");
+        article.className = "timeline-card";
+        const header = document.createElement("header");
+        const title = document.createElement("h3");
+        title.textContent = `${exp.role} · ${exp.company}`;
+        const meta = document.createElement("div");
+        meta.className = "timeline-meta";
+        meta.textContent = `${exp.range || ""}${exp.location ? ` • ${exp.location}` : ""}`;
+        header.appendChild(title);
+        header.appendChild(meta);
+        const summary = document.createElement("p");
+        summary.textContent = exp.summary || "";
+        article.appendChild(header);
+        article.appendChild(summary);
+        if (exp.highlights?.length) {
+          const list = document.createElement("ul");
+          exp.highlights.forEach((point) => {
+            const li = document.createElement("li");
+            li.textContent = point;
+            list.appendChild(li);
+          });
+          article.appendChild(list);
+        }
+        experienceList.appendChild(article);
+      });
+    }
+
+    if (projectGrid) {
+      projectGrid.innerHTML = "";
+      featured.forEach((project) => {
+        const card = document.createElement("article");
+        card.className = "project-card";
+        const tag = document.createElement("p");
+        tag.className = "tag";
+        tag.textContent = "GitHub";
+        const title = document.createElement("h3");
+        title.textContent = project.title;
+        const desc = document.createElement("p");
+        desc.textContent = project.description;
+        if (project.image) {
+          const thumb = document.createElement("div");
+          thumb.className = "project-thumb";
+          const img = document.createElement("img");
+          img.src = project.image;
+          img.alt = `${project.title} preview`;
+          thumb.appendChild(img);
+          card.appendChild(thumb);
+        }
+        card.appendChild(tag);
+        card.appendChild(title);
+        card.appendChild(desc);
+        if (project.stack?.length) {
+          const tagsWrap = document.createElement("div");
+          tagsWrap.className = "project-tags";
+          project.stack.forEach((item) => {
+            const span = document.createElement("span");
+            span.textContent = item;
+            tagsWrap.appendChild(span);
+          });
+          card.appendChild(tagsWrap);
+        }
+        const footer = document.createElement("footer");
+        const link = document.createElement("a");
+        link.href = project.link;
+        link.target = "_blank";
+        link.rel = "noreferrer";
+        link.textContent = "View repo ↗";
+        footer.appendChild(link);
+        card.appendChild(footer);
+        projectGrid.appendChild(card);
+      });
+    }
+
+    if (extracurricularList) {
+      extracurricularList.innerHTML = "";
+      extra.forEach((item) => {
+        const card = document.createElement("article");
+        card.className = "extracurricular-card";
+        const title = document.createElement("h3");
+        title.textContent = item.title;
+        const meta = document.createElement("p");
+        meta.className = "meta";
+        meta.textContent = `${item.org || ""}${item.range ? ` • ${item.range}` : ""}`;
+        const desc = document.createElement("p");
+        desc.textContent = item.description || "";
+        card.appendChild(title);
+        card.appendChild(meta);
+        card.appendChild(desc);
+        extracurricularList.appendChild(card);
+      });
+    }
+
+    if (educationBlock && educationData.school) {
+      educationBlock.innerHTML = `
+        <p><strong>${educationData.school}</strong> · ${educationData.program || ""} · ${educationData.location || ""}</p>
+        <p>${educationData.graduation || ""}</p>
+      `;
+    }
   }
 
-  if (extracurricularList) {
-    extracurricularList.innerHTML = "";
-    extracurriculars.forEach((item) => {
-      const card = document.createElement("article");
-      card.className = "extracurricular-card";
-      const title = document.createElement("h3");
-      title.textContent = item.title;
-      const meta = document.createElement("p");
-      meta.className = "meta";
-      meta.textContent = `${item.org} • ${item.range}`;
-      const desc = document.createElement("p");
-      desc.textContent = item.description;
-      card.appendChild(title);
-      card.appendChild(meta);
-      card.appendChild(desc);
-      extracurricularList.appendChild(card);
-    });
+  renderSiteContent();
+
+  async function fetchLatestSiteData() {
+    try {
+      const response = await fetch(`./site-data.js?cache=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Failed to fetch site-data: ${response.status}`);
+      const scriptText = await response.text();
+      delete window.SITE_DATA;
+      const loader = new Function("window", `${scriptText}; return window.SITE_DATA;`);
+      return loader(window);
+    } catch (error) {
+      console.error("Unable to refresh site content", error);
+      return null;
+    }
   }
 
-  if (educationBlock && education.school) {
-    educationBlock.innerHTML = `
-      <p><strong>${education.school}</strong> · ${education.program || ""} · ${education.location || ""}</p>
-      <p>${education.graduation || ""}</p>
-    `;
+  async function refreshSiteContent() {
+    const fresh = await fetchLatestSiteData();
+    if (fresh) renderSiteContent(fresh);
   }
 
-  panelClose.addEventListener("click", hidePanel);
-  panelOverlay.addEventListener("click", hidePanel);
+  const AUTO_REFRESH_INTERVAL = 120000;
+  setInterval(() => {
+    if (!document.hidden) {
+      refreshSiteContent();
+    }
+  }, AUTO_REFRESH_INTERVAL);
+
+  panelClose?.addEventListener("click", hidePanel);
+  panelOverlay?.addEventListener("click", hidePanel);
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") hidePanel();
   });
@@ -699,6 +1161,7 @@ const targetLookAt = new THREE.Vector3(0, 0.2, 0);
   }
 
   function handlePointerDown(event) {
+    if (isPromptActive()) return;
     if (event.button === 2 || event.altKey) {
       orbiting = true;
       orbitPointer.x = event.clientX;
@@ -718,21 +1181,26 @@ const targetLookAt = new THREE.Vector3(0, 0.2, 0);
     }
     selectedBubble = hits[0].object;
     dragging = true;
+    dragVelocity.set(0, 0, 0);
     activePointerId = event.pointerId;
     event.target?.setPointerCapture?.(event.pointerId);
     dragStart.copy(pointer);
     pointerDownTime = performance.now();
-    dragPlane.constant = -selectedBubble.position.z;
     document.body.style.cursor = "grabbing";
+    document.body.classList.add("bubble-dragging");
     hidePanel();
-    if (raycaster.ray.intersectPlane(dragPlane, planeIntersection)) {
-      pointerWorld.copy(planeIntersection);
-      pointerPrevWorld.copy(planeIntersection);
-      pointerWorldTime = performance.now();
-    }
+    const normal = camera.getWorldDirection(cameraDirection).normalize();
+    dragPlaneNormal.copy(normal);
+    dragPlane.setFromNormalAndCoplanarPoint(dragPlaneNormal, selectedBubble.position);
+    pointerWorld.copy(selectedBubble.position);
+    pointerPrevWorld.copy(selectedBubble.position);
+    pointerWorldTime = performance.now();
+    selectedBubble.userData.velocity?.set(0, 0, 0);
+    event.preventDefault();
   }
 
   function handlePointerMove(event) {
+    if (isPromptActive()) return;
     parallaxMouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     parallaxMouse.y = (event.clientY / window.innerHeight) * 2 - 1;
     if (orbiting) {
@@ -749,24 +1217,34 @@ const targetLookAt = new THREE.Vector3(0, 0.2, 0);
     if (!dragging || !selectedBubble) return;
     updatePointer(event);
     raycaster.setFromCamera(pointer, camera);
+    dragPlaneNormal.copy(camera.getWorldDirection(cameraDirection).normalize());
+    dragPlane.setFromNormalAndCoplanarPoint(dragPlaneNormal, selectedBubble.position);
     if (raycaster.ray.intersectPlane(dragPlane, planeIntersection)) {
-      pointerPrevWorld.copy(pointerWorld);
-      pointerWorld.copy(planeIntersection);
+      const radius = selectedBubble.userData?.originalRadius || selectedBubble.scale.x;
+      dragTarget.copy(planeIntersection);
+      clampVectorToBounds(dragTarget, radius);
       const now = performance.now();
-      const dt = Math.max((now - pointerWorldTime) / 1000, 0.016);
-      dragVelocity.copy(pointerWorld).sub(pointerPrevWorld).divideScalar(dt);
+      const dt = Math.max((now - pointerWorldTime) / 1000, 0.008);
+      dragVelocity.copy(dragTarget).sub(pointerPrevWorld).divideScalar(dt);
       pointerWorldTime = now;
-      selectedBubble.position.copy(pointerWorld);
-      selectedBubble.userData.basePosition.copy(pointerWorld);
+      pointerPrevWorld.copy(dragTarget);
+      pointerWorld.copy(dragTarget);
+      selectedBubble.position.copy(dragTarget);
+      selectedBubble.userData.basePosition.copy(dragTarget);
     }
   }
 
   function endDrag(event) {
+    if (isPromptActive()) {
+      document.body.classList.remove("bubble-dragging");
+      return;
+    }
     if (orbiting) {
       orbiting = false;
       document.body.style.cursor = "";
       return;
     }
+    document.body.classList.remove("bubble-dragging");
     if (!dragging || !selectedBubble) {
       dragging = false;
       selectedBubble = null;
@@ -788,9 +1266,14 @@ const targetLookAt = new THREE.Vector3(0, 0.2, 0);
     dragging = false;
     selectedBubble = null;
     document.body.style.cursor = "";
+    document.body.classList.remove("bubble-dragging");
     if (moved) {
-      if (dragVelocity.lengthSq() > 0.0001) {
-        bubble.userData.velocity.copy(dragVelocity.clone().multiplyScalar(0.6));
+      const fling = dragVelocity.clone();
+      const speed = fling.length();
+      if (speed > 0.01) {
+        const capped = THREE.MathUtils.clamp(speed * 0.5, 0.5, 6);
+        fling.normalize().multiplyScalar(capped);
+        bubble.userData.velocity.copy(fling);
       } else {
         bubble.userData.velocity.copy(randomVelocity());
       }
@@ -929,6 +1412,29 @@ function applyCameraOrbit() {
   targetLookAt.x += (parallaxMouse.x * 0.3 - targetLookAt.x) * 0.04;
   targetLookAt.y += (0.35 + parallaxMouse.y * 0.15 - targetLookAt.y) * 0.04;
   camera.lookAt(targetLookAt);
+  refreshBounds();
+  updateDropletActivity();
+}
+
+function updateLighting(delta) {
+  const amount = Math.min(0.08, delta * 2.4);
+  scene.fog.color.lerp(lightingTargets.fog, amount);
+  hemi.color.lerp(lightingTargets.hemiSky, amount);
+  hemi.groundColor.lerp(lightingTargets.hemiGround, amount);
+  rimLight.color.lerp(lightingTargets.rim, amount);
+  fillLight.color.lerp(lightingTargets.fill, amount);
+  ambient.color.lerp(lightingTargets.ambient, amount);
+  spot.color.lerp(lightingTargets.spot, amount);
+  rimLight.position.lerp(lightingTargets.rimPosition, amount);
+  fillLight.position.lerp(lightingTargets.fillPosition, amount);
+  spot.position.lerp(lightingTargets.spotPosition, amount);
+  rimLight.intensity += (lightingTargets.rimIntensity - rimLight.intensity) * amount;
+  fillLight.intensity += (lightingTargets.fillIntensity - fillLight.intensity) * amount;
+  ambient.intensity += (lightingTargets.ambientIntensity - ambient.intensity) * amount;
+  spot.intensity += (lightingTargets.spotIntensity - spot.intensity) * amount;
+  scene.fog.density += (fogDensityTarget - scene.fog.density) * amount * 0.6;
+  renderer.toneMappingExposure += (exposureTarget - renderer.toneMappingExposure) * amount;
+  paletteTintMix += (paletteTintTarget - paletteTintMix) * amount;
 }
 
   function animate() {
@@ -941,37 +1447,53 @@ function applyCameraOrbit() {
       layer.rotation.y += layer.userData.speed;
     });
 
+    const tintMix = paletteTintMix;
+    const liquidTintMix = Math.min(1, tintMix + 0.12);
     bubbles.forEach((bubble) => {
       const data = bubble.userData;
       const { basePosition, liquid, liquidMaterial, shellMaterial, velocity, originalRadius } = data;
       const canFloat = bubble !== selectedBubble && data.popState !== "shrink";
       if (canFloat) {
-        bubble.position.addScaledVector(velocity, delta);
-        basePosition.lerp(bubble.position, 0.1);
+        if (Math.random() < 0.0025) {
+          velocity.add(randomVelocity().multiplyScalar(0.2));
+        }
+        bubble.position.addScaledVector(velocity, delta * 1.3);
+        basePosition.lerp(bubble.position, 0.008);
+        if (velocity.lengthSq() < 0.000015) {
+          velocity.copy(randomVelocity().multiplyScalar(0.45));
+        } else {
+          velocity.multiplyScalar(0.9985);
+        }
         const radius = Math.max(0.2, originalRadius || bubble.scale.x);
         const maxX = Math.max(0.1, bounds.x - radius);
         const maxY = Math.max(0.1, bounds.y - radius);
         const maxZ = Math.max(0.1, bounds.z - radius);
         if (bubble.position.x > maxX) {
           bubble.position.x = maxX;
-          velocity.x *= -0.9;
+          velocity.x *= -1.05;
+          basePosition.x = bubble.position.x;
         } else if (bubble.position.x < -maxX) {
           bubble.position.x = -maxX;
-          velocity.x *= -0.9;
+          velocity.x *= -1.05;
+          basePosition.x = bubble.position.x;
         }
         if (bubble.position.y > maxY) {
           bubble.position.y = maxY;
-          velocity.y *= -0.9;
+          velocity.y *= -1.02;
+          basePosition.y = bubble.position.y;
         } else if (bubble.position.y < -maxY) {
           bubble.position.y = -maxY;
-          velocity.y *= -0.9;
+          velocity.y *= -1.02;
+          basePosition.y = bubble.position.y;
         }
         if (bubble.position.z > maxZ) {
           bubble.position.z = maxZ;
-          velocity.z *= -0.9;
+          velocity.z *= -1.05;
+          basePosition.z = bubble.position.z;
         } else if (bubble.position.z < -maxZ) {
           bubble.position.z = -maxZ;
-          velocity.z *= -0.9;
+          velocity.z *= -1.05;
+          basePosition.z = bubble.position.z;
         }
       }
       bubble.rotation.y += 0.002;
@@ -979,10 +1501,12 @@ function applyCameraOrbit() {
       liquid.rotation.x -= 0.004;
       liquid.rotation.y += 0.003;
       if (shellMaterial) {
+        shellMaterial.uniforms.uTint.value.copy(data.tintColor).lerp(paletteTintColor, tintMix);
         shellMaterial.uniforms.uTime.value = elapsed;
         shellMaterial.uniforms.uCameraPosition.value.copy(camera.position);
       }
       if (liquidMaterial) {
+        liquidMaterial.uniforms.uTint.value.copy(data.tintColor).lerp(paletteTintColor, liquidTintMix);
         liquidMaterial.uniforms.uTime.value = elapsed;
       }
 
@@ -1030,6 +1554,7 @@ function applyCameraOrbit() {
   resolveCollisions();
 
     droplets.forEach((droplet) => {
+      if (!droplet.visible) return;
       const { base, speed } = droplet.userData;
       droplet.position.y = base.y + Math.sin(elapsed * speed + base.x) * 0.8;
       droplet.rotation.x += 0.01;
@@ -1037,6 +1562,13 @@ function applyCameraOrbit() {
     });
 
     updateBursts(delta, elapsed);
+
+    paletteCheckTimer -= delta;
+    if (paletteCheckTimer <= 0) {
+      paletteCheckTimer = paletteCheckInterval;
+      maybeUpdateLightingPalette();
+    }
+    updateLighting(delta);
 
     applyCameraOrbit();
 
@@ -1049,6 +1581,7 @@ function applyCameraOrbit() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    refreshBounds();
   }
 
   const inputTags = new Set(["INPUT", "TEXTAREA", "SELECT"]);
