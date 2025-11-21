@@ -117,12 +117,15 @@ const orbitKeys = {
   const bubbleVertexShader = `
   precision mediump float;
   uniform float uTime;
+  uniform float uAudioLevel;
   varying vec3 vWorldPosition;
   varying vec3 vNormal;
   ${noiseGLSL}
   void main() {
-    float wobble = snoise(normal * 4.0 + uTime * 0.35);
-    vec3 displacedPosition = position + normal * wobble * 0.08;
+    float audioBoost = clamp(uAudioLevel, 0.0, 1.0);
+    float wobble = snoise(normal * (4.0 + audioBoost * 5.0) + uTime * (0.35 + audioBoost * 0.4));
+    float wobbleStrength = mix(0.08, 0.17, audioBoost);
+    vec3 displacedPosition = position + normal * wobble * wobbleStrength;
     vec4 worldPosition = modelMatrix * vec4(displacedPosition, 1.0);
     vWorldPosition = worldPosition.xyz;
     vNormal = normalize(normalMatrix * normal);
@@ -137,6 +140,7 @@ const orbitKeys = {
   uniform float uTime;
   uniform sampler2D uPreviewMap;
   uniform float uHasPreview;
+  uniform float uAudioLevel;
   varying vec3 vWorldPosition;
   varying vec3 vNormal;
   ${noiseGLSL}
@@ -157,8 +161,11 @@ const orbitKeys = {
       0.88 + 0.2 * sin(thinFilm + 1.7),
       0.8 + 0.2 * sin(thinFilm + 3.2)
     );
+    float pulse = clamp(uAudioLevel, 0.0, 1.0);
     vec3 color = tint + dispersion * 0.18;
     color = mix(color, filmColor, fresnel * 0.6);
+    color = mix(color, vec3(0.92, 0.98, 1.0), pulse * 0.24);
+    color += vec3(0.12, 0.16, 0.22) * pulse * 0.35;
     if (uHasPreview > 0.5) {
       vec3 sampleNormal = normalize(mix(normal, viewDir, 0.1));
       vec2 previewUV = vec2(
@@ -172,7 +179,7 @@ const orbitKeys = {
       color += preview * 0.22;
     }
     color += vec3(1.05, 1.0, 0.85) * fresnel * 0.3;
-    float alpha = clamp(0.12 + fresnel * 0.45, 0.12, 0.65);
+    float alpha = clamp(0.12 + fresnel * 0.45 + pulse * 0.15, 0.12, 0.78);
     gl_FragColor = vec4(color, alpha);
   }
   `;
@@ -225,6 +232,7 @@ const orbitKeys = {
         uTint: { value: tint },
         uCameraPosition: { value: camera.position.clone() },
         uTime: { value: 0 },
+        uAudioLevel: { value: 0 },
         uPreviewMap: { value: previewTexture },
         uHasPreview: { value: previewTexture ? 1 : 0 },
       },
@@ -608,7 +616,7 @@ maybeUpdateLightingPalette(true);
       depthWrite: false,
     });
     const points = new THREE.Points(geometry, material);
-    points.userData = { speed };
+    points.userData = { speed, baseOpacity: opacity };
     scene.add(points);
     particleLayers.push(points);
   }
@@ -620,16 +628,37 @@ maybeUpdateLightingPalette(true);
   const bubblesGroup = new THREE.Group();
   scene.add(bubblesGroup);
   const outerGeometry = new THREE.SphereGeometry(1, 96, 96);
-  const innerGeometry = new THREE.SphereGeometry(0.65, 48, 48);
 
 const targetLookAt = new THREE.Vector3(0, 0.2, 0);
 const parallaxMouse = new THREE.Vector2(0, 0);
+const viewForward = new THREE.Vector3();
+const viewRight = new THREE.Vector3();
+const viewUp = new THREE.Vector3();
+const cameraToBubble = new THREE.Vector3();
+const swimmerPushVec = new THREE.Vector3();
 
 const bounds = {
   x: 4.2,
   y: 2.6,
   z: 4.5,
 };
+
+const depthClampConfig = {
+  frontDistance: 12,
+  backDistance: 16,
+  normal: new THREE.Vector3(),
+  frontPlaneD: 0,
+  backPlaneD: 0,
+};
+depthClampConfig.normal.copy(camera.position).sub(targetLookAt).normalize();
+depthClampConfig.frontPlaneD = targetLookAt
+  .clone()
+  .addScaledVector(depthClampConfig.normal, depthClampConfig.frontDistance)
+  .dot(depthClampConfig.normal);
+depthClampConfig.backPlaneD = targetLookAt
+  .clone()
+  .addScaledVector(depthClampConfig.normal, -depthClampConfig.backDistance)
+  .dot(depthClampConfig.normal);
 
 function getZoomRatio() {
   return THREE.MathUtils.clamp(
@@ -668,6 +697,78 @@ function clampVectorToBounds(target, radius = 0.8) {
   target.y = THREE.MathUtils.clamp(target.y, -maxY, maxY);
   target.z = THREE.MathUtils.clamp(target.z, -maxZ, maxZ);
   return target;
+}
+
+function clampBubbleToCameraView(bubble, data, radius, tanHalfFov) {
+  cameraToBubble.copy(bubble.position).sub(camera.position);
+  let depth = cameraToBubble.dot(viewForward);
+  depth = Math.max(depth, radius + 0.4);
+  let halfHeight = tanHalfFov * depth;
+  let halfWidth = halfHeight * camera.aspect;
+  const padding = Math.max(0.25, radius * 1.15);
+  const minDepth = Math.max(radius + 2.2, 4.2);
+  const maxDepth = bounds.z * 1.15;
+
+  if (depth < minDepth) {
+    const correction = minDepth - depth;
+    bubble.position.addScaledVector(viewForward, correction);
+    const component = data.velocity.dot(viewForward);
+    if (component < 0) data.velocity.addScaledVector(viewForward, -component * 1.35);
+    data.basePosition.addScaledVector(viewForward, correction * 0.15);
+    depth = minDepth;
+  } else if (depth > maxDepth) {
+    const correction = depth - maxDepth;
+    bubble.position.addScaledVector(viewForward, -correction);
+    const component = data.velocity.dot(viewForward);
+    if (component > 0) data.velocity.addScaledVector(viewForward, -component * 0.9);
+    data.basePosition.addScaledVector(viewForward, -correction * 0.15);
+    depth = maxDepth;
+  }
+
+  cameraToBubble.subVectors(bubble.position, camera.position);
+  depth = cameraToBubble.dot(viewForward);
+  halfHeight = tanHalfFov * depth;
+  halfWidth = halfHeight * camera.aspect;
+
+  const clampAxis = (dist, limit, axisVec) => {
+    if (dist > limit) {
+      const correction = dist - limit;
+      bubble.position.addScaledVector(axisVec, -correction);
+      data.velocity.addScaledVector(axisVec, -data.velocity.dot(axisVec) * 1.6);
+      data.basePosition.addScaledVector(axisVec, -correction * 0.15);
+    } else if (dist < -limit) {
+      const correction = dist + limit;
+      bubble.position.addScaledVector(axisVec, -correction);
+      data.velocity.addScaledVector(axisVec, -data.velocity.dot(axisVec) * 1.6);
+      data.basePosition.addScaledVector(axisVec, -correction * 0.15);
+    }
+  };
+
+  clampAxis(cameraToBubble.dot(viewRight), Math.max(0.6, halfWidth - padding), viewRight);
+  clampAxis(cameraToBubble.dot(viewUp), Math.max(0.5, halfHeight - padding), viewUp);
+
+  if (depthClampConfig.normal.lengthSq() > 0) {
+    const frontDistance =
+      bubble.position.dot(depthClampConfig.normal) - depthClampConfig.frontPlaneD;
+    if (frontDistance > 0) {
+      bubble.position.addScaledVector(depthClampConfig.normal, -frontDistance);
+      const velFront = data.velocity?.dot(depthClampConfig.normal) ?? 0;
+      if (data.velocity && velFront > 0) {
+        data.velocity.addScaledVector(depthClampConfig.normal, -velFront * 1.35);
+      }
+      data.basePosition.addScaledVector(depthClampConfig.normal, -frontDistance * 0.25);
+    }
+    const backDistance =
+      bubble.position.dot(depthClampConfig.normal) - depthClampConfig.backPlaneD;
+    if (backDistance < 0) {
+      bubble.position.addScaledVector(depthClampConfig.normal, -backDistance);
+      const velBack = data.velocity?.dot(depthClampConfig.normal) ?? 0;
+      if (data.velocity && velBack < 0) {
+        data.velocity.addScaledVector(depthClampConfig.normal, -velBack * 1.2);
+      }
+      data.basePosition.addScaledVector(depthClampConfig.normal, -backDistance * 0.25);
+    }
+  }
 }
 
 refreshBounds();
@@ -718,25 +819,18 @@ refreshBounds();
     const basePosition = spawnOrigin.clone();
     bubble.rotation.y = Math.random() * Math.PI;
 
-    const liquidMaterial = createLiquidMaterial(tint.clone(), previewTexture);
-    const liquid = new THREE.Mesh(innerGeometry, liquidMaterial);
-    liquid.renderOrder = 1;
-    liquid.scale.setScalar(0.7);
-    bubble.add(liquid);
-
     bubble.userData = {
       ...project,
       id: idx,
       basePosition: basePosition.clone(),
       offset: Math.random() * Math.PI * 2,
-      liquid,
-      liquidMaterial,
       shellMaterial,
       originalScale: baseScale,
       originalRadius: baseScale,
       popState: "idle",
       popStart: 0,
       tintColor: tint.clone(),
+      audioScale: 1,
       velocity: randomVelocity(),
       spawnOrigin,
       respawnDelay: 1.6 + Math.random() * 2.2,
@@ -798,6 +892,8 @@ const dropletSettings = {
   verticalSpread: 5.2,
 };
 const droplets = [];
+const swimmers = [];
+const quagsireModelPath = "./assets/models/quagsire.glb";
 
 function randomizeDropletPosition(droplet) {
   const radius = THREE.MathUtils.randFloat(dropletSettings.radiusMin, dropletSettings.radiusMax);
@@ -824,6 +920,120 @@ for (let i = 0; i < dropletSettings.maxActive; i += 1) {
   scene.add(droplet);
   droplets.push(droplet);
 }
+
+function updateSwimmers(audioResponse, elapsed, delta = 0) {
+  const levelEnergy = audioResponse?.active ? audioResponse.level : 0;
+  const pulseEnergy = audioResponse?.active ? audioResponse.pulse : 0;
+  const swellEnergy = audioResponse?.active ? audioResponse.swell : 0;
+  swimmers.forEach((entry, idx) => {
+    const { group, basePosition, radius, speed, pathOffset, verticalRange, wobbleAmplitude } =
+      entry;
+    const peak = Math.max(pulseEnergy - 0.3, 0);
+    const swimSpeed = speed + peak * 0.5 + idx * 0.015;
+    const angle = elapsed * swimSpeed + pathOffset;
+    const amplitude = radius + peak * 1.3 + levelEnergy * 0.4;
+    const lift = swellEnergy * 0.6;
+    group.position.set(
+      basePosition.x + Math.cos(angle) * amplitude,
+      basePosition.y +
+        Math.sin(angle * 1.2) * verticalRange +
+        Math.cos(elapsed * 0.7 + idx) * wobbleAmplitude +
+        lift,
+      basePosition.z + Math.sin(angle) * amplitude
+    );
+    const lookAhead = angle + 0.2;
+    const target = new THREE.Vector3(
+      basePosition.x + Math.cos(lookAhead) * amplitude,
+      group.position.y + Math.sin(lookAhead * 1.1) * wobbleAmplitude,
+      basePosition.z + Math.sin(lookAhead) * amplitude
+    );
+    group.lookAt(target);
+    group.rotation.z += (entry.tilt - group.rotation.z) * 0.08;
+    group.rotation.y += peak * 0.02;
+    const scalePulse = 1 + peak * 0.25 + levelEnergy * 0.05;
+    group.scale.setScalar(entry.scale * scalePulse);
+    if (entry.mixer) {
+      entry.mixer.update(Math.max(delta, 0) * (1 + peak * 0.6));
+    }
+  });
+}
+
+function repelBubblesFromSwimmers(bubble, data) {
+  if (!swimmers.length) return;
+  swimmers.forEach((entry) => {
+    const { group, colliderRadius = 1 } = entry;
+    if (!group) return;
+    swimmerPushVec.copy(bubble.position).sub(group.position);
+    const dist = swimmerPushVec.length();
+    if (dist === 0) return;
+    const bubbleRadius = Math.max(0.2, data.originalRadius || bubble.scale.x);
+    const minDist = colliderRadius + bubbleRadius;
+    if (dist < minDist) {
+      const push = minDist - dist;
+      swimmerPushVec.normalize();
+      bubble.position.addScaledVector(swimmerPushVec, push);
+      data.basePosition.addScaledVector(swimmerPushVec, push * 0.5);
+      if (data.velocity) {
+        const component = data.velocity.dot(swimmerPushVec);
+        const rebound = -component * 1.6;
+        data.velocity.addScaledVector(swimmerPushVec, rebound - component);
+      }
+    }
+  });
+}
+
+function loadQuagsireSwimmer() {
+  if (!THREE.GLTFLoader) {
+    console.warn("GLTFLoader script missing; unable to load Quagsire model.");
+    return;
+  }
+  const loader = new THREE.GLTFLoader();
+  loader.load(
+    quagsireModelPath,
+    (gltf) => {
+      window.latestQuagsire = gltf;
+      const sceneRoot = gltf.scene || new THREE.Group();
+      sceneRoot.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = false;
+          child.receiveShadow = false;
+        }
+      });
+      const basePosition = new THREE.Vector3(2.6, -0.4, -3.4);
+      const baseScale = 0.45;
+      sceneRoot.position.copy(basePosition);
+      sceneRoot.scale.setScalar(baseScale);
+      sceneRoot.rotation.y = Math.PI;
+      scene.add(sceneRoot);
+      const mixer = gltf.animations?.length ? new THREE.AnimationMixer(sceneRoot) : null;
+      if (mixer) {
+        gltf.animations.forEach((clip) => {
+          const action = mixer.clipAction(clip);
+          action.play();
+        });
+      }
+      swimmers.push({
+        group: sceneRoot,
+        scale: baseScale,
+        radius: 4.5,
+        speed: 0.22,
+        verticalRange: 0.6,
+        pathOffset: Math.random() * Math.PI * 2,
+        wobbleAmplitude: 0.25,
+        basePosition,
+        tilt: -0.15,
+        colliderRadius: 0.8,
+        mixer,
+      });
+    },
+    undefined,
+    (error) => {
+      console.warn("Failed to load quagsire model", error);
+    }
+  );
+}
+
+loadQuagsireSwimmer();
 
 let activeDropletTarget = 0;
 function updateDropletActivity(force = false) {
@@ -881,6 +1091,7 @@ const dragThreshold = 0.02;
   const panelOverlay = document.getElementById("bubble-panel-overlay");
   const introPrompt = document.getElementById("intro-prompt");
   const introEnter = document.getElementById("intro-enter");
+  const audioToggle = document.getElementById("audio-toggle");
 
   const emailLink = document.querySelector('[data-link="email"]');
   const phoneLink = document.querySelector('[data-link="phone"]');
@@ -892,6 +1103,31 @@ const dragThreshold = 0.02;
   const projectGrid = document.getElementById("project-grid");
   const extracurricularList = document.getElementById("extracurricular-list");
   const educationBlock = document.getElementById("education-block");
+  const AUDIO_TRACK_URL = "./assets/audio/chill-chip.wav";
+  const audioState = {
+    media: typeof Audio !== "undefined" ? new Audio(AUDIO_TRACK_URL) : null,
+    context: null,
+    analyser: null,
+    sourceNode: null,
+    dataArray: null,
+    enabled: false,
+    attemptedAutoStart: false,
+  };
+const audioReactiveLevels = {
+  level: 0,
+  bass: 0,
+  mids: 0,
+  treble: 0,
+  pulse: 0,
+  swell: 0,
+  active: false,
+};
+  let audioMotionPhase = 0;
+  if (audioState.media) {
+    audioState.media.loop = true;
+    audioState.media.preload = "auto";
+    audioState.media.volume = 0.03;
+  }
 
   if (introPrompt) {
     document.body.classList.add("prompt-active");
@@ -899,6 +1135,7 @@ const dragThreshold = 0.02;
       introPrompt.classList.add("hidden");
       document.body.classList.remove("prompt-active");
       setTimeout(() => introPrompt.remove(), 500);
+      primeAudioFromInteraction();
     };
     introPrompt.addEventListener("click", (event) => {
       if (event.target === introPrompt) {
@@ -914,6 +1151,140 @@ const dragThreshold = 0.02;
       }
     });
   }
+
+  function updateAudioToggleUI() {
+    if (!audioToggle) return;
+    const isActive = Boolean(audioState.enabled && audioState.media && !audioState.media.paused);
+    audioToggle.dataset.state = isActive ? "on" : "off";
+    audioToggle.setAttribute("aria-pressed", isActive ? "true" : "false");
+    audioToggle.textContent = isActive ? "Sound on · Pause" : "Enable sound";
+  }
+
+  function ensureAudioGraph() {
+    if (!audioState.media) return false;
+    if (audioState.context || audioState.dataArray) return true;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return true;
+    audioState.context = new AudioContextClass();
+    audioState.analyser = audioState.context.createAnalyser();
+    audioState.analyser.fftSize = 512;
+    audioState.analyser.smoothingTimeConstant = 0.45;
+    audioState.dataArray = new Uint8Array(audioState.analyser.frequencyBinCount);
+    audioState.sourceNode = audioState.context.createMediaElementSource(audioState.media);
+    audioState.sourceNode.connect(audioState.analyser);
+    audioState.analyser.connect(audioState.context.destination);
+    return true;
+  }
+
+  async function startSoundtrack() {
+    if (!audioState.media) return;
+    audioState.attemptedAutoStart = true;
+    if (!ensureAudioGraph()) {
+      updateAudioToggleUI();
+      return;
+    }
+    try {
+      if (audioState.context?.state === "suspended") {
+        await audioState.context.resume();
+      }
+      await audioState.media.play();
+      audioState.enabled = true;
+    } catch (error) {
+      console.warn("Unable to start soundtrack", error);
+      audioState.enabled = false;
+    }
+    updateAudioToggleUI();
+  }
+
+  function stopSoundtrack() {
+    if (!audioState.media) return;
+    audioState.media.pause();
+    audioState.enabled = false;
+    updateAudioToggleUI();
+  }
+
+  function handleAudioToggle() {
+    if (audioState.enabled) {
+      stopSoundtrack();
+    } else {
+      startSoundtrack();
+    }
+  }
+
+  function primeAudioFromInteraction() {
+    if (!audioState.media || audioState.enabled || audioState.attemptedAutoStart) return;
+    startSoundtrack();
+  }
+
+  function sampleAudioLevels() {
+    const isActive = Boolean(audioState.enabled && audioState.media && !audioState.media.paused);
+    audioReactiveLevels.active = isActive;
+    if (!audioState.analyser || !audioState.dataArray) {
+      audioReactiveLevels.level = 0;
+      audioReactiveLevels.bass = 0;
+      audioReactiveLevels.mids = 0;
+      audioReactiveLevels.treble = 0;
+      audioReactiveLevels.pulse = 0;
+      audioReactiveLevels.swell = 0;
+      audioReactiveLevels.active = false;
+      return audioReactiveLevels;
+    }
+    audioState.analyser.getByteFrequencyData(audioState.dataArray);
+    const len = audioState.dataArray.length || 1;
+    let sum = 0;
+    let low = 0;
+    let mid = 0;
+    let high = 0;
+    const lowCount = Math.max(1, Math.floor(len * 0.22));
+    const highStart = Math.floor(len * 0.68);
+    const highCount = Math.max(1, len - highStart);
+    const midCount = Math.max(1, highStart - lowCount);
+    for (let i = 0; i < len; i += 1) {
+      const value = audioState.dataArray[i] / 255;
+      sum += value;
+      if (i < lowCount) {
+        low += value;
+      } else if (i < highStart) {
+        mid += value;
+      } else {
+        high += value;
+      }
+    }
+    const level = sum / len;
+    const bass = low / lowCount;
+    const mids = mid / midCount;
+    const treble = high / highCount;
+    const baseSmooth = isActive ? 0.65 : 0.2;
+    audioReactiveLevels.level += (level - audioReactiveLevels.level) * baseSmooth;
+    audioReactiveLevels.bass += (bass - audioReactiveLevels.bass) * (isActive ? 0.58 : 0.18);
+    audioReactiveLevels.mids += (mids - audioReactiveLevels.mids) * (isActive ? 0.5 : 0.14);
+    audioReactiveLevels.treble += (treble - audioReactiveLevels.treble) * (isActive ? 0.62 : 0.18);
+    const energy = Math.max(level - 0.25, 0);
+    const pulseEnergy = Math.max(energy, treble - 0.3);
+    audioReactiveLevels.pulse = Math.max(
+      audioReactiveLevels.pulse * (isActive ? 0.82 : 0.7),
+      pulseEnergy * (isActive ? 1.55 : 1.0)
+    );
+    const swellTarget = Math.max(mids - 0.2, 0) + energy * 0.35;
+    audioReactiveLevels.swell += (swellTarget - audioReactiveLevels.swell) * (isActive ? 0.5 : 0.18);
+    if (!isActive) {
+      audioReactiveLevels.level = 0;
+      audioReactiveLevels.bass = 0;
+      audioReactiveLevels.mids = 0;
+      audioReactiveLevels.treble = 0;
+      audioReactiveLevels.swell = 0;
+      audioReactiveLevels.pulse = 0;
+    }
+    return audioReactiveLevels;
+  }
+
+  audioToggle?.addEventListener("click", handleAudioToggle);
+  updateAudioToggleUI();
+  const oncePrimeAudio = () => {
+    primeAudioFromInteraction();
+    window.removeEventListener("pointerdown", oncePrimeAudio);
+  };
+  window.addEventListener("pointerdown", oncePrimeAudio);
 
   function renderSiteContent(siteData = window.SITE_DATA || {}) {
     if (!siteData) return;
@@ -1271,7 +1642,7 @@ const dragThreshold = 0.02;
       const fling = dragVelocity.clone();
       const speed = fling.length();
       if (speed > 0.01) {
-        const capped = THREE.MathUtils.clamp(speed * 0.5, 0.5, 6);
+        const capped = THREE.MathUtils.clamp(speed * 0.9, 0.8, 9);
         fling.normalize().multiplyScalar(capped);
         bubble.userData.velocity.copy(fling);
       } else {
@@ -1442,72 +1813,114 @@ function updateLighting(delta) {
     const elapsed = clock.getElapsedTime();
     const delta = Math.min(0.05, Math.max(0.001, elapsed - lastElapsed || 0.016));
     lastElapsed = elapsed;
+    const audioResponse = sampleAudioLevels();
+    if (audioResponse.active) {
+      audioMotionPhase += delta * (0.35 + audioResponse.level * 2.6 + audioResponse.treble * 1.4);
+    } else {
+      audioMotionPhase += delta * 0.2;
+    }
+    const rawWave = 0.5 + 0.5 * Math.sin(audioMotionPhase);
+    const audioWave = audioResponse.active ? rawWave : 0;
+    const levelEnergy = audioResponse.active ? audioResponse.level : 0;
+    const pulseEnergy = audioResponse.active ? audioResponse.pulse : 0;
+    const trebleEnergy = audioResponse.active ? audioResponse.treble : 0;
+    const bassEnergy = audioResponse.active ? audioResponse.bass : 0;
+    const swellEnergy = audioResponse.active ? audioResponse.swell : 0;
+    const layeredAudio = audioResponse.active
+      ? THREE.MathUtils.clamp(levelEnergy * 0.55 + pulseEnergy * 1.2 + trebleEnergy * 0.45, 0, 1.6)
+      : 0;
+    const fluidLift = audioResponse.active
+      ? THREE.MathUtils.clamp(swellEnergy * 1.05 + audioWave * 0.5, 0, 1.5)
+      : 0;
+    const peakBoost = audioResponse.active ? Math.max(layeredAudio - 0.65, 0) * 1.6 : 0;
 
-    particleLayers.forEach((layer) => {
-      layer.rotation.y += layer.userData.speed;
+    if (activeLightingPalette) {
+      const baseTintStrength = activeLightingPalette.tintStrength ?? 0.24;
+      const baseExposure = activeLightingPalette.exposure ?? renderer.toneMappingExposure;
+      const baseFog = activeLightingPalette.fogDensity ?? scene.fog.density;
+      paletteTintTarget = Math.min(0.9, baseTintStrength + layeredAudio * 0.32 + audioWave * 0.16);
+      exposureTarget = baseExposure * (1 + layeredAudio * 0.16 + swellEnergy * 0.08);
+      fogDensityTarget = Math.max(0.01, baseFog * (1 - fluidLift * 0.12));
+    }
+
+    particleLayers.forEach((layer, idx) => {
+      const spinBoost = layeredAudio * 0.004 * (idx + 1);
+      layer.rotation.y += layer.userData.speed + spinBoost;
+      const material = layer.material;
+      if (material && layer.userData.baseOpacity !== undefined) {
+        const targetOpacity = Math.min(
+          1,
+          layer.userData.baseOpacity + layeredAudio * (0.4 - idx * 0.06) + fluidLift * 0.2
+        );
+        material.opacity += (targetOpacity - material.opacity) * 0.08;
+      }
     });
+
+    camera.getWorldDirection(viewForward).normalize();
+    viewRight.crossVectors(viewForward, camera.up).normalize();
+    viewUp.crossVectors(viewRight, viewForward).normalize();
+    const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
+    const driftBoost = 0.85 + layeredAudio * 2.4 + bassEnergy * 0.8 + peakBoost * 2.2;
+    const jitterChance = 0.0004 + layeredAudio * 0.05 + peakBoost * 0.03;
+    const damping = THREE.MathUtils.lerp(0.9992, 0.984, THREE.MathUtils.clamp(layeredAudio, 0, 1));
+    const baseLerp = 0.001 + fluidLift * 0.006 + layeredAudio * 0.002;
+    const swirlSpeed = 0.4 + layeredAudio * 2.6 + peakBoost * 1.6;
+    const swirlAmp = (0.02 + layeredAudio * 0.05 + fluidLift * 0.2 + peakBoost * 0.25) * delta;
 
     const tintMix = paletteTintMix;
     const liquidTintMix = Math.min(1, tintMix + 0.12);
     bubbles.forEach((bubble) => {
       const data = bubble.userData;
-      const { basePosition, liquid, liquidMaterial, shellMaterial, velocity, originalRadius } = data;
+      const { basePosition, shellMaterial, velocity, originalRadius } = data;
       const canFloat = bubble !== selectedBubble && data.popState !== "shrink";
       if (canFloat) {
-        if (Math.random() < 0.0025) {
-          velocity.add(randomVelocity().multiplyScalar(0.2));
+        if (Math.random() < jitterChance) {
+          const impulseStrength =
+            0.08 + layeredAudio * 0.8 + trebleEnergy * 0.45 + fluidLift * 0.35 + peakBoost * 1.1;
+          velocity.add(randomVelocity().multiplyScalar(impulseStrength));
         }
-        bubble.position.addScaledVector(velocity, delta * 1.3);
-        basePosition.lerp(bubble.position, 0.008);
-        if (velocity.lengthSq() < 0.000015) {
-          velocity.copy(randomVelocity().multiplyScalar(0.45));
+        bubble.position.addScaledVector(velocity, delta * driftBoost);
+        bubble.position.y += Math.sin(elapsed * swirlSpeed + data.offset) * swirlAmp;
+        bubble.position.x += Math.cos(elapsed * swirlSpeed * 0.8 + data.offset) * swirlAmp * 0.6;
+        basePosition.lerp(bubble.position, baseLerp);
+        if (velocity.lengthSq() < 0.00001) {
+          velocity.copy(
+            randomVelocity().multiplyScalar(0.35 + layeredAudio * 0.8 + fluidLift * 0.6 + peakBoost)
+          );
         } else {
-          velocity.multiplyScalar(0.9985);
+          velocity.multiplyScalar(damping);
         }
         const radius = Math.max(0.2, originalRadius || bubble.scale.x);
-        const maxX = Math.max(0.1, bounds.x - radius);
-        const maxY = Math.max(0.1, bounds.y - radius);
+        clampBubbleToCameraView(bubble, data, radius, tanHalfFov);
+        repelBubblesFromSwimmers(bubble, data);
         const maxZ = Math.max(0.1, bounds.z - radius);
-        if (bubble.position.x > maxX) {
-          bubble.position.x = maxX;
-          velocity.x *= -1.05;
-          basePosition.x = bubble.position.x;
-        } else if (bubble.position.x < -maxX) {
-          bubble.position.x = -maxX;
-          velocity.x *= -1.05;
-          basePosition.x = bubble.position.x;
-        }
-        if (bubble.position.y > maxY) {
-          bubble.position.y = maxY;
-          velocity.y *= -1.02;
-          basePosition.y = bubble.position.y;
-        } else if (bubble.position.y < -maxY) {
-          bubble.position.y = -maxY;
-          velocity.y *= -1.02;
-          basePosition.y = bubble.position.y;
-        }
         if (bubble.position.z > maxZ) {
           bubble.position.z = maxZ;
-          velocity.z *= -1.05;
+          velocity.z *= -1.3;
           basePosition.z = bubble.position.z;
         } else if (bubble.position.z < -maxZ) {
           bubble.position.z = -maxZ;
-          velocity.z *= -1.05;
+          velocity.z *= -1.3;
           basePosition.z = bubble.position.z;
         }
       }
-      bubble.rotation.y += 0.002;
-      bubble.rotation.x += 0.001;
-      liquid.rotation.x -= 0.004;
-      liquid.rotation.y += 0.003;
+      bubble.rotation.y += 0.001 + layeredAudio * 0.015 + peakBoost * 0.01;
+      bubble.rotation.x += 0.0006 + fluidLift * 0.01 + peakBoost * 0.008;
       if (shellMaterial) {
         shellMaterial.uniforms.uTint.value.copy(data.tintColor).lerp(paletteTintColor, tintMix);
         shellMaterial.uniforms.uTime.value = elapsed;
         shellMaterial.uniforms.uCameraPosition.value.copy(camera.position);
+        if (shellMaterial.uniforms.uAudioLevel) {
+          const shaderPulse = Math.min(
+            1.5,
+            layeredAudio + fluidLift * 0.45 + audioWave * 0.25 + peakBoost * 0.6
+          );
+          shellMaterial.uniforms.uAudioLevel.value = shaderPulse;
+        }
       }
-      if (liquidMaterial) {
-        liquidMaterial.uniforms.uTint.value.copy(data.tintColor).lerp(paletteTintColor, liquidTintMix);
-        liquidMaterial.uniforms.uTime.value = elapsed;
+      if (data.liquidMaterial) {
+        data.liquidMaterial.uniforms.uTint.value.copy(data.tintColor).lerp(paletteTintColor, liquidTintMix);
+        data.liquidMaterial.uniforms.uTime.value = elapsed;
       }
 
     if (data.popState === "shrink") {
@@ -1533,6 +1946,7 @@ function updateLighting(delta) {
         data.orbitRadius = 0.35 + Math.random() * 0.35;
         data.depthRange = 0.5 + Math.random() * 0.45;
         data.depthSpeed = 0.18 + Math.random() * 0.25;
+        data.audioScale = 1;
         bubble.visible = true;
         bubble.scale.setScalar(data.originalScale * 0.3);
       }
@@ -1548,17 +1962,31 @@ function updateLighting(delta) {
           data.popState = "idle";
           bubble.scale.setScalar(data.originalScale);
         }
+      } else if (data.popState === "idle") {
+        const pulseTarget =
+          1 + layeredAudio * 0.65 + bassEnergy * 0.28 + audioWave * 0.22 + fluidLift * 0.28 + peakBoost * 0.8;
+        data.audioScale = THREE.MathUtils.lerp(
+          data.audioScale || 1,
+          pulseTarget,
+          0.04 + layeredAudio * 0.3 + peakBoost * 0.35
+        );
+        bubble.scale.setScalar(data.originalScale * data.audioScale);
       }
   });
 
   resolveCollisions();
 
+    updateSwimmers(audioResponse, elapsed, delta);
+
+    const dropletBob = 0.55 + fluidLift * 0.9 + peakBoost * 0.4;
+    const dropletPulse = 1 + layeredAudio * 0.45 + audioWave * 0.2 + peakBoost * 0.5;
     droplets.forEach((droplet) => {
       if (!droplet.visible) return;
       const { base, speed } = droplet.userData;
-      droplet.position.y = base.y + Math.sin(elapsed * speed + base.x) * 0.8;
-      droplet.rotation.x += 0.01;
-      droplet.rotation.y += 0.008;
+      droplet.position.y = base.y + Math.sin(elapsed * speed + base.x) * dropletBob;
+      droplet.rotation.x += 0.006 + layeredAudio * 0.02 + peakBoost * 0.02;
+      droplet.rotation.y += 0.005 + fluidLift * 0.015 + peakBoost * 0.015;
+      droplet.scale.setScalar(dropletPulse);
     });
 
     updateBursts(delta, elapsed);

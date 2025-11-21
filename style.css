@@ -190,7 +190,8 @@ body.panel-open {
   cursor: pointer;
 }
 
-.hero-actions a {
+.hero-actions a,
+.hero-actions button {
   text-decoration: none;
   text-transform: uppercase;
   font-weight: 600;
@@ -198,6 +199,11 @@ body.panel-open {
   font-size: 0.85rem;
   padding: 0.95rem 1.6rem;
   border-radius: 999px;
+  border: 1px solid transparent;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
 }
 
 .hero-actions .primary {
@@ -210,6 +216,42 @@ body.panel-open {
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #f6f7ff;
   background: rgba(6, 12, 24, 0.3);
+}
+
+.hero-actions .audio-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  position: relative;
+  padding-left: 2.6rem;
+  transition: color 0.3s ease, border-color 0.3s ease, background 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.hero-actions .audio-toggle::before {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 0 rgba(127, 223, 255, 0.3);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hero-actions .audio-toggle[data-state="on"] {
+  border-color: rgba(123, 255, 224, 0.4);
+  color: #c3fffb;
+  background: rgba(29, 55, 92, 0.5);
+  box-shadow: 0 18px 40px rgba(62, 255, 229, 0.25);
+}
+
+.hero-actions .audio-toggle[data-state="on"]::before {
+  background: #7dfbff;
+  box-shadow: 0 0 16px rgba(125, 251, 255, 0.85);
 }
 
 .hero-actions .resume {
