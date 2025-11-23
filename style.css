@@ -16,6 +16,10 @@
   --surface-shadow: var(--hero-card-shadow);
   --surface-highlight: var(--hero-card-highlight);
   --surface-sheen: rgba(190, 210, 255, 0.08);
+  --page-max-width: 640px;
+  --page-side: clamp(1.5rem, 4vw, 3.2rem);
+  --page-top: 4rem;
+  --page-bottom: 4.4rem;
 }
 
 *,
@@ -33,6 +37,7 @@ body {
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   transition: background 0.9s ease, color 0.4s ease;
+  overflow-x: hidden;
 }
 
 body.prompt-active {
@@ -85,8 +90,9 @@ body.panel-open {
 .page {
   position: relative;
   z-index: 2;
-  max-width: 640px;
-  padding: 4rem clamp(1.5rem, 4vw, 3.2rem) 4.4rem;
+  width: min(var(--page-max-width), calc(100% - (var(--page-side) * 2)));
+  max-width: var(--page-max-width);
+  padding: var(--page-top) var(--page-side) var(--page-bottom);
   display: flex;
   flex-direction: column;
   gap: 2.8rem;
@@ -830,10 +836,53 @@ body.panel-open {
   font-weight: 600;
 }
 
+@media (max-width: 1100px) {
+  :root {
+    --page-max-width: 700px;
+    --page-side: clamp(1.25rem, 4vw, 2.6rem);
+    --page-top: clamp(3rem, 5vw, 3.6rem);
+    --page-bottom: clamp(3.2rem, 6vw, 4rem);
+  }
+
+  .hero,
+  .section {
+    border-radius: 36px;
+  }
+
+  .section {
+    padding: clamp(1.8rem, 3vw, 2.4rem);
+  }
+
+  .hero {
+    padding: clamp(2rem, 4vw, 3rem);
+  }
+}
+
+@media (max-width: 900px) {
+  .page {
+    margin-left: clamp(1.1rem, 4vw, 2.2rem);
+    gap: 2.5rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.2rem, 6vw, 3rem);
+  }
+
+  .hero h1 span {
+    font-size: clamp(1.05rem, 3.6vw, 1.3rem);
+  }
+
+  .services-grid {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
   .page {
-    padding-top: 3rem;
-    gap: 3rem;
+    padding-top: clamp(2.2rem, 6vw, 3rem);
+    padding-bottom: clamp(3rem, 8vw, 3.6rem);
+    gap: 2.2rem;
+    margin-left: var(--page-side);
   }
 
   .stats {
@@ -851,6 +900,87 @@ body.panel-open {
   .timeline-card header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .hero {
+    padding: 1.8rem;
+    border-radius: 30px;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 7vw, 2.6rem);
+  }
+
+  .hero h1 span {
+    font-size: clamp(1rem, 4.3vw, 1.15rem);
+  }
+
+  .hero .lede {
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-actions a,
+  .hero-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .section {
+    padding: 1.6rem;
+    border-radius: 30px;
+  }
+
+  .bubble-panel {
+    width: min(520px, 94vw);
+    padding: 1.6rem;
+    border-radius: 28px;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+
+  .bubble-panel .panel-actions {
+    flex-direction: column;
+  }
+
+  .contact-links {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 540px) {
+  :root {
+    --page-side: clamp(1rem, 5vw, 1.6rem);
+    --page-top: clamp(2.1rem, 7vw, 2.6rem);
+    --page-bottom: clamp(2.6rem, 8vw, 3.2rem);
+  }
+
+  body {
+    font-size: 15px;
+  }
+
+  .hero {
+    padding: 1.5rem;
+    border-radius: 26px;
+  }
+
+  .section {
+    padding: 1.4rem;
+    border-radius: 26px;
+  }
+
+  .stats li {
+    padding: 1rem 1.2rem;
+  }
+
+  .bubble-panel {
+    padding: 1.4rem;
   }
 }
 .hero {

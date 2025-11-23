@@ -87,7 +87,7 @@ window.SITE_DATA = {
         "Desktop front-end for yt-dlp with Tkinter, dark mode, auto-update, and PyInstaller packaging for friends to use.",
       stack: ["Python", "Tkinter"],
       link: "https://github.com/ezrasong/YT-DLP-GUI",
-      image: "https://images.unsplash.com/photo-1482192597420-4817fdd7e8b0?auto=format&fit=crop&w=900&q=80",
+      image: "https://placehold.co/1200x675/0a1830/8ad0ff/png?text=YT-DLP+GUI",
     },
   ],
   extracurriculars: [
@@ -149,7 +149,7 @@ window.SITE_DATA = {
         "Tkinter-based downloader companion offering dark mode, auto-update, and packaging via PyInstaller.",
       link: "https://github.com/ezrasong/YT-DLP-GUI",
       tint: "#9ca8ff",
-      image: "https://images.unsplash.com/photo-1482192597420-4817fdd7e8b0?auto=format&fit=crop&w=600&q=80",
+      image: "https://placehold.co/900x600/0a1830/8ad0ff/png?text=YT-DLP+GUI",
       position: { x: -0.2, y: 1.3, z: -0.2 },
     },
   ],

@@ -17,17 +17,39 @@
   } = window.SITE_DATA || {};
 
   const canvas = document.getElementById("scene-canvas");
+  const mediaSmall = window.matchMedia("(max-width: 900px)");
+  const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const densityScale = reduceMotionQuery.matches ? 0.55 : mediaSmall.matches ? 0.82 : 1;
+
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
     alpha: true,
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+
+  function updateRendererQuality() {
+    const cap = reduceMotionQuery.matches ? 1.1 : mediaSmall.matches ? 1.35 : 1.8;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
+  }
+
+  updateRendererQuality();
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.2;
   renderer.setClearColor(0x000000, 0);
+
+  const handleQualityChange = () => {
+    updateRendererQuality();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  };
+  if (typeof mediaSmall.addEventListener === "function") {
+    mediaSmall.addEventListener("change", handleQualityChange);
+    reduceMotionQuery.addEventListener("change", handleQualityChange);
+  } else if (typeof mediaSmall.addListener === "function") {
+    mediaSmall.addListener(handleQualityChange);
+    reduceMotionQuery.addListener(handleQualityChange);
+  }
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x110d0a, 0.08);
@@ -59,6 +81,8 @@ const orbitKeys = {
   zoomIn: false,
   zoomOut: false,
 };
+const DESPAWN_RADIUS = 86.5;
+let isFarView = false;
 
   const noiseGLSL = `
   vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -137,6 +161,7 @@ const orbitKeys = {
   precision mediump float;
   uniform vec3 uTint;
   uniform vec3 uCameraPosition;
+  uniform vec3 uAccent;
   uniform float uTime;
   uniform sampler2D uPreviewMap;
   uniform float uHasPreview;
@@ -151,19 +176,21 @@ const orbitKeys = {
     float swirl = snoise(normal * 2.2 + uTime * 0.2);
     vec3 tint = mix(vec3(0.15, 0.18, 0.24), uTint, 0.45 + swirl * 0.18);
     vec3 dispersion = vec3(
-      0.82 + 0.12 * sin(uTime * 0.45 + vWorldPosition.x * 3.0),
-      0.86 + 0.12 * cos(uTime * 0.35 + vWorldPosition.y * 2.4),
-      0.78 + 0.12 * sin(uTime * 0.28 + vWorldPosition.z * 2.0)
+      0.68 + 0.08 * sin(uTime * 0.45 + vWorldPosition.x * 3.0),
+      0.8 + 0.1 * cos(uTime * 0.35 + vWorldPosition.y * 2.4),
+      1.1 + 0.14 * sin(uTime * 0.28 + vWorldPosition.z * 2.0)
     );
     float thinFilm = sin((normal.x + normal.y + normal.z + uTime * 0.4) * 4.0);
     vec3 filmColor = vec3(
-      0.95 + 0.2 * sin(thinFilm + 0.0),
-      0.88 + 0.2 * sin(thinFilm + 1.7),
-      0.8 + 0.2 * sin(thinFilm + 3.2)
+      0.7 + 0.16 * sin(thinFilm + 0.8),
+      0.86 + 0.14 * sin(thinFilm + 1.9),
+      1.16 + 0.18 * sin(thinFilm + 3.4)
     );
     float pulse = clamp(uAudioLevel, 0.0, 1.0);
-    vec3 color = tint + dispersion * 0.18;
-    color = mix(color, filmColor, fresnel * 0.6);
+    vec3 color = tint + dispersion * 0.12;
+    color = mix(color, filmColor, fresnel * 0.15);
+    float accentMix = 0.18 + 0.08 * swirl + 0.06 * pulse;
+    color = mix(color, uAccent, clamp(accentMix, 0.12, 0.4));
     color = mix(color, vec3(0.92, 0.98, 1.0), pulse * 0.24);
     color += vec3(0.12, 0.16, 0.22) * pulse * 0.35;
     if (uHasPreview > 0.5) {
@@ -174,11 +201,14 @@ const orbitKeys = {
       );
       previewUV += swirl * 0.025;
       vec3 preview = texture2D(uPreviewMap, previewUV).rgb;
-      float previewBlend = clamp(0.55 + fresnel * 0.45, 0.55, 0.98);
-      color = mix(color, preview, previewBlend);
-      color += preview * 0.22;
+      float warmBias = max(preview.r - max(preview.g, preview.b), 0.0);
+      vec3 coolBias = vec3(0.48, 0.64, 1.05);
+      preview = mix(preview, coolBias, 0.01 + warmBias * 0.08);
+      // preview fully dominates shell color
+      color = preview;
+      color += preview * 0.72;
     }
-    color += vec3(1.05, 1.0, 0.85) * fresnel * 0.3;
+    color += vec3(0.28, 0.7, 1.08) * fresnel * 0.08;
     float alpha = clamp(0.12 + fresnel * 0.45 + pulse * 0.15, 0.12, 0.78);
     gl_FragColor = vec4(color, alpha);
   }
@@ -207,7 +237,7 @@ const orbitKeys = {
     float ripple = snoise(vWorldPosition * 2.6 - uTime * 0.55);
     float brightness = smoothstep(0.0, 1.0, n * 0.5 + 0.5);
     vec3 base = mix(uTint * 0.4, uTint, brightness);
-    base += vec3(0.22, 0.18, 0.1) * ripple * 0.35;
+    base += vec3(0.1, 0.16, 0.28) * ripple * 0.35;
     if (uHasPreview > 0.5) {
       vec3 normal = normalize(vWorldPosition);
       vec2 previewUV = vec2(
@@ -223,13 +253,14 @@ const orbitKeys = {
   }
   `;
 
-  function createBubbleMaterial(tint, previewTexture) {
+  function createBubbleMaterial(tint, accent, previewTexture) {
     return new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
       side: THREE.DoubleSide,
       uniforms: {
         uTint: { value: tint },
+        uAccent: { value: accent },
         uCameraPosition: { value: camera.position.clone() },
         uTime: { value: 0 },
         uAudioLevel: { value: 0 },
@@ -257,18 +288,108 @@ const orbitKeys = {
   }
 
   const textureLoader = new THREE.TextureLoader();
+  textureLoader.setCrossOrigin?.("anonymous");
   const previewTextureCache = new Map();
+  const imageColorCache = new Map();
   const collisionVec = new THREE.Vector3();
   const bubbleRegistry = [];
 
-  function getTexture(url) {
+  function averageImageColor(image) {
+    try {
+      const canvas = document.createElement("canvas");
+      const size = 12;
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(image, 0, 0, size, size);
+      const { data } = ctx.getImageData(0, 0, size, size);
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let count = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3];
+        if (alpha < 10) continue;
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        count += 1;
+      }
+      if (!count) return null;
+      return { r: r / count, g: g / count, b: b / count };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  const tempHSL = { h: 0, s: 0, l: 0 };
+  function deriveBubbleTint(base, imageColor, backgroundColor = paletteTintColor) {
+    const tint = (base ? base.clone() : new THREE.Color("#6fb1ff")).convertSRGBToLinear();
+    if (imageColor) {
+      const img = new THREE.Color(imageColor.r / 255, imageColor.g / 255, imageColor.b / 255).convertSRGBToLinear();
+      tint.lerp(img, 1.0);
+    }
+    if (backgroundColor) {
+      tint.lerp(backgroundColor, 0.05);
+    }
+    const warmish = tint.r > tint.g * 1.08 && tint.g > tint.b * 0.9;
+    const isWarm = tint.r > tint.g * 1.15 && tint.r > tint.b * 1.15;
+    if (warmish || isWarm) {
+      const coolBias = new THREE.Color(0.5, 0.6, 1.0); // subtle blue bias in linear space
+      tint.lerp(coolBias, isWarm ? 0.18 : 0.12);
+      if (backgroundColor) tint.lerp(backgroundColor, 0.12);
+    }
+    const luma = tint.r * 0.299 + tint.g * 0.587 + tint.b * 0.114;
+    if (luma < 0.2) tint.lerp(new THREE.Color(1, 1, 1), 0.25);
+    if (luma > 0.82) tint.lerp(new THREE.Color(0.08, 0.1, 0.16), 0.2);
+    return tint.convertLinearToSRGB();
+  }
+
+  function deriveBubbleAccent(tint, backgroundColor = paletteTintColor, imageColor = null) {
+    const accent = tint.clone();
+    accent.getHSL(tempHSL);
+    const h = (tempHSL.h + 0.12) % 1;
+    const s = Math.min(1, tempHSL.s * 0.9 + 0.12);
+    const l = Math.min(1, tempHSL.l * 0.82 + 0.08);
+    accent.setHSL(h, s, l);
+    if (imageColor) {
+      const img = new THREE.Color(imageColor.r / 255, imageColor.g / 255, imageColor.b / 255).convertSRGBToLinear();
+      accent.lerp(img, 0.85);
+    }
+    if (backgroundColor) {
+      accent.lerp(backgroundColor, 0.05);
+    }
+    const diff =
+      Math.abs(accent.r - tint.r) + Math.abs(accent.g - tint.g) + Math.abs(accent.b - tint.b);
+    if (diff < 0.05) {
+      accent.offsetHSL(0.18, 0, 0);
+    }
+    return accent;
+  }
+
+  function getTexture(url, onColor) {
     if (!url) return null;
-    if (previewTextureCache.has(url)) return previewTextureCache.get(url);
-    const texture = textureLoader.load(url, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.wrapS = tex.wrapT = THREE.MirroredRepeatWrapping;
-      tex.needsUpdate = true;
-    });
+    if (previewTextureCache.has(url)) {
+      const cachedTexture = previewTextureCache.get(url);
+      if (onColor && imageColorCache.has(url)) onColor(imageColorCache.get(url));
+      return cachedTexture;
+    }
+    const texture = textureLoader.load(
+      url,
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.wrapS = tex.wrapT = THREE.MirroredRepeatWrapping;
+        tex.needsUpdate = true;
+        const avg = averageImageColor(tex.image);
+        if (avg) {
+          imageColorCache.set(url, avg);
+          if (onColor) onColor(avg);
+        }
+      },
+      undefined,
+      () => {
+        if (onColor && imageColorCache.has(url)) onColor(imageColorCache.get(url));
+      }
+    );
     previewTextureCache.set(url, texture);
     return texture;
   }
@@ -625,9 +746,10 @@ maybeUpdateLightingPalette(true);
     particleLayers.push(points);
   }
 
-  createDustLayer(800, 30, 0.05, 0.45, 0x8fbaff, 0.002);
-  createDustLayer(600, 40, 0.08, 0.3, 0x5efbe0, -0.001);
-  createDustLayer(1200, 50, 0.03, 0.2, 0xffffff, 0.0015);
+  const dustDensity = Math.max(0.45, densityScale);
+  createDustLayer(Math.round(800 * dustDensity), 30, 0.05, 0.45, 0x8fbaff, 0.002);
+  createDustLayer(Math.round(600 * dustDensity), 40, 0.08, 0.3, 0x5efbe0, -0.001);
+  createDustLayer(Math.round(1200 * dustDensity), 50, 0.03, 0.2, 0xffffff, 0.0015);
 
   const bubblesGroup = new THREE.Group();
   scene.add(bubblesGroup);
@@ -816,10 +938,24 @@ refreshBounds();
   }
 
   const bubbles = bubbleProjects.map((project, idx) => {
-    const tint = new THREE.Color(project.tint || "#6fb1ff");
-    const previewTexture = getTexture(project.image);
-    const shellMaterial = createBubbleMaterial(tint.clone(), previewTexture);
-    const bubble = new THREE.Mesh(outerGeometry, shellMaterial);
+    const baseTint = new THREE.Color(project.tint || "#6fb1ff");
+    const bubbleTint = baseTint.clone();
+    const accentColor = deriveBubbleAccent(bubbleTint, paletteTintColor, null);
+    let bubble = null;
+    let shellMaterial = null;
+    const applyImageTint = (avgColor) => {
+      const nextTint = deriveBubbleTint(baseTint, avgColor, paletteTintColor);
+      const nextAccent = deriveBubbleAccent(nextTint, paletteTintColor, avgColor);
+      bubbleTint.copy(nextTint);
+      accentColor.copy(nextAccent);
+      if (bubble?.userData?.tintColor) bubble.userData.tintColor.copy(nextTint);
+      if (bubble?.userData?.baseAccentColor) bubble.userData.baseAccentColor.copy(nextAccent);
+      if (shellMaterial?.uniforms?.uTint?.value) shellMaterial.uniforms.uTint.value.copy(nextTint);
+      if (shellMaterial?.uniforms?.uAccent?.value) shellMaterial.uniforms.uAccent.value.copy(nextAccent);
+    };
+    const previewTexture = getTexture(project.image, applyImageTint);
+    shellMaterial = createBubbleMaterial(bubbleTint.clone(), accentColor.clone(), previewTexture);
+    bubble = new THREE.Mesh(outerGeometry, shellMaterial);
     bubble.renderOrder = 2;
     const baseScale = 0.9 + Math.random() * 0.5;
     bubble.scale.setScalar(baseScale);
@@ -841,7 +977,9 @@ refreshBounds();
       originalRadius: baseScale,
       popState: "idle",
       popStart: 0,
-      tintColor: tint.clone(),
+      tintColor: bubbleTint.clone(),
+      baseAccentColor: accentColor.clone(),
+      accentColor: accentColor.clone(),
       audioScale: 1,
       velocity: randomVelocity(),
       spawnOrigin,
@@ -897,8 +1035,8 @@ const dropletMaterial = new THREE.MeshStandardMaterial({
   roughness: 0.2,
 });
 const dropletSettings = {
-  minActive: 22,
-  maxActive: 120,
+  minActive: Math.max(14, Math.round(22 * densityScale)),
+  maxActive: Math.max(40, Math.round(120 * densityScale)),
   radiusMin: 4.5,
   radiusMax: 14,
   verticalSpread: 5.2,
@@ -970,6 +1108,12 @@ for (let i = 0; i < dropletSettings.maxActive; i += 1) {
 }
 
 function updateSwimmers(audioResponse, elapsed, delta = 0) {
+  if (isFarView) {
+    swimmers.forEach((entry) => {
+      if (entry.group) entry.group.visible = false;
+    });
+    return;
+  }
   const levelEnergy = audioResponse?.active ? audioResponse.level : 0;
   const pulseEnergy = audioResponse?.active ? audioResponse.pulse : 0;
   const swellEnergy = audioResponse?.active ? audioResponse.swell : 0;
@@ -1187,9 +1331,9 @@ loadWailordSwimmer();
 
 let activeDropletTarget = 0;
 function updateDropletActivity(force = false) {
-  const target = Math.round(
-    THREE.MathUtils.lerp(dropletSettings.minActive, dropletSettings.maxActive, getZoomRatio())
-  );
+  const target = isFarView
+    ? 0
+    : Math.round(THREE.MathUtils.lerp(dropletSettings.minActive, dropletSettings.maxActive, getZoomRatio()));
   if (!force && target === activeDropletTarget) return;
   activeDropletTarget = target;
   droplets.forEach((droplet, idx) => {
@@ -1208,6 +1352,31 @@ function updateDropletActivity(force = false) {
 }
 
 updateDropletActivity(true);
+
+function updateZoomDespawn() {
+  const shouldDespawn = orbitState.radius > DESPAWN_RADIUS;
+  if (shouldDespawn === isFarView) return;
+  isFarView = shouldDespawn;
+  bubbles.forEach((bubble) => {
+    bubble.visible = !isFarView && bubble.userData.popState !== "hidden";
+  });
+  droplets.forEach((droplet) => {
+    droplet.visible = !isFarView && droplet.userData.active;
+  });
+  swimmers.forEach((entry) => {
+    if (entry.group) entry.group.visible = !isFarView;
+  });
+  particleLayers.forEach((layer) => {
+    layer.visible = !isFarView;
+    if (layer.material?.opacity !== undefined) {
+      layer.material.opacity = isFarView ? 0 : layer.userData.baseOpacity;
+    }
+  });
+  bubbleBursts.forEach((burst) => {
+    burst.visible = !isFarView;
+  });
+  updateDropletActivity(true);
+}
 
 const bubbleBursts = [];
 const tempBurstPosition = new THREE.Vector3();
@@ -1685,6 +1854,7 @@ const audioReactiveLevels = {
 
   function handlePointerDown(event) {
     if (isPromptActive()) return;
+    if (isFarView) return;
     if (event.button === 2 || event.altKey) {
       orbiting = true;
       orbitPointer.x = event.clientX;
@@ -1857,6 +2027,14 @@ const audioReactiveLevels = {
   }
 
   function updateBursts(delta, elapsed) {
+    if (isFarView) {
+      for (let i = bubbleBursts.length - 1; i >= 0; i -= 1) {
+        const burst = bubbleBursts[i];
+        scene.remove(burst);
+        bubbleBursts.splice(i, 1);
+      }
+      return;
+    }
     for (let i = bubbleBursts.length - 1; i >= 0; i -= 1) {
       const burst = bubbleBursts[i];
       const data = burst.userData;
@@ -1943,6 +2121,7 @@ function applyCameraOrbit() {
   updateDepthClampPlanes();
   refreshBounds();
   updateDropletActivity();
+  updateZoomDespawn();
   const farTarget = Math.max(camera.far, orbitRadius * 6);
   if (farTarget > camera.far + 0.5) {
     camera.far = farTarget;
@@ -2007,18 +2186,26 @@ function updateLighting(delta) {
       fogDensityTarget = Math.max(0.01, baseFog * (1 - fluidLift * 0.12));
     }
 
-    particleLayers.forEach((layer, idx) => {
-      const spinBoost = layeredAudio * 0.004 * (idx + 1);
-      layer.rotation.y += layer.userData.speed + spinBoost;
-      const material = layer.material;
-      if (material && layer.userData.baseOpacity !== undefined) {
-        const targetOpacity = Math.min(
-          1,
-          layer.userData.baseOpacity + layeredAudio * (0.4 - idx * 0.06) + fluidLift * 0.2
-        );
-        material.opacity += (targetOpacity - material.opacity) * 0.08;
-      }
-    });
+    if (!isFarView) {
+      particleLayers.forEach((layer, idx) => {
+        const spinBoost = layeredAudio * 0.004 * (idx + 1);
+        layer.rotation.y += layer.userData.speed + spinBoost;
+        const material = layer.material;
+        if (material && layer.userData.baseOpacity !== undefined) {
+          const targetOpacity = Math.min(
+            1,
+            layer.userData.baseOpacity + layeredAudio * (0.4 - idx * 0.06) + fluidLift * 0.2
+          );
+          material.opacity += (targetOpacity - material.opacity) * 0.08;
+        }
+      });
+    } else {
+      particleLayers.forEach((layer) => {
+        if (layer.material?.opacity !== undefined) {
+          layer.material.opacity += (0 - layer.material.opacity) * 0.2;
+        }
+      });
+    }
 
     camera.getWorldDirection(viewForward).normalize();
     viewRight.crossVectors(viewForward, camera.up).normalize();
@@ -2036,6 +2223,10 @@ function updateLighting(delta) {
     const hideBubbles = false;
     bubbles.forEach((bubble) => {
       const data = bubble.userData;
+      if (isFarView) {
+        bubble.visible = false;
+        return;
+      }
       const { basePosition, shellMaterial, velocity, originalRadius } = data;
       const canFloat = bubble !== selectedBubble && data.popState !== "shrink";
       bubble.visible = true;
@@ -2074,6 +2265,11 @@ function updateLighting(delta) {
       bubble.rotation.x += 0.0006 + fluidLift * 0.01 + peakBoost * 0.008;
       if (shellMaterial) {
         shellMaterial.uniforms.uTint.value.copy(data.tintColor).lerp(paletteTintColor, tintMix);
+        if (data.baseAccentColor) {
+          data.accentColor.copy(data.baseAccentColor);
+          data.accentColor.lerp(paletteTintColor, tintMix * 0.7);
+          if (shellMaterial.uniforms.uAccent) shellMaterial.uniforms.uAccent.value.copy(data.accentColor);
+        }
         shellMaterial.uniforms.uTime.value = elapsed;
         shellMaterial.uniforms.uCameraPosition.value.copy(camera.position);
         if (shellMaterial.uniforms.uAudioLevel) {
@@ -2140,20 +2336,24 @@ function updateLighting(delta) {
       }
   });
 
-  resolveCollisions();
+  if (!isFarView) {
+    resolveCollisions();
+  }
 
     updateSwimmers(audioResponse, elapsed, delta);
 
     const dropletBob = 0.55 + fluidLift * 0.9 + peakBoost * 0.4;
     const dropletPulse = 1 + layeredAudio * 0.45 + audioWave * 0.2 + peakBoost * 0.5;
-    droplets.forEach((droplet) => {
-      if (!droplet.visible) return;
-      const { base, speed } = droplet.userData;
-      droplet.position.y = base.y + Math.sin(elapsed * speed + base.x) * dropletBob;
-      droplet.rotation.x += 0.006 + layeredAudio * 0.02 + peakBoost * 0.02;
-      droplet.rotation.y += 0.005 + fluidLift * 0.015 + peakBoost * 0.015;
-      droplet.scale.setScalar(dropletPulse);
-    });
+    if (!isFarView) {
+      droplets.forEach((droplet) => {
+        if (!droplet.visible) return;
+        const { base, speed } = droplet.userData;
+        droplet.position.y = base.y + Math.sin(elapsed * speed + base.x) * dropletBob;
+        droplet.rotation.x += 0.006 + layeredAudio * 0.02 + peakBoost * 0.02;
+        droplet.rotation.y += 0.005 + fluidLift * 0.015 + peakBoost * 0.015;
+        droplet.scale.setScalar(dropletPulse);
+      });
+    }
 
     updateBursts(delta, elapsed);
 
@@ -2172,6 +2372,7 @@ function updateLighting(delta) {
   function onResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    updateRendererQuality();
     renderer.setSize(window.innerWidth, window.innerHeight);
     refreshBounds();
   }
