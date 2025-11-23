@@ -1426,7 +1426,6 @@ const dragThreshold = 0.02;
   const introPrompt = document.getElementById("intro-prompt");
   const introEnter = document.getElementById("intro-enter");
   const audioToggle = document.getElementById("audio-toggle");
-  const motionToggle = document.getElementById("motion-toggle");
 
   const emailLink = document.querySelector('[data-link="email"]');
   const phoneLink = document.querySelector('[data-link="phone"]');
@@ -1493,7 +1492,6 @@ const dragThreshold = 0.02;
     swell: 0,
     active: false,
   };
-  let motionReduced = false;
   let audioMotionPhase = 0;
   if (audioState.media) {
     audioState.media.loop = true;
@@ -1509,8 +1507,7 @@ const dragThreshold = 0.02;
       releaseFocusTrap();
       setTimeout(() => introPrompt.remove(), 500);
       primeAudioFromInteraction();
-      const fallbackFocus =
-        motionToggle || audioToggle || document.querySelector(".hero .primary") || document.body;
+      const fallbackFocus = audioToggle || document.querySelector(".hero .primary") || document.body;
       fallbackFocus?.focus?.();
     };
     activateFocusTrap(introPrompt);
@@ -1536,20 +1533,6 @@ const dragThreshold = 0.02;
     audioToggle.dataset.state = isActive ? "on" : "off";
     audioToggle.setAttribute("aria-pressed", isActive ? "true" : "false");
     audioToggle.textContent = isActive ? "Sound on · Pause" : "Enable sound";
-  }
-
-  function updateMotionToggleUI() {
-    if (!motionToggle) return;
-    motionToggle.dataset.state = motionReduced ? "on" : "off";
-    motionToggle.setAttribute("aria-pressed", motionReduced ? "true" : "false");
-    motionToggle.textContent = motionReduced ? "3D paused · Enable motion" : "Reduce motion";
-  }
-
-  function setMotionReduced(next) {
-    motionReduced = next;
-    setRenderPaused("user-motion", motionReduced);
-    document.body.classList.toggle("motion-reduced", motionReduced);
-    updateMotionToggleUI();
   }
 
   function ensureAudioGraph() {
@@ -1601,28 +1584,6 @@ const dragThreshold = 0.02;
     } else {
       startSoundtrack();
     }
-  }
-
-  function handleMotionToggle() {
-    setMotionReduced(!motionReduced);
-    if (!motionReduced && document.hidden) {
-      setRenderPaused("hidden", true);
-    } else {
-      setRenderPaused("hidden", document.hidden);
-    }
-  }
-
-  if (reduceMotionQuery.matches) {
-    setMotionReduced(true);
-  }
-  if (typeof reduceMotionQuery.addEventListener === "function") {
-    reduceMotionQuery.addEventListener("change", (event) => {
-      setMotionReduced(Boolean(event.matches));
-    });
-  } else if (typeof reduceMotionQuery.addListener === "function") {
-    reduceMotionQuery.addListener((event) => {
-      setMotionReduced(Boolean(event.matches));
-    });
   }
 
   function primeAudioFromInteraction() {
@@ -1693,9 +1654,7 @@ const dragThreshold = 0.02;
   }
 
   audioToggle?.addEventListener("click", handleAudioToggle);
-  motionToggle?.addEventListener("click", handleMotionToggle);
   updateAudioToggleUI();
-  updateMotionToggleUI();
   const oncePrimeAudio = () => {
     primeAudioFromInteraction();
     window.removeEventListener("pointerdown", oncePrimeAudio);
