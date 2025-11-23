@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="./style.css">
   </head>
   <body>
+    <a class="skip-link" href="#about">Skip to main content</a>
     <canvas id="scene-canvas" aria-hidden="true"></canvas>
 
     <div class="page">
@@ -29,6 +30,9 @@
           <a class="ghost resume" href="./EzraSong_Resume.pdf" target="_blank" rel="noreferrer">Download Résumé</a>
           <button id="audio-toggle" class="ghost audio-toggle" type="button" aria-pressed="false">
             Enable sound
+          </button>
+          <button id="motion-toggle" class="ghost motion-toggle" type="button" aria-pressed="false">
+            Reduce motion
           </button>
         </div>
       </header>
@@ -120,12 +124,22 @@
     </div>
 
     <div id="bubble-panel-overlay" class="bubble-panel-overlay hidden"></div>
-    <aside id="bubble-panel" class="bubble-panel hidden" aria-live="polite">
+    <aside
+      id="bubble-panel"
+      class="bubble-panel hidden"
+      aria-live="polite"
+      aria-hidden="true"
+      aria-labelledby="bubble-panel-title"
+      aria-describedby="bubble-panel-description"
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
       <button id="bubble-panel-close" aria-label="Close project details">×</button>
       <p class="panel-tag">Project</p>
       <h3 id="bubble-panel-title"></h3>
       <div class="panel-media hidden" id="bubble-panel-media">
-        <img id="bubble-panel-image" alt="Project preview">
+        <img id="bubble-panel-image" alt="Project preview" loading="lazy" decoding="async" width="1200" height="900">
       </div>
       <div class="panel-details">
         <p id="bubble-panel-description"></p>

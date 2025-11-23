@@ -39,6 +39,21 @@
   renderer.toneMappingExposure = 1.2;
   renderer.setClearColor(0x000000, 0);
 
+  const pauseReasons = new Set();
+
+  function isRenderingActive() {
+    return pauseReasons.size === 0;
+  }
+
+  function setRenderPaused(reason, shouldPause) {
+    if (shouldPause) {
+      pauseReasons.add(reason);
+    } else {
+      pauseReasons.delete(reason);
+    }
+    document.body.classList.toggle("scene-paused", !isRenderingActive());
+  }
+
   const handleQualityChange = () => {
     updateRendererQuality();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1411,6 +1426,7 @@ const dragThreshold = 0.02;
   const introPrompt = document.getElementById("intro-prompt");
   const introEnter = document.getElementById("intro-enter");
   const audioToggle = document.getElementById("audio-toggle");
+  const motionToggle = document.getElementById("motion-toggle");
 
   const emailLink = document.querySelector('[data-link="email"]');
   const phoneLink = document.querySelector('[data-link="phone"]');
@@ -1432,15 +1448,52 @@ const dragThreshold = 0.02;
     enabled: false,
     attemptedAutoStart: false,
   };
-const audioReactiveLevels = {
-  level: 0,
-  bass: 0,
-  mids: 0,
-  treble: 0,
-  pulse: 0,
-  swell: 0,
-  active: false,
-};
+  const focusableSelectors =
+    'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+  let activeFocusTrap = null;
+  let lastFocusedElement = null;
+
+  function activateFocusTrap(container) {
+    if (!container) return;
+    const handleTrap = (event) => {
+      if (event.key !== "Tab") return;
+      const nodes = Array.from(container.querySelectorAll(focusableSelectors)).filter((el) => {
+        const isDisabled = el.hasAttribute("disabled");
+        const isHidden = el.getAttribute("aria-hidden") === "true";
+        const disallowsTab = el.tabIndex === -1;
+        return !isDisabled && !isHidden && !disallowsTab;
+      });
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        last.focus();
+        event.preventDefault();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        first.focus();
+        event.preventDefault();
+      }
+    };
+    container.addEventListener("keydown", handleTrap);
+    activeFocusTrap = { container, handleTrap };
+  }
+
+  function releaseFocusTrap() {
+    if (activeFocusTrap?.container && activeFocusTrap.handleTrap) {
+      activeFocusTrap.container.removeEventListener("keydown", activeFocusTrap.handleTrap);
+    }
+    activeFocusTrap = null;
+  }
+  const audioReactiveLevels = {
+    level: 0,
+    bass: 0,
+    mids: 0,
+    treble: 0,
+    pulse: 0,
+    swell: 0,
+    active: false,
+  };
+  let motionReduced = false;
   let audioMotionPhase = 0;
   if (audioState.media) {
     audioState.media.loop = true;
@@ -1453,9 +1506,15 @@ const audioReactiveLevels = {
     const dismissPrompt = () => {
       introPrompt.classList.add("hidden");
       document.body.classList.remove("prompt-active");
+      releaseFocusTrap();
       setTimeout(() => introPrompt.remove(), 500);
       primeAudioFromInteraction();
+      const fallbackFocus =
+        motionToggle || audioToggle || document.querySelector(".hero .primary") || document.body;
+      fallbackFocus?.focus?.();
     };
+    activateFocusTrap(introPrompt);
+    (introEnter || introPrompt).focus();
     introPrompt.addEventListener("click", (event) => {
       if (event.target === introPrompt) {
         dismissPrompt();
@@ -1477,6 +1536,20 @@ const audioReactiveLevels = {
     audioToggle.dataset.state = isActive ? "on" : "off";
     audioToggle.setAttribute("aria-pressed", isActive ? "true" : "false");
     audioToggle.textContent = isActive ? "Sound on · Pause" : "Enable sound";
+  }
+
+  function updateMotionToggleUI() {
+    if (!motionToggle) return;
+    motionToggle.dataset.state = motionReduced ? "on" : "off";
+    motionToggle.setAttribute("aria-pressed", motionReduced ? "true" : "false");
+    motionToggle.textContent = motionReduced ? "3D paused · Enable motion" : "Reduce motion";
+  }
+
+  function setMotionReduced(next) {
+    motionReduced = next;
+    setRenderPaused("user-motion", motionReduced);
+    document.body.classList.toggle("motion-reduced", motionReduced);
+    updateMotionToggleUI();
   }
 
   function ensureAudioGraph() {
@@ -1528,6 +1601,28 @@ const audioReactiveLevels = {
     } else {
       startSoundtrack();
     }
+  }
+
+  function handleMotionToggle() {
+    setMotionReduced(!motionReduced);
+    if (!motionReduced && document.hidden) {
+      setRenderPaused("hidden", true);
+    } else {
+      setRenderPaused("hidden", document.hidden);
+    }
+  }
+
+  if (reduceMotionQuery.matches) {
+    setMotionReduced(true);
+  }
+  if (typeof reduceMotionQuery.addEventListener === "function") {
+    reduceMotionQuery.addEventListener("change", (event) => {
+      setMotionReduced(Boolean(event.matches));
+    });
+  } else if (typeof reduceMotionQuery.addListener === "function") {
+    reduceMotionQuery.addListener((event) => {
+      setMotionReduced(Boolean(event.matches));
+    });
   }
 
   function primeAudioFromInteraction() {
@@ -1598,7 +1693,9 @@ const audioReactiveLevels = {
   }
 
   audioToggle?.addEventListener("click", handleAudioToggle);
+  motionToggle?.addEventListener("click", handleMotionToggle);
   updateAudioToggleUI();
+  updateMotionToggleUI();
   const oncePrimeAudio = () => {
     primeAudioFromInteraction();
     window.removeEventListener("pointerdown", oncePrimeAudio);
@@ -1720,6 +1817,10 @@ const audioReactiveLevels = {
           const img = document.createElement("img");
           img.src = project.image;
           img.alt = `${project.title} preview`;
+          img.loading = "lazy";
+          img.decoding = "async";
+          img.width = 1200;
+          img.height = 675;
           thumb.appendChild(img);
           card.appendChild(thumb);
         }
@@ -1744,6 +1845,18 @@ const audioReactiveLevels = {
         link.textContent = "View repo ↗";
         footer.appendChild(link);
         card.appendChild(footer);
+        card.tabIndex = 0;
+        const maybeOpenPanel = (event) => {
+          if (event?.target?.closest("a")) return;
+          showPanel(project);
+        };
+        card.addEventListener("click", maybeOpenPanel);
+        card.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            maybeOpenPanel(event);
+          }
+        });
         projectGrid.appendChild(card);
       });
     }
@@ -1775,30 +1888,51 @@ const audioReactiveLevels = {
   }
   }
 
-  renderSiteContent();
+  function validateSiteData(data) {
+    if (!data || typeof data !== "object") return false;
+    const requiredArrays = ["stats", "skills", "experiences", "featuredProjects", "extracurriculars", "bubbleProjects"];
+    const requiredObjects = ["profileLinks", "education"];
+    if (requiredObjects.some((key) => !data[key] || typeof data[key] !== "object")) return false;
+    if (requiredArrays.some((key) => !Array.isArray(data[key]))) return false;
+    return true;
+  }
 
   async function fetchLatestSiteData() {
     try {
-      const response = await fetch(`./site-data.js?cache=${Date.now()}`, { cache: "no-store" });
+      const response = await fetch(`./site-data.json?cache=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) throw new Error(`Failed to fetch site-data: ${response.status}`);
-      const scriptText = await response.text();
-      delete window.SITE_DATA;
-      const loader = new Function("window", `${scriptText}; return window.SITE_DATA;`);
-      return loader(window);
+      const json = await response.json();
+      if (!validateSiteData(json)) throw new Error("Site data failed validation");
+      return json;
     } catch (error) {
       console.error("Unable to refresh site content", error);
-      return null;
+      return validateSiteData(window.SITE_DATA) ? window.SITE_DATA : null;
+    }
+  }
+
+  async function initSiteData() {
+    const cached = validateSiteData(window.SITE_DATA) ? window.SITE_DATA : null;
+    if (cached) {
+      renderSiteContent(cached);
+    }
+    const fresh = await fetchLatestSiteData();
+    if (fresh && fresh !== cached) {
+      window.SITE_DATA = fresh;
+      renderSiteContent(fresh);
     }
   }
 
   async function refreshSiteContent() {
     const fresh = await fetchLatestSiteData();
     if (fresh) {
+      window.SITE_DATA = fresh;
       renderSiteContent(fresh);
     }
   }
 
   const AUTO_REFRESH_INTERVAL = 120000;
+  initSiteData();
+
   setInterval(() => {
     if (!document.hidden) {
       refreshSiteContent();
@@ -1815,9 +1949,15 @@ const audioReactiveLevels = {
     panel.classList.add("hidden");
     panelOverlay.classList.add("hidden");
     document.body.classList.remove("panel-open");
+    panel.setAttribute("aria-hidden", "true");
+    releaseFocusTrap();
+    if (lastFocusedElement?.focus) {
+      lastFocusedElement.focus();
+    }
   }
 
   function showPanel(project) {
+    lastFocusedElement = document.activeElement;
     panelTitle.textContent = project.title;
     panelDesc.textContent = project.description;
     panelMeta.textContent = project.stack?.join(" · ") || "";
@@ -1834,6 +1974,10 @@ const audioReactiveLevels = {
     panel.classList.remove("hidden");
     panelOverlay.classList.remove("hidden");
     document.body.classList.add("panel-open");
+    panel.setAttribute("aria-hidden", "false");
+    panel.focus();
+    releaseFocusTrap();
+    activateFocusTrap(panel);
   }
 
   function easeOutBack(t) {
@@ -2072,6 +2216,14 @@ const audioReactiveLevels = {
 const clock = new THREE.Clock();
 let lastElapsed = 0;
 
+document.addEventListener("visibilitychange", () => {
+  setRenderPaused("hidden", document.hidden);
+  if (!document.hidden) {
+    lastElapsed = clock.getElapsedTime();
+  }
+});
+setRenderPaused("hidden", document.hidden);
+
 function applyCameraOrbit() {
     const azimuthSpeed = 0.025;
     const polarSpeed = 0.02;
@@ -2152,6 +2304,10 @@ function updateLighting(delta) {
 
   function animate() {
     requestAnimationFrame(animate);
+    if (!isRenderingActive()) {
+      lastElapsed = clock.getElapsedTime();
+      return;
+    }
     const elapsed = clock.getElapsedTime();
     const delta = Math.min(0.05, Math.max(0.001, elapsed - lastElapsed || 0.016));
     lastElapsed = elapsed;

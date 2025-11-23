@@ -40,6 +40,29 @@ body {
   overflow-x: hidden;
 }
 
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 1rem;
+  z-index: 15;
+  background: #0a1022;
+  color: #f6f8ff;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  text-decoration: none;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.45);
+}
+
+.skip-link:focus-visible {
+  left: 1rem;
+}
+
+:focus-visible {
+  outline: 2px solid #8ad0ff;
+  outline-offset: 3px;
+}
+
 body.prompt-active {
   overflow: hidden;
 }
@@ -85,6 +108,15 @@ body.panel-open {
   background: transparent;
   z-index: 0;
   pointer-events: none;
+}
+
+body.scene-paused #scene-canvas {
+  display: none;
+}
+
+body.motion-reduced .hero {
+  background: linear-gradient(165deg, rgba(6, 10, 22, 0.88), rgba(3, 7, 15, 0.82));
+  box-shadow: 0 30px 70px rgba(2, 6, 14, 0.55);
 }
 
 .page {
@@ -210,6 +242,7 @@ body.panel-open {
   cursor: pointer;
   font-family: inherit;
   color: inherit;
+  min-height: 44px;
 }
 
 .hero-actions .primary {
@@ -680,11 +713,17 @@ body.panel-open {
 }
 
 .contact-links a {
-  color: #a7c2ff;
+  color: #dbeaff;
   text-decoration: none;
   font-weight: 500;
   padding-bottom: 0.2rem;
-  border-bottom: 1px solid rgba(167, 194, 255, 0.4);
+  border-bottom: 1px solid rgba(219, 234, 255, 0.8);
+}
+
+.contact-links a:hover,
+.contact-links a:focus-visible {
+  color: #f5fbff;
+  border-bottom-color: rgba(245, 251, 255, 0.95);
 }
 
 .bubble-panel {
@@ -707,6 +746,8 @@ body.panel-open {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
 }
 
 .bubble-panel-overlay {
@@ -747,6 +788,7 @@ body.panel-open {
   width: 2.1rem;
   height: 2.1rem;
   cursor: pointer;
+  min-height: 44px;
 }
 
 .bubble-panel .panel-tag {
@@ -815,6 +857,7 @@ body.panel-open {
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  min-height: 44px;
 }
 
 .bubble-panel .panel-actions .primary {
