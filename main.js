@@ -35,8 +35,8 @@
 const camera = new THREE.PerspectiveCamera(
   48,
   window.innerWidth / window.innerHeight,
-  0.1,
-  80
+  0.08,
+  4000
 );
 camera.position.set(0.2, 0.9, 6.4);
 const orbitState = {
@@ -444,6 +444,10 @@ const lightingPalettes = [
   },
 ];
 
+const surfacePalette = {
+  name: "surface",
+};
+
 const defaultBackgroundStops = ["#120e0a", "#1c1611", "#070604"];
 const defaultHeroStyle = {
   bg: "rgba(22, 16, 12, 0.38)",
@@ -636,6 +640,7 @@ const viewRight = new THREE.Vector3();
 const viewUp = new THREE.Vector3();
 const cameraToBubble = new THREE.Vector3();
 const swimmerPushVec = new THREE.Vector3();
+const swimDirFlat = new THREE.Vector3();
 
 const bounds = {
   x: 4.2,
@@ -644,21 +649,29 @@ const bounds = {
 };
 
 const depthClampConfig = {
-  frontDistance: 12,
-  backDistance: 16,
+  baseFrontDistance: 22,
+  baseBackDistance: 30,
+  frontDistance: 22,
+  backDistance: 30,
   normal: new THREE.Vector3(),
   frontPlaneD: 0,
   backPlaneD: 0,
 };
-depthClampConfig.normal.copy(camera.position).sub(targetLookAt).normalize();
-depthClampConfig.frontPlaneD = targetLookAt
-  .clone()
-  .addScaledVector(depthClampConfig.normal, depthClampConfig.frontDistance)
-  .dot(depthClampConfig.normal);
-depthClampConfig.backPlaneD = targetLookAt
-  .clone()
-  .addScaledVector(depthClampConfig.normal, -depthClampConfig.backDistance)
-  .dot(depthClampConfig.normal);
+function updateDepthClampPlanes() {
+  depthClampConfig.normal.copy(camera.position).sub(targetLookAt).normalize();
+  const zoomStretch = Math.max(1, orbitState.radius * 0.12);
+  depthClampConfig.frontDistance = depthClampConfig.baseFrontDistance + zoomStretch * 1.8;
+  depthClampConfig.backDistance = depthClampConfig.baseBackDistance + zoomStretch * 2.2;
+  depthClampConfig.frontPlaneD = targetLookAt
+    .clone()
+    .addScaledVector(depthClampConfig.normal, depthClampConfig.frontDistance)
+    .dot(depthClampConfig.normal);
+  depthClampConfig.backPlaneD = targetLookAt
+    .clone()
+    .addScaledVector(depthClampConfig.normal, -depthClampConfig.backDistance)
+    .dot(depthClampConfig.normal);
+}
+updateDepthClampPlanes();
 
 function getZoomRatio() {
   return THREE.MathUtils.clamp(
@@ -679,7 +692,6 @@ function refreshBounds() {
   bounds.y = Math.max(2.5, verticalExtent * (0.45 + ratio * 0.35) + 0.3);
   bounds.z = Math.max(5, depthExtent * (0.8 + ratio * 1.2) + 1.2);
 }
-
 function randomVelocity() {
   const intensity = 0.8 + Math.random() * 0.7;
   return new THREE.Vector3(
@@ -894,6 +906,42 @@ const dropletSettings = {
 const droplets = [];
 const swimmers = [];
 const quagsireModelPath = "./assets/models/quagsire.glb";
+const wailordModelPath = "./assets/models/wailord.glb";
+
+function clampSwimmerToBounds(entry) {
+  const { group } = entry;
+  if (!group) return;
+  const pos = group.position;
+  const limitX = Math.max(0.5, bounds.x - 0.6);
+  const limitYMin = -Math.max(0.5, bounds.y * 0.6);
+  const limitYMax = Math.max(0.4, bounds.y * 0.4);
+  const limitZ = Math.max(1, bounds.z - 1.2);
+  let bounced = false;
+  if (pos.x > limitX) {
+    pos.x = limitX;
+    bounced = true;
+  } else if (pos.x < -limitX) {
+    pos.x = -limitX;
+    bounced = true;
+  }
+  if (pos.y > limitYMax) {
+    pos.y = limitYMax;
+    bounced = true;
+  } else if (pos.y < limitYMin) {
+    pos.y = limitYMin;
+    bounced = true;
+  }
+  if (pos.z > limitZ) {
+    pos.z = limitZ;
+    bounced = true;
+  } else if (pos.z < -limitZ) {
+    pos.z = -limitZ;
+    bounced = true;
+  }
+  if (bounced) {
+    entry.pathOffset = (entry.pathOffset || 0) + Math.PI * 0.8;
+  }
+}
 
 function randomizeDropletPosition(droplet) {
   const radius = THREE.MathUtils.randFloat(dropletSettings.radiusMin, dropletSettings.radiusMax);
@@ -926,19 +974,35 @@ function updateSwimmers(audioResponse, elapsed, delta = 0) {
   const pulseEnergy = audioResponse?.active ? audioResponse.pulse : 0;
   const swellEnergy = audioResponse?.active ? audioResponse.swell : 0;
   swimmers.forEach((entry, idx) => {
-    const { group, basePosition, radius, speed, pathOffset, verticalRange, wobbleAmplitude } =
-      entry;
+    const {
+      group,
+      basePosition,
+      radius,
+      speed,
+      pathOffset,
+      verticalRange,
+      wobbleAmplitude,
+      lockVertical,
+      yawOffset = 0,
+      liftAmplitude = 0,
+      liftSpeed = 0,
+      liftPhase = 0,
+    } = entry;
     const peak = Math.max(pulseEnergy - 0.3, 0);
     const swimSpeed = speed + peak * 0.5 + idx * 0.015;
     const angle = elapsed * swimSpeed + pathOffset;
     const amplitude = radius + peak * 1.3 + levelEnergy * 0.4;
     const lift = swellEnergy * 0.6;
+    const extraLift = liftAmplitude
+      ? Math.sin(elapsed * (liftSpeed || 0.35) + liftPhase) * liftAmplitude
+      : 0;
     group.position.set(
       basePosition.x + Math.cos(angle) * amplitude,
       basePosition.y +
         Math.sin(angle * 1.2) * verticalRange +
         Math.cos(elapsed * 0.7 + idx) * wobbleAmplitude +
-        lift,
+        lift +
+        extraLift,
       basePosition.z + Math.sin(angle) * amplitude
     );
     const lookAhead = angle + 0.2;
@@ -947,9 +1011,20 @@ function updateSwimmers(audioResponse, elapsed, delta = 0) {
       group.position.y + Math.sin(lookAhead * 1.1) * wobbleAmplitude,
       basePosition.z + Math.sin(lookAhead) * amplitude
     );
-    group.lookAt(target);
-    group.rotation.z += (entry.tilt - group.rotation.z) * 0.08;
-    group.rotation.y += peak * 0.02;
+    if (lockVertical) {
+      swimDirFlat.set(target.x - group.position.x, 0, target.z - group.position.z);
+      const lenSq = swimDirFlat.lengthSq();
+      if (lenSq > 0.0001) {
+        const yaw = Math.atan2(swimDirFlat.x, swimDirFlat.z) + yawOffset;
+        const targetRoll = entry.tilt || 0;
+        group.rotation.set(0, yaw, targetRoll);
+      }
+    } else {
+      group.lookAt(target);
+      group.rotation.z += (entry.tilt - group.rotation.z) * 0.08;
+      group.rotation.y += peak * 0.02;
+    }
+    clampSwimmerToBounds(entry);
     const scalePulse = 1 + peak * 0.25 + levelEnergy * 0.05;
     group.scale.setScalar(entry.scale * scalePulse);
     if (entry.mixer) {
@@ -980,6 +1055,21 @@ function repelBubblesFromSwimmers(bubble, data) {
       }
     }
   });
+}
+
+function tuneMaterialForLighting(mat) {
+  if (!mat) return;
+  if ("metalness" in mat) mat.metalness = Math.min(mat.metalness ?? 0.5, 0.12);
+  if ("roughness" in mat) mat.roughness = Math.max(mat.roughness ?? 0.5, 0.45);
+  if ("envMapIntensity" in mat) mat.envMapIntensity = Math.min(mat.envMapIntensity ?? 1, 0.22);
+  if (mat.color) {
+    mat.color.multiplyScalar(0.92);
+  }
+  if (mat.emissive) {
+    mat.emissive.multiplyScalar(0.2);
+    mat.emissiveIntensity = Math.max(mat.emissiveIntensity || 0.08, 0.12);
+  }
+  mat.needsUpdate = true;
 }
 
 function loadQuagsireSwimmer() {
@@ -1034,6 +1124,66 @@ function loadQuagsireSwimmer() {
 }
 
 loadQuagsireSwimmer();
+
+function loadWailordSwimmer() {
+  if (THREE.GLTFLoader) {
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      wailordModelPath,
+      (gltf) => {
+        const sceneRoot = gltf.scene || new THREE.Group();
+        sceneRoot.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = false;
+            child.receiveShadow = false;
+            tuneMaterialForLighting(child.material);
+          }
+        });
+        const basePosition = new THREE.Vector3(0, -0.1, -5.2);
+        const baseScale = 0.8;
+        sceneRoot.position.copy(basePosition);
+        sceneRoot.scale.setScalar(baseScale);
+        sceneRoot.rotation.x = -Math.PI * 0.5; // pitch up so the head faces forward, not downward
+        sceneRoot.rotation.y = Math.PI;
+        scene.add(sceneRoot);
+        const clips = gltf.animations || [];
+        const mixer = clips.length ? new THREE.AnimationMixer(sceneRoot) : null;
+        if (mixer) {
+          clips.forEach((clip) => {
+            const action = mixer.clipAction(clip);
+            action.play();
+          });
+        }
+        swimmers.push({
+          group: sceneRoot,
+          scale: baseScale,
+          radius: THREE.MathUtils.randFloat(3.0, 4.4),
+          speed: THREE.MathUtils.randFloat(0.14, 0.22),
+          verticalRange: THREE.MathUtils.randFloat(0.25, 0.55),
+          pathOffset: Math.random() * Math.PI * 2,
+          wobbleAmplitude: THREE.MathUtils.randFloat(0.08, 0.2),
+          basePosition,
+          tilt: 0,
+          colliderRadius: 2.1,
+          mixer,
+          lockVertical: true,
+          yawOffset: 0,
+          liftAmplitude: THREE.MathUtils.randFloat(0.25, 0.6),
+          liftSpeed: THREE.MathUtils.randFloat(0.25, 0.55),
+          liftPhase: Math.random() * Math.PI * 2,
+        });
+      },
+      undefined,
+      (error) => {
+        console.warn("Failed to load Wailord GLB model", error);
+      }
+    );
+  } else {
+    console.warn("GLTFLoader missing; unable to load Wailord GLB.");
+  }
+}
+
+loadWailordSwimmer();
 
 let activeDropletTarget = 0;
 function updateDropletActivity(force = false) {
@@ -1453,7 +1603,7 @@ const audioReactiveLevels = {
         <p><strong>${educationData.school}</strong> · ${educationData.program || ""} · ${educationData.location || ""}</p>
         <p>${educationData.graduation || ""}</p>
       `;
-    }
+  }
   }
 
   renderSiteContent();
@@ -1474,7 +1624,9 @@ const audioReactiveLevels = {
 
   async function refreshSiteContent() {
     const fresh = await fetchLatestSiteData();
-    if (fresh) renderSiteContent(fresh);
+    if (fresh) {
+      renderSiteContent(fresh);
+    }
   }
 
   const AUTO_REFRESH_INTERVAL = 120000;
@@ -1745,7 +1897,8 @@ let lastElapsed = 0;
 function applyCameraOrbit() {
     const azimuthSpeed = 0.025;
     const polarSpeed = 0.02;
-    const zoomSpeed = 0.035;
+    const zoomSpeed = 0.038;
+    const zoomBoost = Math.max(1, orbitState.radius * 0.12);
   if (orbitKeys.left) orbitState.azimuth -= azimuthSpeed;
   if (orbitKeys.right) orbitState.azimuth += azimuthSpeed;
   if (orbitKeys.up)
@@ -1760,31 +1913,41 @@ function applyCameraOrbit() {
       orbitState.minPolar,
       orbitState.maxPolar
     );
-  if (orbitKeys.zoomIn)
-    orbitState.radius = THREE.MathUtils.clamp(
-      orbitState.radius - zoomSpeed,
+  if (orbitKeys.zoomIn) {
+    orbitState.radius = Math.max(
       orbitState.minRadius,
-      orbitState.maxRadius
+      orbitState.radius - zoomSpeed * zoomBoost
     );
-  if (orbitKeys.zoomOut)
-    orbitState.radius = THREE.MathUtils.clamp(
-      orbitState.radius + zoomSpeed,
+  }
+  if (orbitKeys.zoomOut) {
+    orbitState.radius = Math.max(
       orbitState.minRadius,
-      orbitState.maxRadius
+      orbitState.radius + zoomSpeed * zoomBoost
     );
-  const sinPhi = Math.sin(orbitState.polar);
-  const cosPhi = Math.cos(orbitState.polar);
+  }
+  const polarTarget = orbitState.polar;
+  const orbitRadius = orbitState.radius;
+  const sinPhi = Math.sin(polarTarget);
+  const cosPhi = Math.cos(polarTarget);
   orbitPosition.set(
-    orbitState.radius * sinPhi * Math.sin(orbitState.azimuth),
-    orbitState.radius * cosPhi,
-    orbitState.radius * sinPhi * Math.cos(orbitState.azimuth)
+    orbitRadius * sinPhi * Math.sin(orbitState.azimuth),
+    orbitRadius * cosPhi,
+    orbitRadius * sinPhi * Math.cos(orbitState.azimuth)
   );
   camera.position.lerp(orbitPosition, 0.08);
-  targetLookAt.x += (parallaxMouse.x * 0.3 - targetLookAt.x) * 0.04;
-  targetLookAt.y += (0.35 + parallaxMouse.y * 0.15 - targetLookAt.y) * 0.04;
+  const parallaxScale = 0.3;
+  const lookBaseY = 0.35;
+  targetLookAt.x += (parallaxMouse.x * parallaxScale - targetLookAt.x) * 0.04;
+  targetLookAt.y += (lookBaseY + parallaxMouse.y * parallaxScale * 0.4 - targetLookAt.y) * 0.04;
   camera.lookAt(targetLookAt);
+  updateDepthClampPlanes();
   refreshBounds();
   updateDropletActivity();
+  const farTarget = Math.max(camera.far, orbitRadius * 6);
+  if (farTarget > camera.far + 0.5) {
+    camera.far = farTarget;
+    camera.updateProjectionMatrix();
+  }
 }
 
 function updateLighting(delta) {
@@ -1813,6 +1976,7 @@ function updateLighting(delta) {
     const elapsed = clock.getElapsedTime();
     const delta = Math.min(0.05, Math.max(0.001, elapsed - lastElapsed || 0.016));
     lastElapsed = elapsed;
+    applyCameraOrbit();
     const audioResponse = sampleAudioLevels();
     if (audioResponse.active) {
       audioMotionPhase += delta * (0.35 + audioResponse.level * 2.6 + audioResponse.treble * 1.4);
@@ -1869,10 +2033,12 @@ function updateLighting(delta) {
 
     const tintMix = paletteTintMix;
     const liquidTintMix = Math.min(1, tintMix + 0.12);
+    const hideBubbles = false;
     bubbles.forEach((bubble) => {
       const data = bubble.userData;
       const { basePosition, shellMaterial, velocity, originalRadius } = data;
       const canFloat = bubble !== selectedBubble && data.popState !== "shrink";
+      bubble.visible = true;
       if (canFloat) {
         if (Math.random() < jitterChance) {
           const impulseStrength =
@@ -1997,8 +2163,6 @@ function updateLighting(delta) {
       maybeUpdateLightingPalette();
     }
     updateLighting(delta);
-
-    applyCameraOrbit();
 
     renderer.render(scene, camera);
   }
