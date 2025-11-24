@@ -1,23 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { initScene, destroyScene } from "../legacy-main";
 
 export default function SceneCanvas() {
-  const [booted, setBooted] = useState(false);
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    const onPointer = async () => {
-      if (booted) return;
-      const { initScene } = await import("../legacy-main");
-      initScene();
-      window.__SCENE_INITIALIZED__ = true;
-      setBooted(true);
-      window.removeEventListener("pointerdown", onPointer);
-    };
-    window.addEventListener("pointerdown", onPointer);
+    initScene();
+    const handleBeforeUnload = () => destroyScene();
+    window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
-      window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      destroyScene();
     };
-  }, [booted]);
+  }, []);
 
   return <canvas id="scene-canvas" ref={canvasRef} aria-hidden="true"></canvas>;
 }

@@ -1,4 +1,16 @@
+let destroyed = false;
+let animationId = null;
+let refreshIntervalId = null;
+const managedListeners = [];
+
+function addManagedListener(target, type, handler, options) {
+  target.addEventListener(type, handler, options);
+  managedListeners.push(() => target.removeEventListener(type, handler, options));
+}
+
 export function initScene() {
+  destroyed = false;
+  animationId = null;
   if (!window.THREE) {
     console.error("Three.js is not available. Ensure the CDN script is loaded before main.js.");
     return;
@@ -27,16 +39,23 @@ export function initScene() {
 
   const mediaSmall = window.matchMedia("(max-width: 900px)");
   const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-  const densityScale = reduceMotionQuery.matches ? 0.55 : mediaSmall.matches ? 0.82 : 1;
+  const deviceMemory = typeof navigator !== "undefined" ? navigator.deviceMemory : null;
+  const hasTouch = typeof navigator !== "undefined" ? navigator.maxTouchPoints > 0 : false;
+  const isLowPower = reduceMotionQuery.matches || (deviceMemory && deviceMemory <= 4) || hasTouch;
+  const densityScaleBase = reduceMotionQuery.matches ? 0.55 : mediaSmall.matches ? 0.82 : 1;
+  const densityScale = densityScaleBase * (isLowPower ? 0.7 : 1);
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
     alpha: true,
   });
+  let canvasIsVisible = true;
+  let canvasObserver = null;
 
   function updateRendererQuality() {
-    const cap = reduceMotionQuery.matches ? 1.1 : mediaSmall.matches ? 1.35 : 1.8;
+    const baseCap = reduceMotionQuery.matches ? 1.1 : mediaSmall.matches ? 1.35 : 1.8;
+    const cap = baseCap * (isLowPower ? 0.75 : 1);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
   }
 
@@ -770,9 +789,10 @@ maybeUpdateLightingPalette(true);
   }
 
   const dustDensity = Math.max(0.45, densityScale);
-  createDustLayer(Math.round(800 * dustDensity), 30, 0.05, 0.45, 0x8fbaff, 0.002);
-  createDustLayer(Math.round(600 * dustDensity), 40, 0.08, 0.3, 0x5efbe0, -0.001);
-  createDustLayer(Math.round(1200 * dustDensity), 50, 0.03, 0.2, 0xffffff, 0.0015);
+  const dustScale = isLowPower ? 0.7 : 1;
+  createDustLayer(Math.round(800 * dustDensity * dustScale), 30, 0.05, 0.45, 0x8fbaff, 0.002);
+  createDustLayer(Math.round(600 * dustDensity * dustScale), 40, 0.08, 0.3, 0x5efbe0, -0.001);
+  createDustLayer(Math.round(1200 * dustDensity * dustScale), 50, 0.03, 0.2, 0xffffff, 0.0015);
 
   const bubblesGroup = new THREE.Group();
   scene.add(bubblesGroup);
@@ -1059,7 +1079,7 @@ const dropletMaterial = new THREE.MeshStandardMaterial({
 });
 const dropletSettings = {
   minActive: Math.max(14, Math.round(22 * densityScale)),
-  maxActive: Math.max(40, Math.round(120 * densityScale)),
+  maxActive: Math.max(40, Math.round((isLowPower ? 80 : 120) * densityScale)),
   radiusMin: 4.5,
   radiusMax: 14,
   verticalSpread: 5.2,
@@ -1068,6 +1088,14 @@ const droplets = [];
 const swimmers = [];
 const quagsireModelPath = assetPath("models/quagsire.glb");
 const wailordModelPath = assetPath("models/wailord.glb");
+let GLTFLoaderClass = window.THREE?.GLTFLoader;
+
+async function getGLTFLoader() {
+  if (GLTFLoaderClass) return GLTFLoaderClass;
+  const mod = await import("three/examples/jsm/loaders/GLTFLoader.js");
+  GLTFLoaderClass = mod.GLTFLoader;
+  return GLTFLoaderClass;
+}
 
 function clampSwimmerToBounds(entry) {
   const { group } = entry;
@@ -1224,8 +1252,8 @@ function repelBubblesFromSwimmers(bubble, data) {
   });
 }
 
-function tuneMaterialForLighting(mat) {
-  if (!mat) return;
+  function tuneMaterialForLighting(mat) {
+    if (!mat) return;
   if ("metalness" in mat) mat.metalness = Math.min(mat.metalness ?? 0.5, 0.12);
   if ("roughness" in mat) mat.roughness = Math.max(mat.roughness ?? 0.5, 0.45);
   if ("envMapIntensity" in mat) mat.envMapIntensity = Math.min(mat.envMapIntensity ?? 1, 0.22);
@@ -1251,17 +1279,14 @@ async function assetExists(url) {
 }
 
 function loadQuagsireSwimmer() {
-  if (!THREE.GLTFLoader) {
-    console.warn("GLTFLoader script missing; unable to load Quagsire model.");
-    return;
-  }
   (async () => {
+    const GLTFLoader = await getGLTFLoader();
     const exists = await assetExists(quagsireModelPath);
     if (!exists) {
       console.warn(`Quagsire model not found at ${quagsireModelPath}; skipping load.`);
       return;
     }
-    const loader = new THREE.GLTFLoader();
+    const loader = new GLTFLoader();
     loader.load(
       quagsireModelPath,
       (gltf) => {
@@ -1311,8 +1336,12 @@ function loadQuagsireSwimmer() {
 loadQuagsireSwimmer();
 
 function loadWailordSwimmer() {
-  if (THREE.GLTFLoader) {
-    const loader = new THREE.GLTFLoader();
+  getGLTFLoader().then((GLTFLoader) => {
+    if (!GLTFLoader) {
+      console.warn("GLTFLoader unavailable; skipping Wailord load.");
+      return;
+    }
+    const loader = new GLTFLoader();
     loader.load(
       wailordModelPath,
       (gltf) => {
@@ -1363,9 +1392,7 @@ function loadWailordSwimmer() {
         console.warn("Failed to load Wailord GLB model", error);
       }
     );
-  } else {
-    console.warn("GLTFLoader missing; unable to load Wailord GLB.");
-  }
+  });
 }
 
 loadWailordSwimmer();
@@ -1420,6 +1447,11 @@ function updateZoomDespawn() {
 }
 
 const bubbleBursts = [];
+const canvasObserverOptions = {
+  root: null,
+  threshold: 0,
+};
+let canvasVisibilityObserver = null;
 const tempBurstPosition = new THREE.Vector3();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -1465,7 +1497,7 @@ const dragThreshold = 0.02;
   const educationBlock = document.getElementById("education-block");
   const AUDIO_TRACK_URL = assetPath("audio/chill-chip.wav");
   const audioState = {
-    media: typeof Audio !== "undefined" ? new Audio(AUDIO_TRACK_URL) : null,
+    media: null,
     context: null,
     analyser: null,
     sourceNode: null,
@@ -1538,15 +1570,15 @@ const dragThreshold = 0.02;
     };
     activateFocusTrap(introPrompt);
     (introEnter || introPrompt).focus();
-    introPrompt.addEventListener("click", (event) => {
+    addManagedListener(introPrompt, "click", (event) => {
       if (event.target === introPrompt) {
         dismissPrompt();
       }
     });
     if (introEnter) {
-      introEnter.addEventListener("click", dismissPrompt);
+      addManagedListener(introEnter, "click", dismissPrompt);
     }
-    window.addEventListener("keydown", (event) => {
+    addManagedListener(window, "keydown", (event) => {
       if (event.key === "Enter" && document.body.classList.contains("prompt-active")) {
         dismissPrompt();
       }
@@ -1561,8 +1593,19 @@ const dragThreshold = 0.02;
     audioToggle.textContent = isActive ? "Sound on · Pause" : "Enable sound";
   }
 
-  function ensureAudioGraph() {
-    if (!audioState.media) return false;
+  function ensureMedia() {
+    if (audioState.media) return audioState.media;
+    if (typeof Audio === "undefined") return null;
+    audioState.media = new Audio(AUDIO_TRACK_URL);
+    audioState.media.loop = true;
+    audioState.media.preload = "auto";
+    audioState.media.volume = 0.03;
+    return audioState.media;
+  }
+
+  async function ensureAudioGraph() {
+    const media = ensureMedia();
+    if (!media) return false;
     if (audioState.context || audioState.dataArray) return true;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return true;
@@ -1578,9 +1621,9 @@ const dragThreshold = 0.02;
   }
 
   async function startSoundtrack() {
-    if (!audioState.media) return;
+    if (!ensureMedia()) return;
     audioState.attemptedAutoStart = true;
-    if (!ensureAudioGraph()) {
+    if (!(await ensureAudioGraph())) {
       updateAudioToggleUI();
       return;
     }
@@ -1689,6 +1732,7 @@ const dragThreshold = 0.02;
 
   function renderSiteContent(siteData = window.SITE_DATA || {}) {
     if (!siteData) return;
+    if (window.REACT_RENDERED) return;
     const {
       profileLinks: profile = {},
       stats: statsData = [],
@@ -1830,18 +1874,6 @@ const dragThreshold = 0.02;
         link.textContent = "View repo ↗";
         footer.appendChild(link);
         card.appendChild(footer);
-        card.tabIndex = 0;
-        const maybeOpenPanel = (event) => {
-          if (event?.target?.closest("a")) return;
-          showPanel(project);
-        };
-        card.addEventListener("click", maybeOpenPanel);
-        card.addEventListener("keydown", (event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            maybeOpenPanel(event);
-          }
-        });
         projectGrid.appendChild(card);
       });
     }
@@ -1896,74 +1928,51 @@ const dragThreshold = 0.02;
     }
   }
 
-  async function initSiteData() {
-    const cached = validateSiteData(window.SITE_DATA) ? window.SITE_DATA : null;
-    if (cached) {
-      renderSiteContent(cached);
+  if (!window.REACT_RENDERED) {
+    async function initSiteData() {
+      const cached = validateSiteData(window.SITE_DATA) ? window.SITE_DATA : null;
+      if (cached) {
+        renderSiteContent(cached);
+      }
+      const fresh = await fetchLatestSiteData();
+      if (fresh && fresh !== cached) {
+        window.SITE_DATA = fresh;
+        renderSiteContent(fresh);
+      }
     }
-    const fresh = await fetchLatestSiteData();
-    if (fresh && fresh !== cached) {
-      window.SITE_DATA = fresh;
-      renderSiteContent(fresh);
+
+    async function refreshSiteContent() {
+      const fresh = await fetchLatestSiteData();
+      if (fresh) {
+        window.SITE_DATA = fresh;
+        renderSiteContent(fresh);
+      }
     }
+
+    const AUTO_REFRESH_INTERVAL = 120000;
+    initSiteData();
+
+    refreshIntervalId = setInterval(() => {
+      if (!document.hidden) {
+        refreshSiteContent();
+      }
+    }, AUTO_REFRESH_INTERVAL);
   }
 
-  async function refreshSiteContent() {
-    const fresh = await fetchLatestSiteData();
-    if (fresh) {
-      window.SITE_DATA = fresh;
-      renderSiteContent(fresh);
-    }
+  if (!window.REACT_RENDERED) {
+    panelClose && addManagedListener(panelClose, "click", hidePanel);
+    panelOverlay && addManagedListener(panelOverlay, "click", hidePanel);
+    addManagedListener(window, "keydown", (event) => {
+      if (event.key === "Escape") hidePanel();
+    });
   }
-
-  const AUTO_REFRESH_INTERVAL = 120000;
-  initSiteData();
-
-  setInterval(() => {
-    if (!document.hidden) {
-      refreshSiteContent();
-    }
-  }, AUTO_REFRESH_INTERVAL);
-
-  panelClose?.addEventListener("click", hidePanel);
-  panelOverlay?.addEventListener("click", hidePanel);
-  window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") hidePanel();
-  });
 
   function hidePanel() {
-    panel.classList.add("hidden");
-    panelOverlay.classList.add("hidden");
-    document.body.classList.remove("panel-open");
-    panel.setAttribute("aria-hidden", "true");
-    releaseFocusTrap();
-    if (lastFocusedElement?.focus) {
-      lastFocusedElement.focus();
-    }
+    window.dispatchEvent(new CustomEvent("panel:hide"));
   }
 
   function showPanel(project) {
-    lastFocusedElement = document.activeElement;
-    panelTitle.textContent = project.title;
-    panelDesc.textContent = project.description;
-    panelMeta.textContent = project.stack?.join(" · ") || "";
-    panelLink.href = project.link;
-    if (panelImage && panelMedia) {
-      if (project.image) {
-        panelImage.src = project.image;
-        panelImage.alt = `${project.title} preview`;
-        panelMedia.classList.remove("hidden");
-      } else {
-        panelMedia.classList.add("hidden");
-      }
-    }
-    panel.classList.remove("hidden");
-    panelOverlay.classList.remove("hidden");
-    document.body.classList.add("panel-open");
-    panel.setAttribute("aria-hidden", "false");
-    panel.focus();
-    releaseFocusTrap();
-    activateFocusTrap(panel);
+    window.dispatchEvent(new CustomEvent("panel:show", { detail: project }));
   }
 
   function easeOutBack(t) {
@@ -2194,21 +2203,35 @@ const dragThreshold = 0.02;
     }
   }
 
-  window.addEventListener("pointerdown", handlePointerDown);
-  window.addEventListener("pointermove", handlePointerMove);
-  window.addEventListener("pointerup", endDrag);
-  window.addEventListener("pointerleave", endDrag);
+  addManagedListener(window, "pointerdown", handlePointerDown);
+  addManagedListener(window, "pointermove", handlePointerMove);
+  addManagedListener(window, "pointerup", endDrag);
+  addManagedListener(window, "pointerleave", endDrag);
 
-const clock = new THREE.Clock();
-let lastElapsed = 0;
-
-document.addEventListener("visibilitychange", () => {
-  setRenderPaused("hidden", document.hidden);
-  if (!document.hidden) {
-    lastElapsed = clock.getElapsedTime();
+  if ("IntersectionObserver" in window && canvas) {
+    canvasVisibilityObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const visible = entry.isIntersecting;
+          canvasIsVisible = visible;
+          setRenderPaused("offscreen", !visible);
+        });
+      },
+      { ...canvasObserverOptions, rootMargin: "0px" }
+    );
+    canvasVisibilityObserver.observe(canvas);
   }
-});
-setRenderPaused("hidden", document.hidden);
+
+  const clock = new THREE.Clock();
+  let lastElapsed = 0;
+
+  addManagedListener(document, "visibilitychange", () => {
+    setRenderPaused("hidden", document.hidden);
+    if (!document.hidden) {
+      lastElapsed = clock.getElapsedTime();
+    }
+  });
+  setRenderPaused("hidden", document.hidden);
 
 function applyCameraOrbit() {
     const azimuthSpeed = 0.025;
@@ -2289,7 +2312,8 @@ function updateLighting(delta) {
 }
 
   function animate() {
-    requestAnimationFrame(animate);
+    if (destroyed) return;
+    animationId = requestAnimationFrame(animate);
     if (!isRenderingActive()) {
       lastElapsed = clock.getElapsedTime();
       return;
@@ -2516,10 +2540,10 @@ function updateLighting(delta) {
     camera.updateProjectionMatrix();
     updateRendererQuality();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    refreshBounds();
-  }
+  refreshBounds();
+}
 
-  const inputTags = new Set(["INPUT", "TEXTAREA", "SELECT"]);
+const inputTags = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
   function handleKeyChange(event, pressed) {
     if (inputTags.has(document.activeElement?.tagName || "")) return;
@@ -2559,8 +2583,35 @@ function updateLighting(delta) {
     if (handled) event.preventDefault();
   }
 
-  window.addEventListener("keydown", (event) => handleKeyChange(event, true));
-  window.addEventListener("keyup", (event) => handleKeyChange(event, false));
-  window.addEventListener("resize", onResize);
-  window.addEventListener("contextmenu", (evt) => evt.preventDefault());
+  addManagedListener(window, "keydown", (event) => handleKeyChange(event, true));
+  addManagedListener(window, "keyup", (event) => handleKeyChange(event, false));
+  addManagedListener(window, "resize", onResize);
+  addManagedListener(window, "contextmenu", (evt) => evt.preventDefault());
+}
+
+export function destroyScene() {
+  destroyed = true;
+  if (animationId !== null) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+  if (refreshIntervalId !== null) {
+    clearInterval(refreshIntervalId);
+    refreshIntervalId = null;
+  }
+  managedListeners.splice(0).forEach((off) => {
+    try {
+      off();
+    } catch (error) {
+      console.warn("Failed to remove listener", error);
+    }
+  });
+  if (canvasVisibilityObserver) {
+    try {
+      canvasVisibilityObserver.disconnect();
+    } catch (error) {
+      console.warn("Failed to disconnect canvas observer", error);
+    }
+    canvasVisibilityObserver = null;
+  }
 }

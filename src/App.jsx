@@ -1,7 +1,68 @@
+import { useEffect, useState } from "react";
 import "./style.css";
 import SceneCanvas from "./components/SceneCanvas.jsx";
+import siteDataLocal from "./site-data.json";
+
+const dataUrl = new URL("./site-data.json", import.meta.url).href;
 
 export default function App() {
+  const [siteData, setSiteData] = useState(siteDataLocal);
+  const [panelProject, setPanelProject] = useState(null);
+  const showProjectPanel = (project) => {
+    if (!project) return;
+    setPanelProject(project);
+    document.body.classList.add("panel-open");
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`${dataUrl}?cache=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled && json) {
+          setSiteData(json);
+        }
+      } catch (error) {
+        console.warn("Site data fetch failed; using bundled data", error);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onShow = (event) => {
+      if (event?.detail) {
+        showProjectPanel(event.detail);
+      }
+    };
+    const onHide = () => {
+      setPanelProject(null);
+      document.body.classList.remove("panel-open");
+    };
+    window.addEventListener("panel:show", onShow);
+    window.addEventListener("panel:hide", onHide);
+    return () => {
+      window.removeEventListener("panel:show", onShow);
+      window.removeEventListener("panel:hide", onHide);
+      document.body.classList.remove("panel-open");
+    };
+  }, []);
+
+  const {
+    profileLinks = {},
+    stats = [],
+    skills = [],
+    experiences = [],
+    featuredProjects = [],
+    extracurriculars = [],
+    education = {},
+  } = siteData || {};
+
   return (
     <>
       <a className="skip-link" href="#about">
@@ -38,24 +99,18 @@ export default function App() {
 
         <section className="section about" id="about">
           <h2>What I’m focused on</h2>
-          <p>
+         <p>
             Coursework keeps my math brain sharp, while internships and side projects give me room to experiment with React,
             React Native, data APIs, and automation. Below is a constantly updated snapshot of the skills and roles I’ve been
             growing.
           </p>
           <ul className="stats" id="stats-list">
-            <li>
-              <span>4+</span>
-              Years shipping creative work
-            </li>
-            <li>
-              <span>9</span>
-              Public GitHub projects
-            </li>
-            <li>
-              <span>3</span>
-              Clubs led
-            </li>
+            {(stats || []).map((stat) => (
+              <li key={stat.label}>
+                <span>{stat.value}</span>
+                {stat.label}
+              </li>
+            ))}
           </ul>
         </section>
 
@@ -64,7 +119,19 @@ export default function App() {
             <h2>Technical toolkit</h2>
             <p>Languages and frameworks from the latest term’s labs, internships, and club workshops.</p>
           </div>
-          <div className="services-grid" id="skills-grid" />
+          <div className="services-grid" id="skills-grid">
+            {(skills || []).map((skill) => (
+              <article className="service-card" key={skill.title}>
+                <div className="service-icon">{skill.icon || "✷"}</div>
+                <h3>{skill.title}</h3>
+                <ul>
+                  {(skill.items || []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="section experience" id="experience">
@@ -72,7 +139,29 @@ export default function App() {
             <h2>Experience</h2>
             <p>Recent co-ops, internships, and volunteer work building thoughtful software.</p>
           </div>
-          <div className="timeline" id="experience-list" />
+          <div className="timeline" id="experience-list">
+            {(experiences || []).map((exp) => (
+              <article className="timeline-card" key={`${exp.company}-${exp.role}-${exp.range}`}>
+                <header>
+                  <h3>
+                    {exp.role} · {exp.company}
+                  </h3>
+                  <div className="timeline-meta">
+                    {exp.range || ""}
+                    {exp.location ? ` • ${exp.location}` : ""}
+                  </div>
+                </header>
+                {exp.summary ? <p>{exp.summary}</p> : null}
+                {exp.highlights?.length ? (
+                  <ul>
+                    {exp.highlights.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="section projects" id="projects">
@@ -80,7 +169,50 @@ export default function App() {
             <h2>Selected GitHub projects</h2>
             <p>Each bubble in the background corresponds to one of these repos. Tap, drag, or click below to read more.</p>
           </div>
-          <div className="project-grid" id="project-grid" />
+          <div className="project-grid" id="project-grid">
+            {(featuredProjects || []).map((project) => (
+              <article
+                className="project-card"
+                key={project.title}
+                tabIndex={0}
+                onClick={() => showProjectPanel(project)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    showProjectPanel(project);
+                  }
+                }}
+              >
+                {project.image ? (
+                  <div className="project-thumb">
+                    <img
+                      src={project.image}
+                      alt={`${project.title} preview`}
+                      loading="lazy"
+                      decoding="async"
+                      width="1200"
+                      height="675"
+                    />
+                  </div>
+                ) : null}
+                <p className="tag">GitHub</p>
+                <h3>{project.title}</h3>
+                <p>{project.description}</p>
+                {project.stack?.length ? (
+                  <div className="project-tags">
+                    {project.stack.map((item) => (
+                      <span key={item}>{item}</span>
+                    ))}
+                  </div>
+                ) : null}
+                <footer>
+                  <a href={project.link} target="_blank" rel="noreferrer">
+                    View repo ↗
+                  </a>
+                </footer>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="section extracurricular" id="extracurricular">
@@ -88,16 +220,28 @@ export default function App() {
             <h2>Beyond class</h2>
             <p>Clubs, volunteer work, and orchestras where I practice leadership and collaboration.</p>
           </div>
-          <div className="extracurricular-grid" id="extracurricular-list" />
+          <div className="extracurricular-grid" id="extracurricular-list">
+            {(extracurriculars || []).map((item) => (
+              <article className="extracurricular-card" key={item.title}>
+                <h3>{item.title}</h3>
+                <p className="meta">
+                  {item.org || ""}
+                  {item.range ? ` • ${item.range}` : ""}
+                </p>
+                <p>{item.description || ""}</p>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="section education" id="education">
           <h2>Education</h2>
           <div id="education-block">
             <p>
-              <strong>University of Waterloo</strong> · Honours Mathematics · Waterloo, ON
+              <strong>{education.school || "University of Waterloo"}</strong>
+              {education.program ? ` · ${education.program}` : ""} {education.location ? ` · ${education.location}` : ""}
             </p>
-            <p>Expected Apr 2029</p>
+            <p>{education.graduation || "Expected Apr 2029"}</p>
           </div>
         </section>
 
@@ -108,16 +252,19 @@ export default function App() {
             Native, Supabase, creative coding, or anything mathy.
           </p>
           <div className="contact-links">
-            <a data-link="email" href="mailto:e34song@uwaterloo.ca">
-              e34song@uwaterloo.ca
+            <a data-link="email" href={`mailto:${profileLinks.email || "e34song@uwaterloo.ca"}`}>
+              {profileLinks.email || "e34song@uwaterloo.ca"}
             </a>
-            <a data-link="phone" href="tel:+16475646754">
-              +1 (647) 564-6754
+            <a
+              data-link="phone"
+              href={`tel:${(profileLinks.phone || "+1 (647) 564-6754").replace(/[^+\\d]/g, "")}`}
+            >
+              {profileLinks.phone || "+1 (647) 564-6754"}
             </a>
-            <a data-link="linkedin" href="https://linkedin.com/e34song" target="_blank" rel="noreferrer">
+            <a data-link="linkedin" href={profileLinks.linkedin || "https://linkedin.com/e34song"} target="_blank" rel="noreferrer">
               LinkedIn
             </a>
-            <a data-link="github" href="https://github.com/ezrasong" target="_blank" rel="noreferrer">
+            <a data-link="github" href={profileLinks.github || "https://github.com/ezrasong"} target="_blank" rel="noreferrer">
               GitHub
             </a>
           </div>
@@ -135,32 +282,65 @@ export default function App() {
         </div>
       </div>
 
-      <div id="bubble-panel-overlay" className="bubble-panel-overlay hidden" />
+      <ProjectPanel project={panelProject} onClose={() => setPanelProject(null)} />
+    </>
+  );
+}
+
+function ProjectPanel({ project, onClose }) {
+  const isOpen = Boolean(project);
+  const handleClose = () => {
+    onClose();
+    window.dispatchEvent(new CustomEvent("panel:hide"));
+  };
+  useEffect(() => {
+    const onEsc = (event) => {
+      if (event.key === "Escape") handleClose();
+    };
+    if (isOpen) {
+      window.addEventListener("keydown", onEsc);
+    }
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [isOpen]);
+
+  return (
+    <>
+      <div id="bubble-panel-overlay" className={`bubble-panel-overlay ${isOpen ? "" : "hidden"}`} onClick={handleClose} />
       <aside
         id="bubble-panel"
-        className="bubble-panel hidden"
+        className={`bubble-panel ${isOpen ? "" : "hidden"}`}
         aria-live="polite"
-        aria-hidden="true"
+        aria-hidden={isOpen ? "false" : "true"}
         aria-labelledby="bubble-panel-title"
         aria-describedby="bubble-panel-description"
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
       >
-        <button id="bubble-panel-close" aria-label="Close project details">
+        <button id="bubble-panel-close" aria-label="Close project details" onClick={handleClose}>
           ×
         </button>
         <p className="panel-tag">Project</p>
-        <h3 id="bubble-panel-title" />
-        <div className="panel-media hidden" id="bubble-panel-media">
-          <img id="bubble-panel-image" alt="Project preview" loading="lazy" decoding="async" width="1200" height="900" />
+        <h3 id="bubble-panel-title">{project?.title || ""}</h3>
+        <div className={`panel-media ${project?.image ? "" : "hidden"}`} id="bubble-panel-media">
+          {project?.image ? (
+            <img
+              id="bubble-panel-image"
+              alt={`${project.title} preview`}
+              src={project.image}
+              loading="lazy"
+              decoding="async"
+              width="1200"
+              height="900"
+            />
+          ) : null}
         </div>
         <div className="panel-details">
-          <p id="bubble-panel-description" />
-          <p id="bubble-panel-meta" />
+          <p id="bubble-panel-description">{project?.description || ""}</p>
+          <p id="bubble-panel-meta">{project?.stack?.join(" · ") || ""}</p>
         </div>
         <div className="panel-actions">
-          <a id="bubble-panel-link" className="primary" href="#" target="_blank" rel="noreferrer">
+          <a id="bubble-panel-link" className="primary" href={project?.link || "#"} target="_blank" rel="noreferrer">
             Visit project
           </a>
           <a id="bubble-panel-secondary" className="ghost" href="#projects">
