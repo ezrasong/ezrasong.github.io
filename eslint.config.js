@@ -1,9 +1,10 @@
 import js from "@eslint/js";
 import react from "eslint-plugin-react";
+import globals from "globals";
 
 export default [
   {
-    ignores: ["dist", "node_modules"],
+    ignores: ["dist", "node_modules", "src/legacy-main.js"],
   },
   js.configs.recommended,
   {
@@ -11,6 +12,12 @@ export default [
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
+      ecmaFeatures: {
+        jsx: true,
+      },
+      globals: {
+        ...globals.browser,
+      },
     },
     settings: {
       react: {
