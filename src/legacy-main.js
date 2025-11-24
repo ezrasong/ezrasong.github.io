@@ -29,8 +29,7 @@ export function initScene() {
   } = window.SITE_DATA || {};
 
   const canvas = document.getElementById("scene-canvas");
-  const ASSET_BASE =
-    (typeof import.meta !== "undefined" && import.meta.env?.BASE_URL) || "/";
+  const ASSET_BASE = (typeof import.meta !== "undefined" && import.meta.env?.BASE_URL) || "/";
   const assetPath = (path) => {
     const trimmedBase = ASSET_BASE.endsWith("/") ? ASSET_BASE.slice(0, -1) : ASSET_BASE;
     const trimmedPath = path.startsWith("/") ? path.slice(1) : path;
@@ -96,35 +95,35 @@ export function initScene() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x110d0a, 0.08);
 
-const camera = new THREE.PerspectiveCamera(
-  48,
-  window.innerWidth / window.innerHeight,
-  0.08,
-  4000
-);
-camera.position.set(0.2, 0.9, 6.4);
-const orbitState = {
-  azimuth: 0,
-  polar: 1.05,
-  radius: 6.3,
-  minPolar: 0.35,
-  maxPolar: 1.4,
-  minRadius: 4.2,
-  maxRadius: 14,
-};
-const orbitPointer = { x: 0, y: 0, azimuth: 0, polar: 0 };
-let orbiting = false;
-const orbitPosition = new THREE.Vector3();
-const orbitKeys = {
-  left: false,
-  right: false,
-  up: false,
-  down: false,
-  zoomIn: false,
-  zoomOut: false,
-};
-const DESPAWN_RADIUS = 86.5;
-let isFarView = false;
+  const camera = new THREE.PerspectiveCamera(
+    48,
+    window.innerWidth / window.innerHeight,
+    0.08,
+    4000
+  );
+  camera.position.set(0.2, 0.9, 6.4);
+  const orbitState = {
+    azimuth: 0,
+    polar: 1.05,
+    radius: 6.3,
+    minPolar: 0.35,
+    maxPolar: 1.4,
+    minRadius: 4.2,
+    maxRadius: 14,
+  };
+  const orbitPointer = { x: 0, y: 0, azimuth: 0, polar: 0 };
+  let orbiting = false;
+  const orbitPosition = new THREE.Vector3();
+  const orbitKeys = {
+    left: false,
+    right: false,
+    up: false,
+    down: false,
+    zoomIn: false,
+    zoomOut: false,
+  };
+  const DESPAWN_RADIUS = 86.5;
+  let isFarView = false;
 
   const noiseGLSL = `
   vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -367,7 +366,11 @@ let isFarView = false;
   function deriveBubbleTint(base, imageColor, backgroundColor = paletteTintColor) {
     const tint = (base ? base.clone() : new THREE.Color("#6fb1ff")).convertSRGBToLinear();
     if (imageColor) {
-      const img = new THREE.Color(imageColor.r / 255, imageColor.g / 255, imageColor.b / 255).convertSRGBToLinear();
+      const img = new THREE.Color(
+        imageColor.r / 255,
+        imageColor.g / 255,
+        imageColor.b / 255
+      ).convertSRGBToLinear();
       tint.lerp(img, 1.0);
     }
     if (backgroundColor) {
@@ -394,7 +397,11 @@ let isFarView = false;
     const l = Math.min(1, tempHSL.l * 0.82 + 0.08);
     accent.setHSL(h, s, l);
     if (imageColor) {
-      const img = new THREE.Color(imageColor.r / 255, imageColor.g / 255, imageColor.b / 255).convertSRGBToLinear();
+      const img = new THREE.Color(
+        imageColor.r / 255,
+        imageColor.g / 255,
+        imageColor.b / 255
+      ).convertSRGBToLinear();
       accent.lerp(img, 0.85);
     }
     if (backgroundColor) {
@@ -436,333 +443,333 @@ let isFarView = false;
     return texture;
   }
 
-const hemi = new THREE.HemisphereLight(0xf9f0de, 0x050403, 0.7);
-scene.add(hemi);
-const rimLight = new THREE.PointLight(0xffd6a3, 1.2, 25, 2);
-rimLight.position.set(-5, 3.5, 2);
-scene.add(rimLight);
-const fillLight = new THREE.PointLight(0xf3e7d3, 0.9, 20, 2);
-fillLight.position.set(4, -2, 3);
-scene.add(fillLight);
-const ambient = new THREE.AmbientLight(0x1a1410, 0.35);
-scene.add(ambient);
-const spot = new THREE.SpotLight(0xffe4be, 0.8, 20, Math.PI / 6, 0.4, 1.5);
-spot.position.set(2, 5, 5);
-scene.add(spot);
+  const hemi = new THREE.HemisphereLight(0xf9f0de, 0x050403, 0.7);
+  scene.add(hemi);
+  const rimLight = new THREE.PointLight(0xffd6a3, 1.2, 25, 2);
+  rimLight.position.set(-5, 3.5, 2);
+  scene.add(rimLight);
+  const fillLight = new THREE.PointLight(0xf3e7d3, 0.9, 20, 2);
+  fillLight.position.set(4, -2, 3);
+  scene.add(fillLight);
+  const ambient = new THREE.AmbientLight(0x1a1410, 0.35);
+  scene.add(ambient);
+  const spot = new THREE.SpotLight(0xffe4be, 0.8, 20, Math.PI / 6, 0.4, 1.5);
+  spot.position.set(2, 5, 5);
+  scene.add(spot);
 
-const lightingPalettes = [
-  {
-    name: "dawn",
-    range: [5, 9],
-    fog: 0x0c1a2e,
-    fogDensity: 0.065,
-    hemiSky: 0xe2f4ff,
-    hemiGround: 0x040610,
-    rim: 0xa7ddff,
-    fill: 0x64c9ff,
-    ambient: 0x14243e,
-    spot: 0xf7fdff,
-    rimIntensity: 1.35,
-    fillIntensity: 1,
-    ambientIntensity: 0.55,
-    spotIntensity: 1.15,
-    rimPosition: [-5.2, 3.9, 2.8],
-    fillPosition: [4.2, -1.4, 4.4],
-    spotPosition: [1.2, 6.4, 4.8],
-    tint: "#9fd4ff",
-    tintStrength: 0.32,
-    bubbleTint: "#92b9ff",
-    exposure: 1.2,
-    background: ["#020c1d", "#041731", "#030a1c"],
-    flare: "rgba(155, 224, 255, 0.4)",
-    flareSoft: "rgba(155, 224, 255, 0.2)",
-    hero: {
-      bg: "rgba(10, 20, 40, 0.32)",
-      border: "rgba(157, 216, 255, 0.24)",
-      shadow: "0 60px 130px rgba(4, 8, 24, 0.35)",
-      highlight: "rgba(157, 216, 255, 0.28)",
+  const lightingPalettes = [
+    {
+      name: "dawn",
+      range: [5, 9],
+      fog: 0x0c1a2e,
+      fogDensity: 0.065,
+      hemiSky: 0xe2f4ff,
+      hemiGround: 0x040610,
+      rim: 0xa7ddff,
+      fill: 0x64c9ff,
+      ambient: 0x14243e,
+      spot: 0xf7fdff,
+      rimIntensity: 1.35,
+      fillIntensity: 1,
+      ambientIntensity: 0.55,
+      spotIntensity: 1.15,
+      rimPosition: [-5.2, 3.9, 2.8],
+      fillPosition: [4.2, -1.4, 4.4],
+      spotPosition: [1.2, 6.4, 4.8],
+      tint: "#9fd4ff",
+      tintStrength: 0.32,
+      bubbleTint: "#92b9ff",
+      exposure: 1.2,
+      background: ["#020c1d", "#041731", "#030a1c"],
+      flare: "rgba(155, 224, 255, 0.4)",
+      flareSoft: "rgba(155, 224, 255, 0.2)",
+      hero: {
+        bg: "rgba(10, 20, 40, 0.32)",
+        border: "rgba(157, 216, 255, 0.24)",
+        shadow: "0 60px 130px rgba(4, 8, 24, 0.35)",
+        highlight: "rgba(157, 216, 255, 0.28)",
+      },
+      surface: {
+        bg: "rgba(7, 15, 32, 0.18)",
+        border: "rgba(127, 198, 255, 0.2)",
+        shadow: "0 48px 110px rgba(4, 8, 20, 0.28)",
+        highlight: "rgba(140, 205, 255, 0.24)",
+      },
     },
-    surface: {
-      bg: "rgba(7, 15, 32, 0.18)",
-      border: "rgba(127, 198, 255, 0.2)",
-      shadow: "0 48px 110px rgba(4, 8, 20, 0.28)",
-      highlight: "rgba(140, 205, 255, 0.24)",
+    {
+      name: "day",
+      range: [9, 17],
+      fog: 0x071835,
+      fogDensity: 0.055,
+      hemiSky: 0xdff3ff,
+      hemiGround: 0x03050c,
+      rim: 0xbfe3ff,
+      fill: 0x6ad5ff,
+      ambient: 0x12233f,
+      spot: 0xf2fbff,
+      rimIntensity: 1.25,
+      fillIntensity: 1.08,
+      ambientIntensity: 0.58,
+      spotIntensity: 1.35,
+      rimPosition: [-4.4, 3.4, 2.4],
+      fillPosition: [5.2, -1.2, 3.8],
+      spotPosition: [1.9, 6.1, 5.4],
+      tint: "#b6e1ff",
+      tintStrength: 0.3,
+      bubbleTint: "#a9c8ff",
+      exposure: 1.35,
+      background: ["#031433", "#051e4a", "#020a1f"],
+      flare: "rgba(180, 232, 255, 0.45)",
+      flareSoft: "rgba(180, 232, 255, 0.2)",
+      hero: {
+        bg: "rgba(9, 22, 42, 0.3)",
+        border: "rgba(188, 228, 255, 0.22)",
+        shadow: "0 60px 140px rgba(5, 10, 26, 0.38)",
+        highlight: "rgba(200, 236, 255, 0.32)",
+      },
+      surface: {
+        bg: "rgba(6, 16, 32, 0.16)",
+        border: "rgba(168, 224, 255, 0.18)",
+        shadow: "0 52px 120px rgba(5, 9, 22, 0.28)",
+        highlight: "rgba(194, 236, 255, 0.24)",
+        sheen: "rgba(198, 232, 255, 0.12)",
+      },
     },
-  },
-  {
-    name: "day",
-    range: [9, 17],
-    fog: 0x071835,
-    fogDensity: 0.055,
-    hemiSky: 0xdff3ff,
-    hemiGround: 0x03050c,
-    rim: 0xbfe3ff,
-    fill: 0x6ad5ff,
-    ambient: 0x12233f,
-    spot: 0xf2fbff,
-    rimIntensity: 1.25,
-    fillIntensity: 1.08,
-    ambientIntensity: 0.58,
-    spotIntensity: 1.35,
-    rimPosition: [-4.4, 3.4, 2.4],
-    fillPosition: [5.2, -1.2, 3.8],
-    spotPosition: [1.9, 6.1, 5.4],
-    tint: "#b6e1ff",
-    tintStrength: 0.3,
-    bubbleTint: "#a9c8ff",
-    exposure: 1.35,
-    background: ["#031433", "#051e4a", "#020a1f"],
-    flare: "rgba(180, 232, 255, 0.45)",
-    flareSoft: "rgba(180, 232, 255, 0.2)",
-    hero: {
-      bg: "rgba(9, 22, 42, 0.3)",
-      border: "rgba(188, 228, 255, 0.22)",
-      shadow: "0 60px 140px rgba(5, 10, 26, 0.38)",
-      highlight: "rgba(200, 236, 255, 0.32)",
+    {
+      name: "dusk",
+      range: [17, 21],
+      fog: 0x081027,
+      fogDensity: 0.085,
+      hemiSky: 0xbad0ff,
+      hemiGround: 0x030308,
+      rim: 0x9fbefc,
+      fill: 0x657dff,
+      ambient: 0x101431,
+      spot: 0xe1e5ff,
+      rimIntensity: 1.55,
+      fillIntensity: 0.92,
+      ambientIntensity: 0.6,
+      spotIntensity: 1.15,
+      rimPosition: [-6.2, 3.4, 2.1],
+      fillPosition: [3.8, -1.7, 4.3],
+      spotPosition: [0.8, 5.3, 4.4],
+      tint: "#99b2ff",
+      tintStrength: 0.38,
+      bubbleTint: "#92a5ff",
+      exposure: 1.08,
+      background: ["#050b1e", "#090e28", "#030614"],
+      flare: "rgba(146, 182, 255, 0.45)",
+      flareSoft: "rgba(146, 182, 255, 0.2)",
+      hero: {
+        bg: "rgba(8, 15, 30, 0.26)",
+        border: "rgba(150, 176, 255, 0.24)",
+        shadow: "0 65px 130px rgba(5, 6, 24, 0.36)",
+        highlight: "rgba(150, 176, 255, 0.3)",
+      },
+      surface: {
+        bg: "rgba(6, 11, 24, 0.14)",
+        border: "rgba(134, 160, 255, 0.18)",
+        shadow: "0 54px 115px rgba(5, 5, 18, 0.28)",
+        highlight: "rgba(154, 176, 255, 0.24)",
+      },
     },
-    surface: {
-      bg: "rgba(6, 16, 32, 0.16)",
-      border: "rgba(168, 224, 255, 0.18)",
-      shadow: "0 52px 120px rgba(5, 9, 22, 0.28)",
-      highlight: "rgba(194, 236, 255, 0.24)",
-      sheen: "rgba(198, 232, 255, 0.12)",
+    {
+      name: "night",
+      range: [21, 5],
+      fog: 0x010414,
+      fogDensity: 0.12,
+      hemiSky: 0xb4c0ff,
+      hemiGround: 0x020203,
+      rim: 0x8fb1ff,
+      fill: 0x4457ff,
+      ambient: 0x060818,
+      spot: 0xaecfff,
+      rimIntensity: 1.25,
+      fillIntensity: 0.55,
+      ambientIntensity: 0.45,
+      spotIntensity: 0.9,
+      rimPosition: [-3.8, 3.6, 1.8],
+      fillPosition: [4.8, -2.1, 4.4],
+      spotPosition: [2.5, 4.6, 5.2],
+      tint: "#8eb6ff",
+      tintStrength: 0.48,
+      bubbleTint: "#7a8eff",
+      exposure: 0.88,
+      background: ["#010414", "#03071c", "#000207"],
+      flare: "rgba(166, 190, 255, 0.3)",
+      flareSoft: "rgba(166, 190, 255, 0.16)",
+      hero: {
+        bg: "rgba(4, 7, 18, 0.22)",
+        border: "rgba(158, 181, 255, 0.22)",
+        shadow: "0 55px 140px rgba(1, 2, 6, 0.38)",
+        highlight: "rgba(180, 200, 255, 0.2)",
+      },
+      surface: {
+        bg: "rgba(3, 4, 10, 0.12)",
+        border: "rgba(140, 166, 255, 0.18)",
+        shadow: "0 52px 120px rgba(1, 2, 6, 0.3)",
+        highlight: "rgba(180, 200, 255, 0.18)",
+        sheen: "rgba(180, 200, 255, 0.08)",
+      },
     },
-  },
-  {
-    name: "dusk",
-    range: [17, 21],
-    fog: 0x081027,
-    fogDensity: 0.085,
-    hemiSky: 0xbad0ff,
-    hemiGround: 0x030308,
-    rim: 0x9fbefc,
-    fill: 0x657dff,
-    ambient: 0x101431,
-    spot: 0xe1e5ff,
-    rimIntensity: 1.55,
-    fillIntensity: 0.92,
-    ambientIntensity: 0.6,
-    spotIntensity: 1.15,
-    rimPosition: [-6.2, 3.4, 2.1],
-    fillPosition: [3.8, -1.7, 4.3],
-    spotPosition: [0.8, 5.3, 4.4],
-    tint: "#99b2ff",
-    tintStrength: 0.38,
-    bubbleTint: "#92a5ff",
-    exposure: 1.08,
-    background: ["#050b1e", "#090e28", "#030614"],
-    flare: "rgba(146, 182, 255, 0.45)",
-    flareSoft: "rgba(146, 182, 255, 0.2)",
-    hero: {
-      bg: "rgba(8, 15, 30, 0.26)",
-      border: "rgba(150, 176, 255, 0.24)",
-      shadow: "0 65px 130px rgba(5, 6, 24, 0.36)",
-      highlight: "rgba(150, 176, 255, 0.3)",
-    },
-    surface: {
-      bg: "rgba(6, 11, 24, 0.14)",
-      border: "rgba(134, 160, 255, 0.18)",
-      shadow: "0 54px 115px rgba(5, 5, 18, 0.28)",
-      highlight: "rgba(154, 176, 255, 0.24)",
-    },
-  },
-  {
-    name: "night",
-    range: [21, 5],
-    fog: 0x010414,
-    fogDensity: 0.12,
-    hemiSky: 0xb4c0ff,
-    hemiGround: 0x020203,
-    rim: 0x8fb1ff,
-    fill: 0x4457ff,
-    ambient: 0x060818,
-    spot: 0xaecfff,
-    rimIntensity: 1.25,
-    fillIntensity: 0.55,
-    ambientIntensity: 0.45,
-    spotIntensity: 0.9,
-    rimPosition: [-3.8, 3.6, 1.8],
-    fillPosition: [4.8, -2.1, 4.4],
-    spotPosition: [2.5, 4.6, 5.2],
-    tint: "#8eb6ff",
-    tintStrength: 0.48,
-    bubbleTint: "#7a8eff",
-    exposure: 0.88,
-    background: ["#010414", "#03071c", "#000207"],
-    flare: "rgba(166, 190, 255, 0.3)",
-    flareSoft: "rgba(166, 190, 255, 0.16)",
-    hero: {
-      bg: "rgba(4, 7, 18, 0.22)",
-      border: "rgba(158, 181, 255, 0.22)",
-      shadow: "0 55px 140px rgba(1, 2, 6, 0.38)",
-      highlight: "rgba(180, 200, 255, 0.2)",
-    },
-    surface: {
-      bg: "rgba(3, 4, 10, 0.12)",
-      border: "rgba(140, 166, 255, 0.18)",
-      shadow: "0 52px 120px rgba(1, 2, 6, 0.3)",
-      highlight: "rgba(180, 200, 255, 0.18)",
-      sheen: "rgba(180, 200, 255, 0.08)",
-    },
-  },
-];
+  ];
 
-const surfacePalette = {
-  name: "surface",
-};
-
-const defaultBackgroundStops = ["#120e0a", "#1c1611", "#070604"];
-const defaultHeroStyle = {
-  bg: "rgba(22, 16, 12, 0.38)",
-  border: "rgba(255, 238, 215, 0.14)",
-  shadow: "0 45px 90px rgba(12, 8, 5, 0.4)",
-  highlight: "rgba(255, 231, 205, 0.22)",
-};
-const defaultSurfaceStyle = {
-  bg: defaultHeroStyle.bg,
-  border: defaultHeroStyle.border,
-  shadow: defaultHeroStyle.shadow,
-  highlight: defaultHeroStyle.highlight,
-  sheen: "rgba(255, 255, 245, 0.05)",
-};
-
-const lightingTargets = {
-  fog: scene.fog.color.clone(),
-  hemiSky: hemi.color.clone(),
-  hemiGround: hemi.groundColor.clone(),
-  rim: rimLight.color.clone(),
-  fill: fillLight.color.clone(),
-  ambient: ambient.color.clone(),
-  spot: spot.color.clone(),
-  rimIntensity: rimLight.intensity,
-  fillIntensity: fillLight.intensity,
-  ambientIntensity: ambient.intensity,
-  spotIntensity: spot.intensity,
-  rimPosition: rimLight.position.clone(),
-  fillPosition: fillLight.position.clone(),
-  spotPosition: spot.position.clone(),
-};
-
-const paletteTintColor = new THREE.Color("#9ecbff");
-let paletteTintTarget = 0.25;
-let paletteTintMix = 0.25;
-let fogDensityTarget = scene.fog.density;
-let exposureTarget = renderer.toneMappingExposure;
-const rootStyle = typeof document !== "undefined" ? document.documentElement.style : null;
-let activeLightingPalette = null;
-let paletteInitialized = false;
-const paletteCheckInterval = 45;
-let paletteCheckTimer = paletteCheckInterval;
-
-function applyPaletteCSS(palette) {
-  if (!rootStyle) return;
-  const bg = palette.background?.length === 3 ? palette.background : defaultBackgroundStops;
-  rootStyle.setProperty("--background-top", bg[0]);
-  rootStyle.setProperty("--background-mid", bg[1]);
-  rootStyle.setProperty("--background-bottom", bg[2]);
-  const hero = { ...defaultHeroStyle, ...(palette.hero || {}) };
-  rootStyle.setProperty("--hero-card-bg", hero.bg);
-  rootStyle.setProperty("--hero-card-border", hero.border);
-  rootStyle.setProperty("--hero-card-shadow", hero.shadow);
-  rootStyle.setProperty("--hero-card-highlight", hero.highlight);
-  const surface = {
-    ...defaultSurfaceStyle,
-    bg: hero.bg,
-    border: hero.border,
-    shadow: hero.shadow,
-    highlight: hero.highlight,
-    ...(palette.surface || {}),
+  const surfacePalette = {
+    name: "surface",
   };
-  rootStyle.setProperty("--surface-bg", surface.bg);
-  rootStyle.setProperty("--surface-border", surface.border);
-  rootStyle.setProperty("--surface-shadow", surface.shadow);
-  rootStyle.setProperty("--surface-highlight", surface.highlight);
-  rootStyle.setProperty("--surface-sheen", surface.sheen ?? defaultSurfaceStyle.sheen);
-  const flare = palette.flare || hero.highlight;
-  const flareSoft = palette.flareSoft || flare;
-  rootStyle.setProperty("--background-flare", flare);
-  rootStyle.setProperty("--background-flare-soft", flareSoft);
-}
 
-function paletteMatchesHour(hour, palette) {
-  const [start, end] = palette.range;
-  if (start <= end) {
-    return hour >= start && hour < end;
-  }
-  return hour >= start || hour < end;
-}
+  const defaultBackgroundStops = ["#120e0a", "#1c1611", "#070604"];
+  const defaultHeroStyle = {
+    bg: "rgba(22, 16, 12, 0.38)",
+    border: "rgba(255, 238, 215, 0.14)",
+    shadow: "0 45px 90px rgba(12, 8, 5, 0.4)",
+    highlight: "rgba(255, 231, 205, 0.22)",
+  };
+  const defaultSurfaceStyle = {
+    bg: defaultHeroStyle.bg,
+    border: defaultHeroStyle.border,
+    shadow: defaultHeroStyle.shadow,
+    highlight: defaultHeroStyle.highlight,
+    sheen: "rgba(255, 255, 245, 0.05)",
+  };
 
-function getLightingPalette() {
-  const hour = new Date().getHours();
-  return lightingPalettes.find((entry) => paletteMatchesHour(hour, entry)) || lightingPalettes[0];
-}
+  const lightingTargets = {
+    fog: scene.fog.color.clone(),
+    hemiSky: hemi.color.clone(),
+    hemiGround: hemi.groundColor.clone(),
+    rim: rimLight.color.clone(),
+    fill: fillLight.color.clone(),
+    ambient: ambient.color.clone(),
+    spot: spot.color.clone(),
+    rimIntensity: rimLight.intensity,
+    fillIntensity: fillLight.intensity,
+    ambientIntensity: ambient.intensity,
+    spotIntensity: spot.intensity,
+    rimPosition: rimLight.position.clone(),
+    fillPosition: fillLight.position.clone(),
+    spotPosition: spot.position.clone(),
+  };
 
-function setLightingPalette(palette, immediate = false) {
-  if (!palette) return;
-  lightingTargets.fog.set(palette.fog ?? scene.fog.color.getHex());
-  lightingTargets.hemiSky.set(palette.hemiSky ?? hemi.color.getHex());
-  lightingTargets.hemiGround.set(palette.hemiGround ?? hemi.groundColor.getHex());
-  lightingTargets.rim.set(palette.rim ?? rimLight.color.getHex());
-  lightingTargets.fill.set(palette.fill ?? fillLight.color.getHex());
-  lightingTargets.ambient.set(palette.ambient ?? ambient.color.getHex());
-  lightingTargets.spot.set(palette.spot ?? spot.color.getHex());
-  lightingTargets.rimIntensity = palette.rimIntensity ?? rimLight.intensity;
-  lightingTargets.fillIntensity = palette.fillIntensity ?? fillLight.intensity;
-  lightingTargets.ambientIntensity = palette.ambientIntensity ?? ambient.intensity;
-  lightingTargets.spotIntensity = palette.spotIntensity ?? spot.intensity;
-  if (palette.rimPosition) {
-    lightingTargets.rimPosition.set(...palette.rimPosition);
-  } else {
-    lightingTargets.rimPosition.copy(rimLight.position);
-  }
-  if (palette.fillPosition) {
-    lightingTargets.fillPosition.set(...palette.fillPosition);
-  } else {
-    lightingTargets.fillPosition.copy(fillLight.position);
-  }
-  if (palette.spotPosition) {
-    lightingTargets.spotPosition.set(...palette.spotPosition);
-  } else {
-    lightingTargets.spotPosition.copy(spot.position);
-  }
-  fogDensityTarget = palette.fogDensity ?? scene.fog.density;
-  exposureTarget = palette.exposure ?? renderer.toneMappingExposure;
-  paletteTintColor.set(palette.bubbleTint || palette.tint || "#9cb8ff");
-  paletteTintTarget = palette.tintStrength ?? 0.22;
-  applyPaletteCSS(palette);
-  if (immediate) {
-    scene.fog.color.copy(lightingTargets.fog);
-    hemi.color.copy(lightingTargets.hemiSky);
-    hemi.groundColor.copy(lightingTargets.hemiGround);
-    rimLight.color.copy(lightingTargets.rim);
-    fillLight.color.copy(lightingTargets.fill);
-    ambient.color.copy(lightingTargets.ambient);
-    spot.color.copy(lightingTargets.spot);
-    rimLight.intensity = lightingTargets.rimIntensity;
-    fillLight.intensity = lightingTargets.fillIntensity;
-    ambient.intensity = lightingTargets.ambientIntensity;
-    spot.intensity = lightingTargets.spotIntensity;
-    rimLight.position.copy(lightingTargets.rimPosition);
-    fillLight.position.copy(lightingTargets.fillPosition);
-    spot.position.copy(lightingTargets.spotPosition);
-    scene.fog.density = fogDensityTarget;
-    renderer.toneMappingExposure = exposureTarget;
-    paletteTintMix = paletteTintTarget;
-  }
-}
+  const paletteTintColor = new THREE.Color("#9ecbff");
+  let paletteTintTarget = 0.25;
+  let paletteTintMix = 0.25;
+  let fogDensityTarget = scene.fog.density;
+  let exposureTarget = renderer.toneMappingExposure;
+  const rootStyle = typeof document !== "undefined" ? document.documentElement.style : null;
+  let activeLightingPalette = null;
+  let paletteInitialized = false;
+  const paletteCheckInterval = 45;
+  let paletteCheckTimer = paletteCheckInterval;
 
-function maybeUpdateLightingPalette(force = false) {
-  const palette = getLightingPalette();
-  if (!palette) return;
-  const paletteChanged = !activeLightingPalette || palette.name !== activeLightingPalette.name;
-  if (force || paletteChanged) {
-    setLightingPalette(palette, force || !paletteInitialized);
-    activeLightingPalette = palette;
-    paletteInitialized = true;
+  function applyPaletteCSS(palette) {
+    if (!rootStyle) return;
+    const bg = palette.background?.length === 3 ? palette.background : defaultBackgroundStops;
+    rootStyle.setProperty("--background-top", bg[0]);
+    rootStyle.setProperty("--background-mid", bg[1]);
+    rootStyle.setProperty("--background-bottom", bg[2]);
+    const hero = { ...defaultHeroStyle, ...(palette.hero || {}) };
+    rootStyle.setProperty("--hero-card-bg", hero.bg);
+    rootStyle.setProperty("--hero-card-border", hero.border);
+    rootStyle.setProperty("--hero-card-shadow", hero.shadow);
+    rootStyle.setProperty("--hero-card-highlight", hero.highlight);
+    const surface = {
+      ...defaultSurfaceStyle,
+      bg: hero.bg,
+      border: hero.border,
+      shadow: hero.shadow,
+      highlight: hero.highlight,
+      ...(palette.surface || {}),
+    };
+    rootStyle.setProperty("--surface-bg", surface.bg);
+    rootStyle.setProperty("--surface-border", surface.border);
+    rootStyle.setProperty("--surface-shadow", surface.shadow);
+    rootStyle.setProperty("--surface-highlight", surface.highlight);
+    rootStyle.setProperty("--surface-sheen", surface.sheen ?? defaultSurfaceStyle.sheen);
+    const flare = palette.flare || hero.highlight;
+    const flareSoft = palette.flareSoft || flare;
+    rootStyle.setProperty("--background-flare", flare);
+    rootStyle.setProperty("--background-flare-soft", flareSoft);
   }
-}
 
-maybeUpdateLightingPalette(true);
+  function paletteMatchesHour(hour, palette) {
+    const [start, end] = palette.range;
+    if (start <= end) {
+      return hour >= start && hour < end;
+    }
+    return hour >= start || hour < end;
+  }
+
+  function getLightingPalette() {
+    const hour = new Date().getHours();
+    return lightingPalettes.find((entry) => paletteMatchesHour(hour, entry)) || lightingPalettes[0];
+  }
+
+  function setLightingPalette(palette, immediate = false) {
+    if (!palette) return;
+    lightingTargets.fog.set(palette.fog ?? scene.fog.color.getHex());
+    lightingTargets.hemiSky.set(palette.hemiSky ?? hemi.color.getHex());
+    lightingTargets.hemiGround.set(palette.hemiGround ?? hemi.groundColor.getHex());
+    lightingTargets.rim.set(palette.rim ?? rimLight.color.getHex());
+    lightingTargets.fill.set(palette.fill ?? fillLight.color.getHex());
+    lightingTargets.ambient.set(palette.ambient ?? ambient.color.getHex());
+    lightingTargets.spot.set(palette.spot ?? spot.color.getHex());
+    lightingTargets.rimIntensity = palette.rimIntensity ?? rimLight.intensity;
+    lightingTargets.fillIntensity = palette.fillIntensity ?? fillLight.intensity;
+    lightingTargets.ambientIntensity = palette.ambientIntensity ?? ambient.intensity;
+    lightingTargets.spotIntensity = palette.spotIntensity ?? spot.intensity;
+    if (palette.rimPosition) {
+      lightingTargets.rimPosition.set(...palette.rimPosition);
+    } else {
+      lightingTargets.rimPosition.copy(rimLight.position);
+    }
+    if (palette.fillPosition) {
+      lightingTargets.fillPosition.set(...palette.fillPosition);
+    } else {
+      lightingTargets.fillPosition.copy(fillLight.position);
+    }
+    if (palette.spotPosition) {
+      lightingTargets.spotPosition.set(...palette.spotPosition);
+    } else {
+      lightingTargets.spotPosition.copy(spot.position);
+    }
+    fogDensityTarget = palette.fogDensity ?? scene.fog.density;
+    exposureTarget = palette.exposure ?? renderer.toneMappingExposure;
+    paletteTintColor.set(palette.bubbleTint || palette.tint || "#9cb8ff");
+    paletteTintTarget = palette.tintStrength ?? 0.22;
+    applyPaletteCSS(palette);
+    if (immediate) {
+      scene.fog.color.copy(lightingTargets.fog);
+      hemi.color.copy(lightingTargets.hemiSky);
+      hemi.groundColor.copy(lightingTargets.hemiGround);
+      rimLight.color.copy(lightingTargets.rim);
+      fillLight.color.copy(lightingTargets.fill);
+      ambient.color.copy(lightingTargets.ambient);
+      spot.color.copy(lightingTargets.spot);
+      rimLight.intensity = lightingTargets.rimIntensity;
+      fillLight.intensity = lightingTargets.fillIntensity;
+      ambient.intensity = lightingTargets.ambientIntensity;
+      spot.intensity = lightingTargets.spotIntensity;
+      rimLight.position.copy(lightingTargets.rimPosition);
+      fillLight.position.copy(lightingTargets.fillPosition);
+      spot.position.copy(lightingTargets.spotPosition);
+      scene.fog.density = fogDensityTarget;
+      renderer.toneMappingExposure = exposureTarget;
+      paletteTintMix = paletteTintTarget;
+    }
+  }
+
+  function maybeUpdateLightingPalette(force = false) {
+    const palette = getLightingPalette();
+    if (!palette) return;
+    const paletteChanged = !activeLightingPalette || palette.name !== activeLightingPalette.name;
+    if (force || paletteChanged) {
+      setLightingPalette(palette, force || !paletteInitialized);
+      activeLightingPalette = palette;
+      paletteInitialized = true;
+    }
+  }
+
+  maybeUpdateLightingPalette(true);
 
   const particleLayers = [];
   function createDustLayer(count, spread, size, opacity, color, speed) {
@@ -798,157 +805,157 @@ maybeUpdateLightingPalette(true);
   scene.add(bubblesGroup);
   const outerGeometry = new THREE.SphereGeometry(1, 96, 96);
 
-const targetLookAt = new THREE.Vector3(0, 0.2, 0);
-const parallaxMouse = new THREE.Vector2(0, 0);
-const viewForward = new THREE.Vector3();
-const viewRight = new THREE.Vector3();
-const viewUp = new THREE.Vector3();
-const cameraToBubble = new THREE.Vector3();
-const swimmerPushVec = new THREE.Vector3();
-const swimDirFlat = new THREE.Vector3();
+  const targetLookAt = new THREE.Vector3(0, 0.2, 0);
+  const parallaxMouse = new THREE.Vector2(0, 0);
+  const viewForward = new THREE.Vector3();
+  const viewRight = new THREE.Vector3();
+  const viewUp = new THREE.Vector3();
+  const cameraToBubble = new THREE.Vector3();
+  const swimmerPushVec = new THREE.Vector3();
+  const swimDirFlat = new THREE.Vector3();
 
-const bounds = {
-  x: 4.2,
-  y: 2.6,
-  z: 4.5,
-};
-
-const depthClampConfig = {
-  baseFrontDistance: 22,
-  baseBackDistance: 30,
-  frontDistance: 22,
-  backDistance: 30,
-  normal: new THREE.Vector3(),
-  frontPlaneD: 0,
-  backPlaneD: 0,
-};
-function updateDepthClampPlanes() {
-  depthClampConfig.normal.copy(camera.position).sub(targetLookAt).normalize();
-  const zoomStretch = Math.max(1, orbitState.radius * 0.12);
-  depthClampConfig.frontDistance = depthClampConfig.baseFrontDistance + zoomStretch * 1.8;
-  depthClampConfig.backDistance = depthClampConfig.baseBackDistance + zoomStretch * 2.2;
-  depthClampConfig.frontPlaneD = targetLookAt
-    .clone()
-    .addScaledVector(depthClampConfig.normal, depthClampConfig.frontDistance)
-    .dot(depthClampConfig.normal);
-  depthClampConfig.backPlaneD = targetLookAt
-    .clone()
-    .addScaledVector(depthClampConfig.normal, -depthClampConfig.backDistance)
-    .dot(depthClampConfig.normal);
-}
-updateDepthClampPlanes();
-
-function getZoomRatio() {
-  return THREE.MathUtils.clamp(
-    (orbitState.radius - orbitState.minRadius) / (orbitState.maxRadius - orbitState.minRadius),
-    0,
-    1
-  );
-}
-
-function refreshBounds() {
-  const ratio = getZoomRatio();
-  const focusDistance = camera.position.distanceTo(targetLookAt);
-  const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
-  const verticalExtent = 2 * Math.tan(halfFov) * focusDistance;
-  const horizontalExtent = verticalExtent * camera.aspect;
-  const depthExtent = focusDistance * 0.9;
-  bounds.x = Math.max(3.8, horizontalExtent * (0.7 + ratio * 0.4) + 0.4);
-  bounds.y = Math.max(2.5, verticalExtent * (0.45 + ratio * 0.35) + 0.3);
-  bounds.z = Math.max(5, depthExtent * (0.8 + ratio * 1.2) + 1.2);
-}
-function randomVelocity() {
-  const intensity = 0.8 + Math.random() * 0.7;
-  return new THREE.Vector3(
-    (Math.random() - 0.5) * 1.7 * intensity,
-    (Math.random() - 0.5) * 1.1 * intensity,
-    (Math.random() - 0.5) * 1.7 * intensity
-  );
-}
-
-function clampVectorToBounds(target, radius = 0.8) {
-  const maxX = Math.max(0.1, bounds.x - radius);
-  const maxY = Math.max(0.1, bounds.y - radius);
-  const maxZ = Math.max(0.1, bounds.z - radius);
-  target.x = THREE.MathUtils.clamp(target.x, -maxX, maxX);
-  target.y = THREE.MathUtils.clamp(target.y, -maxY, maxY);
-  target.z = THREE.MathUtils.clamp(target.z, -maxZ, maxZ);
-  return target;
-}
-
-function clampBubbleToCameraView(bubble, data, radius, tanHalfFov) {
-  cameraToBubble.copy(bubble.position).sub(camera.position);
-  let depth = cameraToBubble.dot(viewForward);
-  depth = Math.max(depth, radius + 0.4);
-  let halfHeight = tanHalfFov * depth;
-  let halfWidth = halfHeight * camera.aspect;
-  const padding = Math.max(0.25, radius * 1.15);
-  const minDepth = Math.max(radius + 2.2, 4.2);
-  const maxDepth = bounds.z * 1.15;
-
-  if (depth < minDepth) {
-    const correction = minDepth - depth;
-    bubble.position.addScaledVector(viewForward, correction);
-    const component = data.velocity.dot(viewForward);
-    if (component < 0) data.velocity.addScaledVector(viewForward, -component * 1.35);
-    data.basePosition.addScaledVector(viewForward, correction * 0.15);
-    depth = minDepth;
-  } else if (depth > maxDepth) {
-    const correction = depth - maxDepth;
-    bubble.position.addScaledVector(viewForward, -correction);
-    const component = data.velocity.dot(viewForward);
-    if (component > 0) data.velocity.addScaledVector(viewForward, -component * 0.9);
-    data.basePosition.addScaledVector(viewForward, -correction * 0.15);
-    depth = maxDepth;
-  }
-
-  cameraToBubble.subVectors(bubble.position, camera.position);
-  depth = cameraToBubble.dot(viewForward);
-  halfHeight = tanHalfFov * depth;
-  halfWidth = halfHeight * camera.aspect;
-
-  const clampAxis = (dist, limit, axisVec) => {
-    if (dist > limit) {
-      const correction = dist - limit;
-      bubble.position.addScaledVector(axisVec, -correction);
-      data.velocity.addScaledVector(axisVec, -data.velocity.dot(axisVec) * 1.6);
-      data.basePosition.addScaledVector(axisVec, -correction * 0.15);
-    } else if (dist < -limit) {
-      const correction = dist + limit;
-      bubble.position.addScaledVector(axisVec, -correction);
-      data.velocity.addScaledVector(axisVec, -data.velocity.dot(axisVec) * 1.6);
-      data.basePosition.addScaledVector(axisVec, -correction * 0.15);
-    }
+  const bounds = {
+    x: 4.2,
+    y: 2.6,
+    z: 4.5,
   };
 
-  clampAxis(cameraToBubble.dot(viewRight), Math.max(0.6, halfWidth - padding), viewRight);
-  clampAxis(cameraToBubble.dot(viewUp), Math.max(0.5, halfHeight - padding), viewUp);
+  const depthClampConfig = {
+    baseFrontDistance: 22,
+    baseBackDistance: 30,
+    frontDistance: 22,
+    backDistance: 30,
+    normal: new THREE.Vector3(),
+    frontPlaneD: 0,
+    backPlaneD: 0,
+  };
+  function updateDepthClampPlanes() {
+    depthClampConfig.normal.copy(camera.position).sub(targetLookAt).normalize();
+    const zoomStretch = Math.max(1, orbitState.radius * 0.12);
+    depthClampConfig.frontDistance = depthClampConfig.baseFrontDistance + zoomStretch * 1.8;
+    depthClampConfig.backDistance = depthClampConfig.baseBackDistance + zoomStretch * 2.2;
+    depthClampConfig.frontPlaneD = targetLookAt
+      .clone()
+      .addScaledVector(depthClampConfig.normal, depthClampConfig.frontDistance)
+      .dot(depthClampConfig.normal);
+    depthClampConfig.backPlaneD = targetLookAt
+      .clone()
+      .addScaledVector(depthClampConfig.normal, -depthClampConfig.backDistance)
+      .dot(depthClampConfig.normal);
+  }
+  updateDepthClampPlanes();
 
-  if (depthClampConfig.normal.lengthSq() > 0) {
-    const frontDistance =
-      bubble.position.dot(depthClampConfig.normal) - depthClampConfig.frontPlaneD;
-    if (frontDistance > 0) {
-      bubble.position.addScaledVector(depthClampConfig.normal, -frontDistance);
-      const velFront = data.velocity?.dot(depthClampConfig.normal) ?? 0;
-      if (data.velocity && velFront > 0) {
-        data.velocity.addScaledVector(depthClampConfig.normal, -velFront * 1.35);
-      }
-      data.basePosition.addScaledVector(depthClampConfig.normal, -frontDistance * 0.25);
+  function getZoomRatio() {
+    return THREE.MathUtils.clamp(
+      (orbitState.radius - orbitState.minRadius) / (orbitState.maxRadius - orbitState.minRadius),
+      0,
+      1
+    );
+  }
+
+  function refreshBounds() {
+    const ratio = getZoomRatio();
+    const focusDistance = camera.position.distanceTo(targetLookAt);
+    const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
+    const verticalExtent = 2 * Math.tan(halfFov) * focusDistance;
+    const horizontalExtent = verticalExtent * camera.aspect;
+    const depthExtent = focusDistance * 0.9;
+    bounds.x = Math.max(3.8, horizontalExtent * (0.7 + ratio * 0.4) + 0.4);
+    bounds.y = Math.max(2.5, verticalExtent * (0.45 + ratio * 0.35) + 0.3);
+    bounds.z = Math.max(5, depthExtent * (0.8 + ratio * 1.2) + 1.2);
+  }
+  function randomVelocity() {
+    const intensity = 0.8 + Math.random() * 0.7;
+    return new THREE.Vector3(
+      (Math.random() - 0.5) * 1.7 * intensity,
+      (Math.random() - 0.5) * 1.1 * intensity,
+      (Math.random() - 0.5) * 1.7 * intensity
+    );
+  }
+
+  function clampVectorToBounds(target, radius = 0.8) {
+    const maxX = Math.max(0.1, bounds.x - radius);
+    const maxY = Math.max(0.1, bounds.y - radius);
+    const maxZ = Math.max(0.1, bounds.z - radius);
+    target.x = THREE.MathUtils.clamp(target.x, -maxX, maxX);
+    target.y = THREE.MathUtils.clamp(target.y, -maxY, maxY);
+    target.z = THREE.MathUtils.clamp(target.z, -maxZ, maxZ);
+    return target;
+  }
+
+  function clampBubbleToCameraView(bubble, data, radius, tanHalfFov) {
+    cameraToBubble.copy(bubble.position).sub(camera.position);
+    let depth = cameraToBubble.dot(viewForward);
+    depth = Math.max(depth, radius + 0.4);
+    let halfHeight = tanHalfFov * depth;
+    let halfWidth = halfHeight * camera.aspect;
+    const padding = Math.max(0.25, radius * 1.15);
+    const minDepth = Math.max(radius + 2.2, 4.2);
+    const maxDepth = bounds.z * 1.15;
+
+    if (depth < minDepth) {
+      const correction = minDepth - depth;
+      bubble.position.addScaledVector(viewForward, correction);
+      const component = data.velocity.dot(viewForward);
+      if (component < 0) data.velocity.addScaledVector(viewForward, -component * 1.35);
+      data.basePosition.addScaledVector(viewForward, correction * 0.15);
+      depth = minDepth;
+    } else if (depth > maxDepth) {
+      const correction = depth - maxDepth;
+      bubble.position.addScaledVector(viewForward, -correction);
+      const component = data.velocity.dot(viewForward);
+      if (component > 0) data.velocity.addScaledVector(viewForward, -component * 0.9);
+      data.basePosition.addScaledVector(viewForward, -correction * 0.15);
+      depth = maxDepth;
     }
-    const backDistance =
-      bubble.position.dot(depthClampConfig.normal) - depthClampConfig.backPlaneD;
-    if (backDistance < 0) {
-      bubble.position.addScaledVector(depthClampConfig.normal, -backDistance);
-      const velBack = data.velocity?.dot(depthClampConfig.normal) ?? 0;
-      if (data.velocity && velBack < 0) {
-        data.velocity.addScaledVector(depthClampConfig.normal, -velBack * 1.2);
+
+    cameraToBubble.subVectors(bubble.position, camera.position);
+    depth = cameraToBubble.dot(viewForward);
+    halfHeight = tanHalfFov * depth;
+    halfWidth = halfHeight * camera.aspect;
+
+    const clampAxis = (dist, limit, axisVec) => {
+      if (dist > limit) {
+        const correction = dist - limit;
+        bubble.position.addScaledVector(axisVec, -correction);
+        data.velocity.addScaledVector(axisVec, -data.velocity.dot(axisVec) * 1.6);
+        data.basePosition.addScaledVector(axisVec, -correction * 0.15);
+      } else if (dist < -limit) {
+        const correction = dist + limit;
+        bubble.position.addScaledVector(axisVec, -correction);
+        data.velocity.addScaledVector(axisVec, -data.velocity.dot(axisVec) * 1.6);
+        data.basePosition.addScaledVector(axisVec, -correction * 0.15);
       }
-      data.basePosition.addScaledVector(depthClampConfig.normal, -backDistance * 0.25);
+    };
+
+    clampAxis(cameraToBubble.dot(viewRight), Math.max(0.6, halfWidth - padding), viewRight);
+    clampAxis(cameraToBubble.dot(viewUp), Math.max(0.5, halfHeight - padding), viewUp);
+
+    if (depthClampConfig.normal.lengthSq() > 0) {
+      const frontDistance =
+        bubble.position.dot(depthClampConfig.normal) - depthClampConfig.frontPlaneD;
+      if (frontDistance > 0) {
+        bubble.position.addScaledVector(depthClampConfig.normal, -frontDistance);
+        const velFront = data.velocity?.dot(depthClampConfig.normal) ?? 0;
+        if (data.velocity && velFront > 0) {
+          data.velocity.addScaledVector(depthClampConfig.normal, -velFront * 1.35);
+        }
+        data.basePosition.addScaledVector(depthClampConfig.normal, -frontDistance * 0.25);
+      }
+      const backDistance =
+        bubble.position.dot(depthClampConfig.normal) - depthClampConfig.backPlaneD;
+      if (backDistance < 0) {
+        bubble.position.addScaledVector(depthClampConfig.normal, -backDistance);
+        const velBack = data.velocity?.dot(depthClampConfig.normal) ?? 0;
+        if (data.velocity && velBack < 0) {
+          data.velocity.addScaledVector(depthClampConfig.normal, -velBack * 1.2);
+        }
+        data.basePosition.addScaledVector(depthClampConfig.normal, -backDistance * 0.25);
+      }
     }
   }
-}
 
-refreshBounds();
+  refreshBounds();
   function randomizeBasePosition(data, bubble, bubbleList = bubbleRegistry) {
     let attempts = 0;
     let base;
@@ -994,7 +1001,8 @@ refreshBounds();
       if (bubble?.userData?.tintColor) bubble.userData.tintColor.copy(nextTint);
       if (bubble?.userData?.baseAccentColor) bubble.userData.baseAccentColor.copy(nextAccent);
       if (shellMaterial?.uniforms?.uTint?.value) shellMaterial.uniforms.uTint.value.copy(nextTint);
-      if (shellMaterial?.uniforms?.uAccent?.value) shellMaterial.uniforms.uAccent.value.copy(nextAccent);
+      if (shellMaterial?.uniforms?.uAccent?.value)
+        shellMaterial.uniforms.uAccent.value.copy(nextAccent);
     };
     const previewTexture = getTexture(project.image, applyImageTint);
     shellMaterial = createBubbleMaterial(bubbleTint.clone(), accentColor.clone(), previewTexture);
@@ -1049,7 +1057,8 @@ refreshBounds();
           distSq = collisionVec.lengthSq();
         }
         const dist = Math.sqrt(distSq);
-        const minDist = (a.userData.originalRadius || a.scale.x) + (b.userData.originalRadius || b.scale.x);
+        const minDist =
+          (a.userData.originalRadius || a.scale.x) + (b.userData.originalRadius || b.scale.x);
         if (dist < minDist) {
           const push = (minDist - dist) * 0.5;
           collisionVec.normalize();
@@ -1069,407 +1078,409 @@ refreshBounds();
     }
   }
 
-const dropletGeometry = new THREE.IcosahedronGeometry(0.07, 0);
-const dropletMaterial = new THREE.MeshStandardMaterial({
-  color: 0x7dfbff,
-  transparent: true,
-  opacity: 0.35,
-  metalness: 0.2,
-  roughness: 0.2,
-});
-const dropletSettings = {
-  minActive: Math.max(14, Math.round(22 * densityScale)),
-  maxActive: Math.max(40, Math.round((isLowPower ? 80 : 120) * densityScale)),
-  radiusMin: 4.5,
-  radiusMax: 14,
-  verticalSpread: 5.2,
-};
-const droplets = [];
-const swimmers = [];
-const quagsireModelPath = assetPath("models/quagsire.glb");
-const wailordModelPath = assetPath("models/wailord.glb");
-let GLTFLoaderClass = window.THREE?.GLTFLoader;
-
-async function getGLTFLoader() {
-  if (GLTFLoaderClass) return GLTFLoaderClass;
-  const mod = await import("three/examples/jsm/loaders/GLTFLoader.js");
-  GLTFLoaderClass = mod.GLTFLoader;
-  return GLTFLoaderClass;
-}
-
-function clampSwimmerToBounds(entry) {
-  const { group } = entry;
-  if (!group) return;
-  const pos = group.position;
-  const limitX = Math.max(0.5, bounds.x - 0.6);
-  const limitYMin = -Math.max(0.5, bounds.y * 0.6);
-  const limitYMax = Math.max(0.4, bounds.y * 0.4);
-  const limitZ = Math.max(1, bounds.z - 1.2);
-  let bounced = false;
-  if (pos.x > limitX) {
-    pos.x = limitX;
-    bounced = true;
-  } else if (pos.x < -limitX) {
-    pos.x = -limitX;
-    bounced = true;
-  }
-  if (pos.y > limitYMax) {
-    pos.y = limitYMax;
-    bounced = true;
-  } else if (pos.y < limitYMin) {
-    pos.y = limitYMin;
-    bounced = true;
-  }
-  if (pos.z > limitZ) {
-    pos.z = limitZ;
-    bounced = true;
-  } else if (pos.z < -limitZ) {
-    pos.z = -limitZ;
-    bounced = true;
-  }
-  if (bounced) {
-    entry.pathOffset = (entry.pathOffset || 0) + Math.PI * 0.8;
-  }
-}
-
-function randomizeDropletPosition(droplet) {
-  const radius = THREE.MathUtils.randFloat(dropletSettings.radiusMin, dropletSettings.radiusMax);
-  const angle = Math.random() * Math.PI * 2;
-  const depthOffset = THREE.MathUtils.randFloat(2, 9);
-  droplet.position.set(
-    Math.cos(angle) * radius,
-    THREE.MathUtils.randFloatSpread(dropletSettings.verticalSpread),
-    Math.sin(angle) * radius - depthOffset
-  );
-  droplet.userData.base.copy(droplet.position);
-  droplet.userData.speed = 0.35 + Math.random() * 0.6;
-}
-
-for (let i = 0; i < dropletSettings.maxActive; i += 1) {
-  const droplet = new THREE.Mesh(dropletGeometry, dropletMaterial);
-  droplet.visible = false;
-  droplet.userData = {
-    base: new THREE.Vector3(),
-    speed: 0.4,
-    active: false,
+  const dropletGeometry = new THREE.IcosahedronGeometry(0.07, 0);
+  const dropletMaterial = new THREE.MeshStandardMaterial({
+    color: 0x7dfbff,
+    transparent: true,
+    opacity: 0.35,
+    metalness: 0.2,
+    roughness: 0.2,
+  });
+  const dropletSettings = {
+    minActive: Math.max(14, Math.round(22 * densityScale)),
+    maxActive: Math.max(40, Math.round((isLowPower ? 80 : 120) * densityScale)),
+    radiusMin: 4.5,
+    radiusMax: 14,
+    verticalSpread: 5.2,
   };
-  randomizeDropletPosition(droplet);
-  scene.add(droplet);
-  droplets.push(droplet);
-}
+  const droplets = [];
+  const swimmers = [];
+  const quagsireModelPath = assetPath("models/quagsire.glb");
+  const wailordModelPath = assetPath("models/wailord.glb");
+  let GLTFLoaderClass = window.THREE?.GLTFLoader;
 
-function updateSwimmers(audioResponse, elapsed, delta = 0) {
-  if (isFarView) {
-    swimmers.forEach((entry) => {
-      if (entry.group) entry.group.visible = false;
-    });
-    return;
+  async function getGLTFLoader() {
+    if (GLTFLoaderClass) return GLTFLoaderClass;
+    const mod = await import("three/examples/jsm/loaders/GLTFLoader.js");
+    GLTFLoaderClass = mod.GLTFLoader;
+    return GLTFLoaderClass;
   }
-  const levelEnergy = audioResponse?.active ? audioResponse.level : 0;
-  const pulseEnergy = audioResponse?.active ? audioResponse.pulse : 0;
-  const swellEnergy = audioResponse?.active ? audioResponse.swell : 0;
-  swimmers.forEach((entry, idx) => {
-    const {
-      group,
-      basePosition,
-      radius,
-      speed,
-      pathOffset,
-      verticalRange,
-      wobbleAmplitude,
-      lockVertical,
-      yawOffset = 0,
-      liftAmplitude = 0,
-      liftSpeed = 0,
-      liftPhase = 0,
-    } = entry;
-    const peak = Math.max(pulseEnergy - 0.3, 0);
-    const swimSpeed = speed + peak * 0.5 + idx * 0.015;
-    const angle = elapsed * swimSpeed + pathOffset;
-    const amplitude = radius + peak * 1.3 + levelEnergy * 0.4;
-    const lift = swellEnergy * 0.6;
-    const extraLift = liftAmplitude
-      ? Math.sin(elapsed * (liftSpeed || 0.35) + liftPhase) * liftAmplitude
-      : 0;
-    group.position.set(
-      basePosition.x + Math.cos(angle) * amplitude,
-      basePosition.y +
-        Math.sin(angle * 1.2) * verticalRange +
-        Math.cos(elapsed * 0.7 + idx) * wobbleAmplitude +
-        lift +
-        extraLift,
-      basePosition.z + Math.sin(angle) * amplitude
-    );
-    const lookAhead = angle + 0.2;
-    const target = new THREE.Vector3(
-      basePosition.x + Math.cos(lookAhead) * amplitude,
-      group.position.y + Math.sin(lookAhead * 1.1) * wobbleAmplitude,
-      basePosition.z + Math.sin(lookAhead) * amplitude
-    );
-    if (lockVertical) {
-      swimDirFlat.set(target.x - group.position.x, 0, target.z - group.position.z);
-      const lenSq = swimDirFlat.lengthSq();
-      if (lenSq > 0.0001) {
-        const yaw = Math.atan2(swimDirFlat.x, swimDirFlat.z) + yawOffset;
-        const targetRoll = entry.tilt || 0;
-        group.rotation.set(0, yaw, targetRoll);
-      }
-    } else {
-      group.lookAt(target);
-      group.rotation.z += (entry.tilt - group.rotation.z) * 0.08;
-      group.rotation.y += peak * 0.02;
-    }
-    clampSwimmerToBounds(entry);
-    const scalePulse = 1 + peak * 0.25 + levelEnergy * 0.05;
-    group.scale.setScalar(entry.scale * scalePulse);
-    if (entry.mixer) {
-      entry.mixer.update(Math.max(delta, 0) * (1 + peak * 0.6));
-    }
-  });
-}
 
-function repelBubblesFromSwimmers(bubble, data) {
-  if (!swimmers.length) return;
-  swimmers.forEach((entry) => {
-    const { group, colliderRadius = 1 } = entry;
+  function clampSwimmerToBounds(entry) {
+    const { group } = entry;
     if (!group) return;
-    swimmerPushVec.copy(bubble.position).sub(group.position);
-    const dist = swimmerPushVec.length();
-    if (dist === 0) return;
-    const bubbleRadius = Math.max(0.2, data.originalRadius || bubble.scale.x);
-    const minDist = colliderRadius + bubbleRadius;
-    if (dist < minDist) {
-      const push = minDist - dist;
-      swimmerPushVec.normalize();
-      bubble.position.addScaledVector(swimmerPushVec, push);
-      data.basePosition.addScaledVector(swimmerPushVec, push * 0.5);
-      if (data.velocity) {
-        const component = data.velocity.dot(swimmerPushVec);
-        const rebound = -component * 1.6;
-        data.velocity.addScaledVector(swimmerPushVec, rebound - component);
-      }
+    const pos = group.position;
+    const limitX = Math.max(0.5, bounds.x - 0.6);
+    const limitYMin = -Math.max(0.5, bounds.y * 0.6);
+    const limitYMax = Math.max(0.4, bounds.y * 0.4);
+    const limitZ = Math.max(1, bounds.z - 1.2);
+    let bounced = false;
+    if (pos.x > limitX) {
+      pos.x = limitX;
+      bounced = true;
+    } else if (pos.x < -limitX) {
+      pos.x = -limitX;
+      bounced = true;
     }
-  });
-}
+    if (pos.y > limitYMax) {
+      pos.y = limitYMax;
+      bounced = true;
+    } else if (pos.y < limitYMin) {
+      pos.y = limitYMin;
+      bounced = true;
+    }
+    if (pos.z > limitZ) {
+      pos.z = limitZ;
+      bounced = true;
+    } else if (pos.z < -limitZ) {
+      pos.z = -limitZ;
+      bounced = true;
+    }
+    if (bounced) {
+      entry.pathOffset = (entry.pathOffset || 0) + Math.PI * 0.8;
+    }
+  }
+
+  function randomizeDropletPosition(droplet) {
+    const radius = THREE.MathUtils.randFloat(dropletSettings.radiusMin, dropletSettings.radiusMax);
+    const angle = Math.random() * Math.PI * 2;
+    const depthOffset = THREE.MathUtils.randFloat(2, 9);
+    droplet.position.set(
+      Math.cos(angle) * radius,
+      THREE.MathUtils.randFloatSpread(dropletSettings.verticalSpread),
+      Math.sin(angle) * radius - depthOffset
+    );
+    droplet.userData.base.copy(droplet.position);
+    droplet.userData.speed = 0.35 + Math.random() * 0.6;
+  }
+
+  for (let i = 0; i < dropletSettings.maxActive; i += 1) {
+    const droplet = new THREE.Mesh(dropletGeometry, dropletMaterial);
+    droplet.visible = false;
+    droplet.userData = {
+      base: new THREE.Vector3(),
+      speed: 0.4,
+      active: false,
+    };
+    randomizeDropletPosition(droplet);
+    scene.add(droplet);
+    droplets.push(droplet);
+  }
+
+  function updateSwimmers(audioResponse, elapsed, delta = 0) {
+    if (isFarView) {
+      swimmers.forEach((entry) => {
+        if (entry.group) entry.group.visible = false;
+      });
+      return;
+    }
+    const levelEnergy = audioResponse?.active ? audioResponse.level : 0;
+    const pulseEnergy = audioResponse?.active ? audioResponse.pulse : 0;
+    const swellEnergy = audioResponse?.active ? audioResponse.swell : 0;
+    swimmers.forEach((entry, idx) => {
+      const {
+        group,
+        basePosition,
+        radius,
+        speed,
+        pathOffset,
+        verticalRange,
+        wobbleAmplitude,
+        lockVertical,
+        yawOffset = 0,
+        liftAmplitude = 0,
+        liftSpeed = 0,
+        liftPhase = 0,
+      } = entry;
+      const peak = Math.max(pulseEnergy - 0.3, 0);
+      const swimSpeed = speed + peak * 0.5 + idx * 0.015;
+      const angle = elapsed * swimSpeed + pathOffset;
+      const amplitude = radius + peak * 1.3 + levelEnergy * 0.4;
+      const lift = swellEnergy * 0.6;
+      const extraLift = liftAmplitude
+        ? Math.sin(elapsed * (liftSpeed || 0.35) + liftPhase) * liftAmplitude
+        : 0;
+      group.position.set(
+        basePosition.x + Math.cos(angle) * amplitude,
+        basePosition.y +
+          Math.sin(angle * 1.2) * verticalRange +
+          Math.cos(elapsed * 0.7 + idx) * wobbleAmplitude +
+          lift +
+          extraLift,
+        basePosition.z + Math.sin(angle) * amplitude
+      );
+      const lookAhead = angle + 0.2;
+      const target = new THREE.Vector3(
+        basePosition.x + Math.cos(lookAhead) * amplitude,
+        group.position.y + Math.sin(lookAhead * 1.1) * wobbleAmplitude,
+        basePosition.z + Math.sin(lookAhead) * amplitude
+      );
+      if (lockVertical) {
+        swimDirFlat.set(target.x - group.position.x, 0, target.z - group.position.z);
+        const lenSq = swimDirFlat.lengthSq();
+        if (lenSq > 0.0001) {
+          const yaw = Math.atan2(swimDirFlat.x, swimDirFlat.z) + yawOffset;
+          const targetRoll = entry.tilt || 0;
+          group.rotation.set(0, yaw, targetRoll);
+        }
+      } else {
+        group.lookAt(target);
+        group.rotation.z += (entry.tilt - group.rotation.z) * 0.08;
+        group.rotation.y += peak * 0.02;
+      }
+      clampSwimmerToBounds(entry);
+      const scalePulse = 1 + peak * 0.25 + levelEnergy * 0.05;
+      group.scale.setScalar(entry.scale * scalePulse);
+      if (entry.mixer) {
+        entry.mixer.update(Math.max(delta, 0) * (1 + peak * 0.6));
+      }
+    });
+  }
+
+  function repelBubblesFromSwimmers(bubble, data) {
+    if (!swimmers.length) return;
+    swimmers.forEach((entry) => {
+      const { group, colliderRadius = 1 } = entry;
+      if (!group) return;
+      swimmerPushVec.copy(bubble.position).sub(group.position);
+      const dist = swimmerPushVec.length();
+      if (dist === 0) return;
+      const bubbleRadius = Math.max(0.2, data.originalRadius || bubble.scale.x);
+      const minDist = colliderRadius + bubbleRadius;
+      if (dist < minDist) {
+        const push = minDist - dist;
+        swimmerPushVec.normalize();
+        bubble.position.addScaledVector(swimmerPushVec, push);
+        data.basePosition.addScaledVector(swimmerPushVec, push * 0.5);
+        if (data.velocity) {
+          const component = data.velocity.dot(swimmerPushVec);
+          const rebound = -component * 1.6;
+          data.velocity.addScaledVector(swimmerPushVec, rebound - component);
+        }
+      }
+    });
+  }
 
   function tuneMaterialForLighting(mat) {
     if (!mat) return;
-  if ("metalness" in mat) mat.metalness = Math.min(mat.metalness ?? 0.5, 0.12);
-  if ("roughness" in mat) mat.roughness = Math.max(mat.roughness ?? 0.5, 0.45);
-  if ("envMapIntensity" in mat) mat.envMapIntensity = Math.min(mat.envMapIntensity ?? 1, 0.22);
-  if (mat.color) {
-    mat.color.multiplyScalar(0.92);
-  }
-  if (mat.emissive) {
-    mat.emissive.multiplyScalar(0.2);
-    mat.emissiveIntensity = Math.max(mat.emissiveIntensity || 0.08, 0.12);
-  }
-  mat.needsUpdate = true;
-}
-
-async function assetExists(url) {
-  try {
-    const head = await fetch(url, { method: "HEAD" });
-    if (head.ok) return true;
-    const get = await fetch(url, { method: "GET" });
-    return get.ok;
-  } catch (error) {
-    return false;
-  }
-}
-
-function loadQuagsireSwimmer() {
-  (async () => {
-    const GLTFLoader = await getGLTFLoader();
-    const exists = await assetExists(quagsireModelPath);
-    if (!exists) {
-      console.warn(`Quagsire model not found at ${quagsireModelPath}; skipping load.`);
-      return;
+    if ("metalness" in mat) mat.metalness = Math.min(mat.metalness ?? 0.5, 0.12);
+    if ("roughness" in mat) mat.roughness = Math.max(mat.roughness ?? 0.5, 0.45);
+    if ("envMapIntensity" in mat) mat.envMapIntensity = Math.min(mat.envMapIntensity ?? 1, 0.22);
+    if (mat.color) {
+      mat.color.multiplyScalar(0.92);
     }
-    const loader = new GLTFLoader();
-    loader.load(
-      quagsireModelPath,
-      (gltf) => {
-        window.latestQuagsire = gltf;
-        const sceneRoot = gltf.scene || new THREE.Group();
-        sceneRoot.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = false;
-            child.receiveShadow = false;
-          }
-        });
-        const basePosition = new THREE.Vector3(2.6, -0.4, -3.4);
-        const baseScale = 0.45;
-        sceneRoot.position.copy(basePosition);
-        sceneRoot.scale.setScalar(baseScale);
-        sceneRoot.rotation.y = Math.PI;
-        scene.add(sceneRoot);
-        const mixer = gltf.animations?.length ? new THREE.AnimationMixer(sceneRoot) : null;
-        if (mixer) {
-          gltf.animations.forEach((clip) => {
-            const action = mixer.clipAction(clip);
-            action.play();
+    if (mat.emissive) {
+      mat.emissive.multiplyScalar(0.2);
+      mat.emissiveIntensity = Math.max(mat.emissiveIntensity || 0.08, 0.12);
+    }
+    mat.needsUpdate = true;
+  }
+
+  async function assetExists(url) {
+    try {
+      const head = await fetch(url, { method: "HEAD" });
+      if (head.ok) return true;
+      const get = await fetch(url, { method: "GET" });
+      return get.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function loadQuagsireSwimmer() {
+    (async () => {
+      const GLTFLoader = await getGLTFLoader();
+      const exists = await assetExists(quagsireModelPath);
+      if (!exists) {
+        console.warn(`Quagsire model not found at ${quagsireModelPath}; skipping load.`);
+        return;
+      }
+      const loader = new GLTFLoader();
+      loader.load(
+        quagsireModelPath,
+        (gltf) => {
+          window.latestQuagsire = gltf;
+          const sceneRoot = gltf.scene || new THREE.Group();
+          sceneRoot.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = false;
+              child.receiveShadow = false;
+            }
           });
-        }
-        swimmers.push({
-          group: sceneRoot,
-          scale: baseScale,
-          radius: 4.5,
-          speed: 0.22,
-          verticalRange: 0.6,
-          pathOffset: Math.random() * Math.PI * 2,
-          wobbleAmplitude: 0.25,
-          basePosition,
-          tilt: -0.15,
-          colliderRadius: 0.8,
-          mixer,
-        });
-      },
-      undefined,
-      (error) => {
-        console.warn("Failed to load quagsire model", error);
-      }
-    );
-  })();
-}
-
-loadQuagsireSwimmer();
-
-function loadWailordSwimmer() {
-  getGLTFLoader().then((GLTFLoader) => {
-    if (!GLTFLoader) {
-      console.warn("GLTFLoader unavailable; skipping Wailord load.");
-      return;
-    }
-    const loader = new GLTFLoader();
-    loader.load(
-      wailordModelPath,
-      (gltf) => {
-        const sceneRoot = gltf.scene || new THREE.Group();
-        sceneRoot.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = false;
-            child.receiveShadow = false;
-            tuneMaterialForLighting(child.material);
+          const basePosition = new THREE.Vector3(2.6, -0.4, -3.4);
+          const baseScale = 0.45;
+          sceneRoot.position.copy(basePosition);
+          sceneRoot.scale.setScalar(baseScale);
+          sceneRoot.rotation.y = Math.PI;
+          scene.add(sceneRoot);
+          const mixer = gltf.animations?.length ? new THREE.AnimationMixer(sceneRoot) : null;
+          if (mixer) {
+            gltf.animations.forEach((clip) => {
+              const action = mixer.clipAction(clip);
+              action.play();
+            });
           }
-        });
-        const basePosition = new THREE.Vector3(0, -0.1, -5.2);
-        const baseScale = 0.8;
-        sceneRoot.position.copy(basePosition);
-        sceneRoot.scale.setScalar(baseScale);
-        sceneRoot.rotation.x = -Math.PI * 0.5; // pitch up so the head faces forward, not downward
-        sceneRoot.rotation.y = Math.PI;
-        scene.add(sceneRoot);
-        const clips = gltf.animations || [];
-        const mixer = clips.length ? new THREE.AnimationMixer(sceneRoot) : null;
-        if (mixer) {
-          clips.forEach((clip) => {
-            const action = mixer.clipAction(clip);
-            action.play();
+          swimmers.push({
+            group: sceneRoot,
+            scale: baseScale,
+            radius: 4.5,
+            speed: 0.22,
+            verticalRange: 0.6,
+            pathOffset: Math.random() * Math.PI * 2,
+            wobbleAmplitude: 0.25,
+            basePosition,
+            tilt: -0.15,
+            colliderRadius: 0.8,
+            mixer,
           });
+        },
+        undefined,
+        (error) => {
+          console.warn("Failed to load quagsire model", error);
         }
-        swimmers.push({
-          group: sceneRoot,
-          scale: baseScale,
-          radius: THREE.MathUtils.randFloat(3.0, 4.4),
-          speed: THREE.MathUtils.randFloat(0.14, 0.22),
-          verticalRange: THREE.MathUtils.randFloat(0.25, 0.55),
-          pathOffset: Math.random() * Math.PI * 2,
-          wobbleAmplitude: THREE.MathUtils.randFloat(0.08, 0.2),
-          basePosition,
-          tilt: 0,
-          colliderRadius: 2.1,
-          mixer,
-          lockVertical: true,
-          yawOffset: 0,
-          liftAmplitude: THREE.MathUtils.randFloat(0.25, 0.6),
-          liftSpeed: THREE.MathUtils.randFloat(0.25, 0.55),
-          liftPhase: Math.random() * Math.PI * 2,
-        });
-      },
-      undefined,
-      (error) => {
-        console.warn("Failed to load Wailord GLB model", error);
+      );
+    })();
+  }
+
+  loadQuagsireSwimmer();
+
+  function loadWailordSwimmer() {
+    getGLTFLoader().then((GLTFLoader) => {
+      if (!GLTFLoader) {
+        console.warn("GLTFLoader unavailable; skipping Wailord load.");
+        return;
       }
-    );
-  });
-}
+      const loader = new GLTFLoader();
+      loader.load(
+        wailordModelPath,
+        (gltf) => {
+          const sceneRoot = gltf.scene || new THREE.Group();
+          sceneRoot.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = false;
+              child.receiveShadow = false;
+              tuneMaterialForLighting(child.material);
+            }
+          });
+          const basePosition = new THREE.Vector3(0, -0.1, -5.2);
+          const baseScale = 0.8;
+          sceneRoot.position.copy(basePosition);
+          sceneRoot.scale.setScalar(baseScale);
+          sceneRoot.rotation.x = -Math.PI * 0.5; // pitch up so the head faces forward, not downward
+          sceneRoot.rotation.y = Math.PI;
+          scene.add(sceneRoot);
+          const clips = gltf.animations || [];
+          const mixer = clips.length ? new THREE.AnimationMixer(sceneRoot) : null;
+          if (mixer) {
+            clips.forEach((clip) => {
+              const action = mixer.clipAction(clip);
+              action.play();
+            });
+          }
+          swimmers.push({
+            group: sceneRoot,
+            scale: baseScale,
+            radius: THREE.MathUtils.randFloat(3.0, 4.4),
+            speed: THREE.MathUtils.randFloat(0.14, 0.22),
+            verticalRange: THREE.MathUtils.randFloat(0.25, 0.55),
+            pathOffset: Math.random() * Math.PI * 2,
+            wobbleAmplitude: THREE.MathUtils.randFloat(0.08, 0.2),
+            basePosition,
+            tilt: 0,
+            colliderRadius: 2.1,
+            mixer,
+            lockVertical: true,
+            yawOffset: 0,
+            liftAmplitude: THREE.MathUtils.randFloat(0.25, 0.6),
+            liftSpeed: THREE.MathUtils.randFloat(0.25, 0.55),
+            liftPhase: Math.random() * Math.PI * 2,
+          });
+        },
+        undefined,
+        (error) => {
+          console.warn("Failed to load Wailord GLB model", error);
+        }
+      );
+    });
+  }
 
-loadWailordSwimmer();
+  loadWailordSwimmer();
 
-let activeDropletTarget = 0;
-function updateDropletActivity(force = false) {
-  const target = isFarView
-    ? 0
-    : Math.round(THREE.MathUtils.lerp(dropletSettings.minActive, dropletSettings.maxActive, getZoomRatio()));
-  if (!force && target === activeDropletTarget) return;
-  activeDropletTarget = target;
-  droplets.forEach((droplet, idx) => {
-    const shouldBeActive = idx < target;
-    if (shouldBeActive) {
-      if (!droplet.userData.active) {
-        randomizeDropletPosition(droplet);
-        droplet.userData.active = true;
+  let activeDropletTarget = 0;
+  function updateDropletActivity(force = false) {
+    const target = isFarView
+      ? 0
+      : Math.round(
+          THREE.MathUtils.lerp(dropletSettings.minActive, dropletSettings.maxActive, getZoomRatio())
+        );
+    if (!force && target === activeDropletTarget) return;
+    activeDropletTarget = target;
+    droplets.forEach((droplet, idx) => {
+      const shouldBeActive = idx < target;
+      if (shouldBeActive) {
+        if (!droplet.userData.active) {
+          randomizeDropletPosition(droplet);
+          droplet.userData.active = true;
+        }
+        droplet.visible = true;
+      } else if (droplet.userData.active) {
+        droplet.visible = false;
+        droplet.userData.active = false;
       }
-      droplet.visible = true;
-    } else if (droplet.userData.active) {
-      droplet.visible = false;
-      droplet.userData.active = false;
-    }
-  });
-}
+    });
+  }
 
-updateDropletActivity(true);
-
-function updateZoomDespawn() {
-  const shouldDespawn = orbitState.radius > DESPAWN_RADIUS;
-  if (shouldDespawn === isFarView) return;
-  isFarView = shouldDespawn;
-  bubbles.forEach((bubble) => {
-    bubble.visible = !isFarView && bubble.userData.popState !== "hidden";
-  });
-  droplets.forEach((droplet) => {
-    droplet.visible = !isFarView && droplet.userData.active;
-  });
-  swimmers.forEach((entry) => {
-    if (entry.group) entry.group.visible = !isFarView;
-  });
-  particleLayers.forEach((layer) => {
-    layer.visible = !isFarView;
-    if (layer.material?.opacity !== undefined) {
-      layer.material.opacity = isFarView ? 0 : layer.userData.baseOpacity;
-    }
-  });
-  bubbleBursts.forEach((burst) => {
-    burst.visible = !isFarView;
-  });
   updateDropletActivity(true);
-}
 
-const bubbleBursts = [];
-const canvasObserverOptions = {
-  root: null,
-  threshold: 0,
-};
-let canvasVisibilityObserver = null;
-const tempBurstPosition = new THREE.Vector3();
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-const dragPlane = new THREE.Plane();
-const dragPlaneNormal = new THREE.Vector3();
-const planeIntersection = new THREE.Vector3();
-const dragStart = new THREE.Vector2();
-const pointerWorld = new THREE.Vector3();
-const pointerPrevWorld = new THREE.Vector3();
-const dragVelocity = new THREE.Vector3();
-const dragTarget = new THREE.Vector3();
-const cameraDirection = new THREE.Vector3();
-let pointerWorldTime = 0;
-let activePointerId = null;
-let selectedBubble = null;
-let dragging = false;
-let pointerDownTime = 0;
-const dragThreshold = 0.02;
+  function updateZoomDespawn() {
+    const shouldDespawn = orbitState.radius > DESPAWN_RADIUS;
+    if (shouldDespawn === isFarView) return;
+    isFarView = shouldDespawn;
+    bubbles.forEach((bubble) => {
+      bubble.visible = !isFarView && bubble.userData.popState !== "hidden";
+    });
+    droplets.forEach((droplet) => {
+      droplet.visible = !isFarView && droplet.userData.active;
+    });
+    swimmers.forEach((entry) => {
+      if (entry.group) entry.group.visible = !isFarView;
+    });
+    particleLayers.forEach((layer) => {
+      layer.visible = !isFarView;
+      if (layer.material?.opacity !== undefined) {
+        layer.material.opacity = isFarView ? 0 : layer.userData.baseOpacity;
+      }
+    });
+    bubbleBursts.forEach((burst) => {
+      burst.visible = !isFarView;
+    });
+    updateDropletActivity(true);
+  }
+
+  const bubbleBursts = [];
+  const canvasObserverOptions = {
+    root: null,
+    threshold: 0,
+  };
+  let canvasVisibilityObserver = null;
+  const tempBurstPosition = new THREE.Vector3();
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  const dragPlane = new THREE.Plane();
+  const dragPlaneNormal = new THREE.Vector3();
+  const planeIntersection = new THREE.Vector3();
+  const dragStart = new THREE.Vector2();
+  const pointerWorld = new THREE.Vector3();
+  const pointerPrevWorld = new THREE.Vector3();
+  const dragVelocity = new THREE.Vector3();
+  const dragTarget = new THREE.Vector3();
+  const cameraDirection = new THREE.Vector3();
+  let pointerWorldTime = 0;
+  let activePointerId = null;
+  let selectedBubble = null;
+  let dragging = false;
+  let pointerDownTime = 0;
+  const dragThreshold = 0.02;
   const isPromptActive = () => document.body.classList.contains("prompt-active");
 
   const panel = document.getElementById("bubble-panel");
@@ -1565,7 +1576,8 @@ const dragThreshold = 0.02;
       releaseFocusTrap();
       setTimeout(() => introPrompt.remove(), 500);
       primeAudioFromInteraction();
-      const fallbackFocus = audioToggle || document.querySelector(".hero .primary") || document.body;
+      const fallbackFocus =
+        audioToggle || document.querySelector(".hero .primary") || document.body;
       fallbackFocus?.focus?.();
     };
     activateFocusTrap(introPrompt);
@@ -1710,7 +1722,8 @@ const dragThreshold = 0.02;
       pulseEnergy * (isActive ? 1.55 : 1.0)
     );
     const swellTarget = Math.max(mids - 0.2, 0) + energy * 0.35;
-    audioReactiveLevels.swell += (swellTarget - audioReactiveLevels.swell) * (isActive ? 0.5 : 0.18);
+    audioReactiveLevels.swell +=
+      (swellTarget - audioReactiveLevels.swell) * (isActive ? 0.5 : 0.18);
     if (!isActive) {
       audioReactiveLevels.level = 0;
       audioReactiveLevels.bass = 0;
@@ -1902,12 +1915,19 @@ const dragThreshold = 0.02;
         <p><strong>${educationData.school}</strong> · ${educationData.program || ""} · ${educationData.location || ""}</p>
         <p>${educationData.graduation || ""}</p>
       `;
-  }
+    }
   }
 
   function validateSiteData(data) {
     if (!data || typeof data !== "object") return false;
-    const requiredArrays = ["stats", "skills", "experiences", "featuredProjects", "extracurriculars", "bubbleProjects"];
+    const requiredArrays = [
+      "stats",
+      "skills",
+      "experiences",
+      "featuredProjects",
+      "extracurriculars",
+      "bubbleProjects",
+    ];
     const requiredObjects = ["profileLinks", "education"];
     if (requiredObjects.some((key) => !data[key] || typeof data[key] !== "object")) return false;
     if (requiredArrays.some((key) => !Array.isArray(data[key]))) return false;
@@ -2090,9 +2110,7 @@ const dragThreshold = 0.02;
     if (event) updatePointer(event);
     const moved = dragStart.distanceTo(pointer) > dragThreshold;
     const tapped =
-      !moved &&
-      performance.now() - pointerDownTime < 450 &&
-      !isInteractingWithUI(event?.target);
+      !moved && performance.now() - pointerDownTime < 450 && !isInteractingWithUI(event?.target);
     const bubble = selectedBubble;
     const project = bubble.userData;
     dragging = false;
@@ -2233,83 +2251,77 @@ const dragThreshold = 0.02;
   });
   setRenderPaused("hidden", document.hidden);
 
-function applyCameraOrbit() {
+  function applyCameraOrbit() {
     const azimuthSpeed = 0.025;
     const polarSpeed = 0.02;
     const zoomSpeed = 0.038;
     const zoomBoost = Math.max(1, orbitState.radius * 0.12);
-  if (orbitKeys.left) orbitState.azimuth -= azimuthSpeed;
-  if (orbitKeys.right) orbitState.azimuth += azimuthSpeed;
-  if (orbitKeys.up)
-    orbitState.polar = THREE.MathUtils.clamp(
-      orbitState.polar - polarSpeed,
-      orbitState.minPolar,
-      orbitState.maxPolar
+    if (orbitKeys.left) orbitState.azimuth -= azimuthSpeed;
+    if (orbitKeys.right) orbitState.azimuth += azimuthSpeed;
+    if (orbitKeys.up)
+      orbitState.polar = THREE.MathUtils.clamp(
+        orbitState.polar - polarSpeed,
+        orbitState.minPolar,
+        orbitState.maxPolar
+      );
+    if (orbitKeys.down)
+      orbitState.polar = THREE.MathUtils.clamp(
+        orbitState.polar + polarSpeed,
+        orbitState.minPolar,
+        orbitState.maxPolar
+      );
+    if (orbitKeys.zoomIn) {
+      orbitState.radius = Math.max(orbitState.minRadius, orbitState.radius - zoomSpeed * zoomBoost);
+    }
+    if (orbitKeys.zoomOut) {
+      orbitState.radius = Math.max(orbitState.minRadius, orbitState.radius + zoomSpeed * zoomBoost);
+    }
+    const polarTarget = orbitState.polar;
+    const orbitRadius = orbitState.radius;
+    const sinPhi = Math.sin(polarTarget);
+    const cosPhi = Math.cos(polarTarget);
+    orbitPosition.set(
+      orbitRadius * sinPhi * Math.sin(orbitState.azimuth),
+      orbitRadius * cosPhi,
+      orbitRadius * sinPhi * Math.cos(orbitState.azimuth)
     );
-  if (orbitKeys.down)
-    orbitState.polar = THREE.MathUtils.clamp(
-      orbitState.polar + polarSpeed,
-      orbitState.minPolar,
-      orbitState.maxPolar
-    );
-  if (orbitKeys.zoomIn) {
-    orbitState.radius = Math.max(
-      orbitState.minRadius,
-      orbitState.radius - zoomSpeed * zoomBoost
-    );
+    camera.position.lerp(orbitPosition, 0.08);
+    const parallaxScale = 0.3;
+    const lookBaseY = 0.35;
+    targetLookAt.x += (parallaxMouse.x * parallaxScale - targetLookAt.x) * 0.04;
+    targetLookAt.y += (lookBaseY + parallaxMouse.y * parallaxScale * 0.4 - targetLookAt.y) * 0.04;
+    camera.lookAt(targetLookAt);
+    updateDepthClampPlanes();
+    refreshBounds();
+    updateDropletActivity();
+    updateZoomDespawn();
+    const farTarget = Math.max(camera.far, orbitRadius * 6);
+    if (farTarget > camera.far + 0.5) {
+      camera.far = farTarget;
+      camera.updateProjectionMatrix();
+    }
   }
-  if (orbitKeys.zoomOut) {
-    orbitState.radius = Math.max(
-      orbitState.minRadius,
-      orbitState.radius + zoomSpeed * zoomBoost
-    );
-  }
-  const polarTarget = orbitState.polar;
-  const orbitRadius = orbitState.radius;
-  const sinPhi = Math.sin(polarTarget);
-  const cosPhi = Math.cos(polarTarget);
-  orbitPosition.set(
-    orbitRadius * sinPhi * Math.sin(orbitState.azimuth),
-    orbitRadius * cosPhi,
-    orbitRadius * sinPhi * Math.cos(orbitState.azimuth)
-  );
-  camera.position.lerp(orbitPosition, 0.08);
-  const parallaxScale = 0.3;
-  const lookBaseY = 0.35;
-  targetLookAt.x += (parallaxMouse.x * parallaxScale - targetLookAt.x) * 0.04;
-  targetLookAt.y += (lookBaseY + parallaxMouse.y * parallaxScale * 0.4 - targetLookAt.y) * 0.04;
-  camera.lookAt(targetLookAt);
-  updateDepthClampPlanes();
-  refreshBounds();
-  updateDropletActivity();
-  updateZoomDespawn();
-  const farTarget = Math.max(camera.far, orbitRadius * 6);
-  if (farTarget > camera.far + 0.5) {
-    camera.far = farTarget;
-    camera.updateProjectionMatrix();
-  }
-}
 
-function updateLighting(delta) {
-  const amount = Math.min(0.08, delta * 2.4);
-  scene.fog.color.lerp(lightingTargets.fog, amount);
-  hemi.color.lerp(lightingTargets.hemiSky, amount);
-  hemi.groundColor.lerp(lightingTargets.hemiGround, amount);
-  rimLight.color.lerp(lightingTargets.rim, amount);
-  fillLight.color.lerp(lightingTargets.fill, amount);
-  ambient.color.lerp(lightingTargets.ambient, amount);
-  spot.color.lerp(lightingTargets.spot, amount);
-  rimLight.position.lerp(lightingTargets.rimPosition, amount);
-  fillLight.position.lerp(lightingTargets.fillPosition, amount);
-  spot.position.lerp(lightingTargets.spotPosition, amount);
-  rimLight.intensity += (lightingTargets.rimIntensity - rimLight.intensity) * amount;
-  fillLight.intensity += (lightingTargets.fillIntensity - fillLight.intensity) * amount;
-  ambient.intensity += (lightingTargets.ambientIntensity - ambient.intensity) * amount;
-  spot.intensity += (lightingTargets.spotIntensity - spot.intensity) * amount;
-  scene.fog.density += (fogDensityTarget - scene.fog.density) * amount * 0.6;
-  renderer.toneMappingExposure += (exposureTarget - renderer.toneMappingExposure) * amount;
-  paletteTintMix += (paletteTintTarget - paletteTintMix) * amount;
-}
+  function updateLighting(delta) {
+    const amount = Math.min(0.08, delta * 2.4);
+    scene.fog.color.lerp(lightingTargets.fog, amount);
+    hemi.color.lerp(lightingTargets.hemiSky, amount);
+    hemi.groundColor.lerp(lightingTargets.hemiGround, amount);
+    rimLight.color.lerp(lightingTargets.rim, amount);
+    fillLight.color.lerp(lightingTargets.fill, amount);
+    ambient.color.lerp(lightingTargets.ambient, amount);
+    spot.color.lerp(lightingTargets.spot, amount);
+    rimLight.position.lerp(lightingTargets.rimPosition, amount);
+    fillLight.position.lerp(lightingTargets.fillPosition, amount);
+    spot.position.lerp(lightingTargets.spotPosition, amount);
+    rimLight.intensity += (lightingTargets.rimIntensity - rimLight.intensity) * amount;
+    fillLight.intensity += (lightingTargets.fillIntensity - fillLight.intensity) * amount;
+    ambient.intensity += (lightingTargets.ambientIntensity - ambient.intensity) * amount;
+    spot.intensity += (lightingTargets.spotIntensity - spot.intensity) * amount;
+    scene.fog.density += (fogDensityTarget - scene.fog.density) * amount * 0.6;
+    renderer.toneMappingExposure += (exposureTarget - renderer.toneMappingExposure) * amount;
+    paletteTintMix += (paletteTintTarget - paletteTintMix) * amount;
+  }
 
   function animate() {
     if (destroyed) return;
@@ -2434,7 +2446,8 @@ function updateLighting(delta) {
         if (data.baseAccentColor) {
           data.accentColor.copy(data.baseAccentColor);
           data.accentColor.lerp(paletteTintColor, tintMix * 0.7);
-          if (shellMaterial.uniforms.uAccent) shellMaterial.uniforms.uAccent.value.copy(data.accentColor);
+          if (shellMaterial.uniforms.uAccent)
+            shellMaterial.uniforms.uAccent.value.copy(data.accentColor);
         }
         shellMaterial.uniforms.uTime.value = elapsed;
         shellMaterial.uniforms.uCameraPosition.value.copy(camera.position);
@@ -2447,16 +2460,14 @@ function updateLighting(delta) {
         }
       }
       if (data.liquidMaterial) {
-        data.liquidMaterial.uniforms.uTint.value.copy(data.tintColor).lerp(paletteTintColor, liquidTintMix);
+        data.liquidMaterial.uniforms.uTint.value
+          .copy(data.tintColor)
+          .lerp(paletteTintColor, liquidTintMix);
         data.liquidMaterial.uniforms.uTime.value = elapsed;
       }
 
-    if (data.popState === "shrink") {
-      const shrinkProgress = THREE.MathUtils.clamp(
-        (elapsed - data.popStart) / 0.2,
-        0,
-        1
-        );
+      if (data.popState === "shrink") {
+        const shrinkProgress = THREE.MathUtils.clamp((elapsed - data.popStart) / 0.2, 0, 1);
         const scale = Math.max(data.originalScale * (1 - shrinkProgress), 0.02);
         bubble.scale.setScalar(scale);
         if (shrinkProgress >= 1) {
@@ -2464,26 +2475,22 @@ function updateLighting(delta) {
           data.popStart = elapsed;
           bubble.visible = false;
         }
-    } else if (data.popState === "hidden") {
-      const wait = data.respawnDelay ?? 1.8;
-      if (elapsed - data.popStart > wait) {
-        data.popState = "grow";
-        data.popStart = elapsed;
-        data.respawnDelay = 1.6 + Math.random() * 2.4;
-        randomizeBasePosition(data, bubble);
-        data.orbitRadius = 0.35 + Math.random() * 0.35;
-        data.depthRange = 0.5 + Math.random() * 0.45;
-        data.depthSpeed = 0.18 + Math.random() * 0.25;
-        data.audioScale = 1;
-        bubble.visible = true;
-        bubble.scale.setScalar(data.originalScale * 0.3);
-      }
-    } else if (data.popState === "grow") {
-      const growProgress = THREE.MathUtils.clamp(
-        (elapsed - data.popStart) / 0.4,
-        0,
-        1
-        );
+      } else if (data.popState === "hidden") {
+        const wait = data.respawnDelay ?? 1.8;
+        if (elapsed - data.popStart > wait) {
+          data.popState = "grow";
+          data.popStart = elapsed;
+          data.respawnDelay = 1.6 + Math.random() * 2.4;
+          randomizeBasePosition(data, bubble);
+          data.orbitRadius = 0.35 + Math.random() * 0.35;
+          data.depthRange = 0.5 + Math.random() * 0.45;
+          data.depthSpeed = 0.18 + Math.random() * 0.25;
+          data.audioScale = 1;
+          bubble.visible = true;
+          bubble.scale.setScalar(data.originalScale * 0.3);
+        }
+      } else if (data.popState === "grow") {
+        const growProgress = THREE.MathUtils.clamp((elapsed - data.popStart) / 0.4, 0, 1);
         const eased = easeOutBack(growProgress);
         bubble.scale.setScalar(data.originalScale * eased);
         if (growProgress >= 1) {
@@ -2492,7 +2499,12 @@ function updateLighting(delta) {
         }
       } else if (data.popState === "idle") {
         const pulseTarget =
-          1 + layeredAudio * 0.65 + bassEnergy * 0.28 + audioWave * 0.22 + fluidLift * 0.28 + peakBoost * 0.8;
+          1 +
+          layeredAudio * 0.65 +
+          bassEnergy * 0.28 +
+          audioWave * 0.22 +
+          fluidLift * 0.28 +
+          peakBoost * 0.8;
         data.audioScale = THREE.MathUtils.lerp(
           data.audioScale || 1,
           pulseTarget,
@@ -2500,11 +2512,11 @@ function updateLighting(delta) {
         );
         bubble.scale.setScalar(data.originalScale * data.audioScale);
       }
-  });
+    });
 
-  if (!isFarView) {
-    resolveCollisions();
-  }
+    if (!isFarView) {
+      resolveCollisions();
+    }
 
     updateSwimmers(audioResponse, elapsed, delta);
 
@@ -2540,35 +2552,35 @@ function updateLighting(delta) {
     camera.updateProjectionMatrix();
     updateRendererQuality();
     renderer.setSize(window.innerWidth, window.innerHeight);
-  refreshBounds();
-}
+    refreshBounds();
+  }
 
-const inputTags = new Set(["INPUT", "TEXTAREA", "SELECT"]);
+  const inputTags = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
   function handleKeyChange(event, pressed) {
     if (inputTags.has(document.activeElement?.tagName || "")) return;
     let handled = true;
-  switch (event.key) {
-    case "ArrowLeft":
-    case "a":
-    case "A":
-      orbitKeys.left = pressed;
-      break;
-    case "ArrowRight":
-    case "d":
-    case "D":
-      orbitKeys.right = pressed;
-      break;
-    case "ArrowUp":
-    case "w":
-    case "W":
-      orbitKeys.up = pressed;
-      break;
-    case "ArrowDown":
-    case "s":
-    case "S":
-      orbitKeys.down = pressed;
-      break;
+    switch (event.key) {
+      case "ArrowLeft":
+      case "a":
+      case "A":
+        orbitKeys.left = pressed;
+        break;
+      case "ArrowRight":
+      case "d":
+      case "D":
+        orbitKeys.right = pressed;
+        break;
+      case "ArrowUp":
+      case "w":
+      case "W":
+        orbitKeys.up = pressed;
+        break;
+      case "ArrowDown":
+      case "s":
+      case "S":
+        orbitKeys.down = pressed;
+        break;
       case "q":
       case "Q":
         orbitKeys.zoomIn = pressed;

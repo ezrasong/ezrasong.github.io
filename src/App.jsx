@@ -78,20 +78,36 @@ export default function App() {
             <span>Creative developer &amp; Waterloo&nbsp;math&nbsp;student</span>
           </h1>
           <p className="lede">
-            University of Waterloo Honours Mathematics student, blending coursework rigor with creative technology. I ship
-            tactile UI experiments, intelligent bots, and data-driven tools that feel cinematic yet practical.
+            University of Waterloo Honours Mathematics student, blending coursework rigor with
+            creative technology. I ship tactile UI experiments, intelligent bots, and data-driven
+            tools that feel cinematic yet practical.
           </p>
           <div className="hero-actions">
             <a className="primary" href="mailto:e34song@uwaterloo.ca">
               Start a project
             </a>
-            <a className="ghost" href="https://github.com/ezrasong" target="_blank" rel="noreferrer">
+            <a
+              className="ghost"
+              href="https://github.com/ezrasong"
+              target="_blank"
+              rel="noreferrer"
+            >
               Visit GitHub
             </a>
-            <a className="ghost resume" href="./EzraSong_Resume.pdf" target="_blank" rel="noreferrer">
+            <a
+              className="ghost resume"
+              href="./EzraSong_Resume.pdf"
+              target="_blank"
+              rel="noreferrer"
+            >
               Download Résumé
             </a>
-            <button id="audio-toggle" className="ghost audio-toggle" type="button" aria-pressed="false">
+            <button
+              id="audio-toggle"
+              className="ghost audio-toggle"
+              type="button"
+              aria-pressed="false"
+            >
               Enable sound
             </button>
           </div>
@@ -99,10 +115,10 @@ export default function App() {
 
         <section className="section about" id="about">
           <h2>What I’m focused on</h2>
-         <p>
-            Coursework keeps my math brain sharp, while internships and side projects give me room to experiment with React,
-            React Native, data APIs, and automation. Below is a constantly updated snapshot of the skills and roles I’ve been
-            growing.
+          <p>
+            Coursework keeps my math brain sharp, while internships and side projects give me room
+            to experiment with React, React Native, data APIs, and automation. Below is a constantly
+            updated snapshot of the skills and roles I’ve been growing.
           </p>
           <ul className="stats" id="stats-list">
             {(stats || []).map((stat) => (
@@ -117,7 +133,9 @@ export default function App() {
         <section className="section skills" id="skills">
           <div className="section-heading">
             <h2>Technical toolkit</h2>
-            <p>Languages and frameworks from the latest term’s labs, internships, and club workshops.</p>
+            <p>
+              Languages and frameworks from the latest term’s labs, internships, and club workshops.
+            </p>
           </div>
           <div className="services-grid" id="skills-grid">
             {(skills || []).map((skill) => (
@@ -167,7 +185,10 @@ export default function App() {
         <section className="section projects" id="projects">
           <div className="section-heading">
             <h2>Selected GitHub projects</h2>
-            <p>Each bubble in the background corresponds to one of these repos. Tap, drag, or click below to read more.</p>
+            <p>
+              Each bubble in the background corresponds to one of these repos. Tap, drag, or click
+              below to read more.
+            </p>
           </div>
           <div className="project-grid" id="project-grid">
             {(featuredProjects || []).map((project) => (
@@ -218,7 +239,9 @@ export default function App() {
         <section className="section extracurricular" id="extracurricular">
           <div className="section-heading">
             <h2>Beyond class</h2>
-            <p>Clubs, volunteer work, and orchestras where I practice leadership and collaboration.</p>
+            <p>
+              Clubs, volunteer work, and orchestras where I practice leadership and collaboration.
+            </p>
           </div>
           <div className="extracurricular-grid" id="extracurricular-list">
             {(extracurriculars || []).map((item) => (
@@ -239,7 +262,8 @@ export default function App() {
           <div id="education-block">
             <p>
               <strong>{education.school || "University of Waterloo"}</strong>
-              {education.program ? ` · ${education.program}` : ""} {education.location ? ` · ${education.location}` : ""}
+              {education.program ? ` · ${education.program}` : ""}{" "}
+              {education.location ? ` · ${education.location}` : ""}
             </p>
             <p>{education.graduation || "Expected Apr 2029"}</p>
           </div>
@@ -248,8 +272,8 @@ export default function App() {
         <section className="section contact" id="contact">
           <h2>Let’s make something remarkable</h2>
           <p>
-            Available for internships, freelance collaborations, and hackathon teams. Always happy to chat about React, React
-            Native, Supabase, creative coding, or anything mathy.
+            Available for internships, freelance collaborations, and hackathon teams. Always happy
+            to chat about React, React Native, Supabase, creative coding, or anything mathy.
           </p>
           <div className="contact-links">
             <a data-link="email" href={`mailto:${profileLinks.email || "e34song@uwaterloo.ca"}`}>
@@ -261,10 +285,20 @@ export default function App() {
             >
               {profileLinks.phone || "+1 (647) 564-6754"}
             </a>
-            <a data-link="linkedin" href={profileLinks.linkedin || "https://linkedin.com/e34song"} target="_blank" rel="noreferrer">
+            <a
+              data-link="linkedin"
+              href={profileLinks.linkedin || "https://linkedin.com/e34song"}
+              target="_blank"
+              rel="noreferrer"
+            >
               LinkedIn
             </a>
-            <a data-link="github" href={profileLinks.github || "https://github.com/ezrasong"} target="_blank" rel="noreferrer">
+            <a
+              data-link="github"
+              href={profileLinks.github || "https://github.com/ezrasong"}
+              target="_blank"
+              rel="noreferrer"
+            >
               GitHub
             </a>
           </div>
@@ -275,7 +309,9 @@ export default function App() {
         <div className="intro-card">
           <p className="tag">Welcome</p>
           <h2>Enter the studio?</h2>
-          <p>Step inside to explore the projects, drag the bubbles, and trigger the cinematic panels.</p>
+          <p>
+            Step inside to explore the projects, drag the bubbles, and trigger the cinematic panels.
+          </p>
           <button id="intro-enter" type="button">
             Let’s begin
           </button>
@@ -305,7 +341,11 @@ function ProjectPanel({ project, onClose }) {
 
   return (
     <>
-      <div id="bubble-panel-overlay" className={`bubble-panel-overlay ${isOpen ? "" : "hidden"}`} onClick={handleClose} />
+      <div
+        id="bubble-panel-overlay"
+        className={`bubble-panel-overlay ${isOpen ? "" : "hidden"}`}
+        onClick={handleClose}
+      />
       <aside
         id="bubble-panel"
         className={`bubble-panel ${isOpen ? "" : "hidden"}`}
@@ -340,7 +380,13 @@ function ProjectPanel({ project, onClose }) {
           <p id="bubble-panel-meta">{project?.stack?.join(" · ") || ""}</p>
         </div>
         <div className="panel-actions">
-          <a id="bubble-panel-link" className="primary" href={project?.link || "#"} target="_blank" rel="noreferrer">
+          <a
+            id="bubble-panel-link"
+            className="primary"
+            href={project?.link || "#"}
+            target="_blank"
+            rel="noreferrer"
+          >
             Visit project
           </a>
           <a id="bubble-panel-secondary" className="ghost" href="#projects">

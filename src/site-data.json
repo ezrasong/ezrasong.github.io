@@ -14,12 +14,33 @@
     {
       "title": "Languages",
       "icon": "λ",
-      "items": ["Python", "Java", "C++", "C#", "JavaScript", "TypeScript", "SQL", "Racket", "Perl", "HTML", "CSS"]
+      "items": [
+        "Python",
+        "Java",
+        "C++",
+        "C#",
+        "JavaScript",
+        "TypeScript",
+        "SQL",
+        "Racket",
+        "Perl",
+        "HTML",
+        "CSS"
+      ]
     },
     {
       "title": "Frameworks & Tools",
       "icon": "⚙︎",
-      "items": ["React", "React Native", "Expo", "Node.js", "Bootstrap", "Docker", "Firebase", "GitHub Actions"]
+      "items": [
+        "React",
+        "React Native",
+        "Expo",
+        "Node.js",
+        "Bootstrap",
+        "Docker",
+        "Firebase",
+        "GitHub Actions"
+      ]
     },
     {
       "title": "Other",

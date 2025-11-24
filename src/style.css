@@ -1,5 +1,11 @@
 :root {
-  font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    "Space Grotesk",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   color: #f7f8ff;
   background-color: #030a18;
   --background-top: #04132b;
@@ -32,11 +38,17 @@ body {
   margin: 0;
   min-height: 100vh;
   color: #e9f0ff;
-  background:
-    linear-gradient(180deg, var(--background-top) 0%, var(--background-mid) 45%, var(--background-bottom) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--background-top) 0%,
+    var(--background-mid) 45%,
+    var(--background-bottom) 100%
+  );
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
-  transition: background 0.9s ease, color 0.4s ease;
+  transition:
+    background 0.9s ease,
+    color 0.4s ease;
   overflow-x: hidden;
 }
 
@@ -78,9 +90,23 @@ body::after {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at 25% 12%, var(--background-flare, rgba(120, 160, 255, 0.3)), transparent 45%),
-    radial-gradient(circle at 75% 8%, var(--background-flare-soft, rgba(120, 160, 255, 0.18)), transparent 60%),
-    linear-gradient(180deg, rgba(5, 8, 20, 0) 55%, rgba(5, 11, 28, 0.35) 72%, rgba(2, 6, 18, 0.78) 85%, rgba(1, 2, 6, 0.95) 100%);
+    radial-gradient(
+      circle at 25% 12%,
+      var(--background-flare, rgba(120, 160, 255, 0.3)),
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 75% 8%,
+      var(--background-flare-soft, rgba(120, 160, 255, 0.18)),
+      transparent 60%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(5, 8, 20, 0) 55%,
+      rgba(5, 11, 28, 0.35) 72%,
+      rgba(2, 6, 18, 0.78) 85%,
+      rgba(1, 2, 6, 0.95) 100%
+    );
   mix-blend-mode: screen;
   pointer-events: none;
   z-index: 0;
@@ -90,7 +116,12 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, rgba(1, 3, 9, 0) 55%, rgba(1, 3, 10, 0.45) 75%, rgba(0, 1, 4, 0.85) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(1, 3, 9, 0) 55%,
+    rgba(1, 3, 10, 0.45) 75%,
+    rgba(0, 1, 4, 0.85) 100%
+  );
   pointer-events: none;
   z-index: 0;
 }
@@ -258,7 +289,10 @@ body.scene-paused #scene-canvas {
   gap: 0.35rem;
   position: relative;
   padding-left: 2.6rem;
-  transition: color 0.3s ease, border-color 0.3s ease, background 0.3s ease,
+  transition:
+    color 0.3s ease,
+    border-color 0.3s ease,
+    background 0.3s ease,
     box-shadow 0.3s ease;
 }
 
@@ -273,7 +307,9 @@ body.scene-paused #scene-canvas {
   transform: translateY(-50%);
   background: rgba(255, 255, 255, 0.45);
   box-shadow: 0 0 0 rgba(127, 223, 255, 0.3);
-  transition: background 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    background 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .hero-actions .audio-toggle[data-state="on"] {
@@ -307,42 +343,50 @@ body.scene-paused #scene-canvas {
 }
 
 :is(
-    .section,
-    .stats li,
-    .project-card,
-    .service-card,
-    .timeline-card,
-    .process-steps li,
-    .extracurricular-card,
-    .education #education-block,
-    .quote-card
-  )::before {
+  .section,
+  .stats li,
+  .project-card,
+  .service-card,
+  .timeline-card,
+  .process-steps li,
+  .extracurricular-card,
+  .education #education-block,
+  .quote-card
+)::before {
   content: "";
   position: absolute;
   inset: 1px;
   border-radius: inherit;
-  background: radial-gradient(circle at 25% 12%, var(--surface-highlight, rgba(255, 231, 205, 0.4)), transparent 65%);
+  background: radial-gradient(
+    circle at 25% 12%,
+    var(--surface-highlight, rgba(255, 231, 205, 0.4)),
+    transparent 65%
+  );
   opacity: 0.4;
   pointer-events: none;
   z-index: -1;
 }
 
 :is(
-    .section,
-    .stats li,
-    .project-card,
-    .service-card,
-    .timeline-card,
-    .process-steps li,
-    .extracurricular-card,
-    .education #education-block,
-    .quote-card
-  )::after {
+  .section,
+  .stats li,
+  .project-card,
+  .service-card,
+  .timeline-card,
+  .process-steps li,
+  .extracurricular-card,
+  .education #education-block,
+  .quote-card
+)::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(145deg, var(--surface-sheen, rgba(255, 255, 255, 0.08)), transparent 55%);
+  background: linear-gradient(
+    145deg,
+    var(--surface-sheen, rgba(255, 255, 255, 0.08)),
+    transparent 55%
+  );
   mix-blend-mode: soft-light;
   pointer-events: none;
   z-index: -1;
@@ -410,7 +454,9 @@ body.scene-paused #scene-canvas {
   overflow: hidden;
   backdrop-filter: blur(26px);
   position: relative;
-  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+  transition:
+    border-color 0.4s ease,
+    box-shadow 0.4s ease;
 }
 
 .project-card:hover {
@@ -735,7 +781,9 @@ body.scene-paused #scene-canvas {
   backdrop-filter: blur(28px);
   transform: translate(-50%, -45%) scale(0.9);
   opacity: 0;
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
   pointer-events: none;
   color: #f5f7ff;
   display: flex;
@@ -1032,7 +1080,10 @@ body.scene-paused #scene-canvas {
   isolation: isolate;
   overflow: hidden;
   margin-bottom: 0.8rem;
-  transition: background 0.6s ease, border-color 0.6s ease, box-shadow 0.6s ease;
+  transition:
+    background 0.6s ease,
+    border-color 0.6s ease,
+    box-shadow 0.6s ease;
 }
 
 .hero::before {
