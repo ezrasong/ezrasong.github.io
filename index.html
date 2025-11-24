@@ -7,7 +7,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./style.css">
   </head>
   <body>
     <a class="skip-link" href="#about">Skip to main content</a>
@@ -148,9 +147,8 @@
       </div>
     </aside>
 
-    <script src="./site-data.js"></script>
-    <script src="./three.min.js"></script>
-    <script src="./GLTFLoader.js"></script>
-    <script src="./main.js"></script>
+    <script type="module">
+      import "/src/main.js";
+    </script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-(function init() {
+export function initScene() {
   if (!window.THREE) {
     console.error("Three.js is not available. Ensure the CDN script is loaded before main.js.");
     return;
@@ -17,6 +17,14 @@
   } = window.SITE_DATA || {};
 
   const canvas = document.getElementById("scene-canvas");
+  const ASSET_BASE =
+    (typeof import.meta !== "undefined" && import.meta.env?.BASE_URL) || "/";
+  const assetPath = (path) => {
+    const trimmedBase = ASSET_BASE.endsWith("/") ? ASSET_BASE.slice(0, -1) : ASSET_BASE;
+    const trimmedPath = path.startsWith("/") ? path.slice(1) : path;
+    return `${trimmedBase}/${trimmedPath}`;
+  };
+
   const mediaSmall = window.matchMedia("(max-width: 900px)");
   const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   const densityScale = reduceMotionQuery.matches ? 0.55 : mediaSmall.matches ? 0.82 : 1;
@@ -1058,8 +1066,8 @@ const dropletSettings = {
 };
 const droplets = [];
 const swimmers = [];
-const quagsireModelPath = "./assets/models/quagsire.glb";
-const wailordModelPath = "./assets/models/wailord.glb";
+const quagsireModelPath = assetPath("models/quagsire.glb");
+const wailordModelPath = assetPath("models/wailord.glb");
 
 function clampSwimmerToBounds(entry) {
   const { group } = entry;
@@ -1231,55 +1239,73 @@ function tuneMaterialForLighting(mat) {
   mat.needsUpdate = true;
 }
 
+async function assetExists(url) {
+  try {
+    const head = await fetch(url, { method: "HEAD" });
+    if (head.ok) return true;
+    const get = await fetch(url, { method: "GET" });
+    return get.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
 function loadQuagsireSwimmer() {
   if (!THREE.GLTFLoader) {
     console.warn("GLTFLoader script missing; unable to load Quagsire model.");
     return;
   }
-  const loader = new THREE.GLTFLoader();
-  loader.load(
-    quagsireModelPath,
-    (gltf) => {
-      window.latestQuagsire = gltf;
-      const sceneRoot = gltf.scene || new THREE.Group();
-      sceneRoot.traverse((child) => {
-        if (child.isMesh) {
-          child.castShadow = false;
-          child.receiveShadow = false;
-        }
-      });
-      const basePosition = new THREE.Vector3(2.6, -0.4, -3.4);
-      const baseScale = 0.45;
-      sceneRoot.position.copy(basePosition);
-      sceneRoot.scale.setScalar(baseScale);
-      sceneRoot.rotation.y = Math.PI;
-      scene.add(sceneRoot);
-      const mixer = gltf.animations?.length ? new THREE.AnimationMixer(sceneRoot) : null;
-      if (mixer) {
-        gltf.animations.forEach((clip) => {
-          const action = mixer.clipAction(clip);
-          action.play();
-        });
-      }
-      swimmers.push({
-        group: sceneRoot,
-        scale: baseScale,
-        radius: 4.5,
-        speed: 0.22,
-        verticalRange: 0.6,
-        pathOffset: Math.random() * Math.PI * 2,
-        wobbleAmplitude: 0.25,
-        basePosition,
-        tilt: -0.15,
-        colliderRadius: 0.8,
-        mixer,
-      });
-    },
-    undefined,
-    (error) => {
-      console.warn("Failed to load quagsire model", error);
+  (async () => {
+    const exists = await assetExists(quagsireModelPath);
+    if (!exists) {
+      console.warn(`Quagsire model not found at ${quagsireModelPath}; skipping load.`);
+      return;
     }
-  );
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      quagsireModelPath,
+      (gltf) => {
+        window.latestQuagsire = gltf;
+        const sceneRoot = gltf.scene || new THREE.Group();
+        sceneRoot.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = false;
+            child.receiveShadow = false;
+          }
+        });
+        const basePosition = new THREE.Vector3(2.6, -0.4, -3.4);
+        const baseScale = 0.45;
+        sceneRoot.position.copy(basePosition);
+        sceneRoot.scale.setScalar(baseScale);
+        sceneRoot.rotation.y = Math.PI;
+        scene.add(sceneRoot);
+        const mixer = gltf.animations?.length ? new THREE.AnimationMixer(sceneRoot) : null;
+        if (mixer) {
+          gltf.animations.forEach((clip) => {
+            const action = mixer.clipAction(clip);
+            action.play();
+          });
+        }
+        swimmers.push({
+          group: sceneRoot,
+          scale: baseScale,
+          radius: 4.5,
+          speed: 0.22,
+          verticalRange: 0.6,
+          pathOffset: Math.random() * Math.PI * 2,
+          wobbleAmplitude: 0.25,
+          basePosition,
+          tilt: -0.15,
+          colliderRadius: 0.8,
+          mixer,
+        });
+      },
+      undefined,
+      (error) => {
+        console.warn("Failed to load quagsire model", error);
+      }
+    );
+  })();
 }
 
 loadQuagsireSwimmer();
@@ -1437,7 +1463,7 @@ const dragThreshold = 0.02;
   const projectGrid = document.getElementById("project-grid");
   const extracurricularList = document.getElementById("extracurricular-list");
   const educationBlock = document.getElementById("education-block");
-  const AUDIO_TRACK_URL = "./assets/audio/chill-chip.wav";
+  const AUDIO_TRACK_URL = assetPath("audio/chill-chip.wav");
   const audioState = {
     media: typeof Audio !== "undefined" ? new Audio(AUDIO_TRACK_URL) : null,
     context: null,
@@ -1857,8 +1883,9 @@ const dragThreshold = 0.02;
   }
 
   async function fetchLatestSiteData() {
+    const dataUrl = window.SITE_DATA_URL || "./site-data.json";
     try {
-      const response = await fetch(`./site-data.json?cache=${Date.now()}`, { cache: "no-store" });
+      const response = await fetch(`${dataUrl}?cache=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) throw new Error(`Failed to fetch site-data: ${response.status}`);
       const json = await response.json();
       if (!validateSiteData(json)) throw new Error("Site data failed validation");
@@ -2536,4 +2563,4 @@ function updateLighting(delta) {
   window.addEventListener("keyup", (event) => handleKeyChange(event, false));
   window.addEventListener("resize", onResize);
   window.addEventListener("contextmenu", (evt) => evt.preventDefault());
-})();
+}
