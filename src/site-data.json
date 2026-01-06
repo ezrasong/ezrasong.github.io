@@ -24,41 +24,56 @@
         "SQL",
         "Racket",
         "Perl",
-        "HTML",
-        "CSS"
+        "HTML/CSS"
       ]
     },
     {
-      "title": "Frameworks & Tools",
+      "title": "Frameworks",
       "icon": "⚙︎",
       "items": [
         "React",
         "React Native",
-        "Expo",
         "Node.js",
-        "Bootstrap",
-        "Docker",
-        "Firebase",
-        "GitHub Actions"
+        "Express",
+        "Supabase",
+        "Firebase"
       ]
     },
     {
-      "title": "Other",
+      "title": "Tools",
       "icon": "△",
-      "items": ["Linux", "Bash", "Heroku", "Supabase", "Material UI"]
+      "items": [
+        "Docker",
+        "Git",
+        "GitHub Actions",
+        "REST APIs",
+        "VS Code",
+        "Linux",
+        "Bash"
+      ]
     }
   ],
   "experiences": [
+    {
+      "role": "Web Developer",
+      "company": "DoBetter.love",
+      "location": "Remote",
+      "range": "Sep 2025 – Nov 2025",
+      "summary": "Executed structured testing workflows for mobile app features, focusing on UI/UX, navigation, and edge cases.",
+      "highlights": [
+        "Filed detailed bug reports with reproduction steps, logs, and severity notes to accelerate fixes.",
+        "Re-tested patches, verified regression fixes, and ensured consistent builds before release cycles."
+      ]
+    },
     {
       "role": "Mobile App Developer",
       "company": "AIXFF",
       "location": "Vancouver, BC",
       "range": "Jul 2025 – Aug 2025",
-      "summary": "Built and polished a shopping companion prototype that paired React Native flows with mock services for future backend handoff.",
+      "summary": "Built a full React Native/Expo storefront prototype with product listings, search, filters, and item-detail pages.",
       "highlights": [
-        "Shipped storefront prototype using React Native/Expo with placeholder auth and category, search, and detail screens.",
-        "Designed a modular services/api layer so UI logic stayed decoupled from data fetching.",
-        "Elevated navigation and UI layout across flows to clarify the story for mock stakeholders."
+        "Designed a modular mock API service layer plus shared state via React Context to keep UI decoupled from data.",
+        "Optimized UI structure, navigation flows, and component organization for clarity and scalability."
       ]
     },
     {
@@ -66,10 +81,9 @@
       "company": "North P&D",
       "location": "Toronto, ON",
       "range": "Feb 2023 – Nov 2023",
-      "summary": "Implemented responsive front-end features to improve usability and performance.",
+      "summary": "Developed React UI components and improved page responsiveness, layout, and accessibility.",
       "highlights": [
-        "Delivered React experiences that stayed consistent across breakpoints and devices.",
-        "Performed thorough QA and cross-browser testing for high reliability."
+        "Performed cross-browser QA, resolved layout breaks, and reduced UI defects across builds."
       ]
     },
     {
@@ -87,21 +101,21 @@
   "featuredProjects": [
     {
       "title": "UW Course Planner",
-      "description": "Drag-and-drop planner for Waterloo schedules with Supabase, live UW Open Data API sync, and light/dark themes.",
+      "description": "Interactive course-planning tool with drag-and-drop term organization, live filtering, OAuth login, and dark mode.",
       "stack": ["React", "TypeScript", "Supabase"],
       "link": "https://github.com/ezrasong/UW-Course-Planner",
       "image": "https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=900&q=80"
     },
     {
       "title": "Discord Mute Bot",
-      "description": "Python/discord.py bot with environment-configured permissions plus vote-to-mute flow and deployment scripts.",
+      "description": "Permission-safe vote-muting bot with server-side configuration and logging.",
       "stack": ["Python", "Discord.py"],
       "link": "https://github.com/ezrasong/Discord-Mute-Bot",
       "image": "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=900&q=80"
     },
     {
       "title": "YT-DLP GUI",
-      "description": "Desktop front-end for yt-dlp with Tkinter, dark mode, auto-update, and PyInstaller packaging for friends to use.",
+      "description": "Feature-rich desktop app for YT-DLP with dark mode, auto-updates, presets, and PyInstaller packaging.",
       "stack": ["Python", "Tkinter"],
       "link": "https://github.com/ezrasong/YT-DLP-GUI",
       "image": "https://placehold.co/1200x675/0a1830/8ad0ff/png?text=YT-DLP+GUI"
@@ -109,22 +123,16 @@
   ],
   "extracurriculars": [
     {
-      "title": "Engineering Club · Curriculum Leader",
-      "org": "Northview Heights Secondary School",
-      "range": "Sep 2023 – Jun 2024",
-      "description": "Led hands-on workshops covering practical engineering builds for younger students."
+      "title": "UTMIST AI Squared Tournament — Top 8",
+      "org": "University of Toronto",
+      "range": "2025",
+      "description": "Achieved a Top-8 finish by designing and implementing a functional AI/ML prototype during the AI² hackathon."
     },
     {
-      "title": "Programming Club · Curriculum Leader",
-      "org": "Northview Heights Secondary School",
-      "range": "Sep 2023 – Jun 2024",
-      "description": "Created fundamentals curriculum and prepared classmates for the Canadian Computing Competition."
-    },
-    {
-      "title": "Volunteer Cellist",
-      "org": "Young Nak Korean Church",
-      "range": "Sep 2022 – Jun 2023",
-      "description": "Performed in the youth orchestra and supported community events with live music."
+      "title": "Go on Hacks — Best Pitch (LeReplacer)",
+      "org": "University of Waterloo",
+      "range": "2025",
+      "description": "Won Best Pitch with LeReplacer, a JavaScript/Node.js browser extension that swaps detected faces with a custom image in real time."
     }
   ],
   "education": {
@@ -136,7 +144,7 @@
   "bubbleProjects": [
     {
       "title": "UW Course Planner",
-      "description": "Waterloo drag-and-drop planning experience with Supabase sync and live Open Data API support.",
+      "description": "Waterloo drag-and-drop planning experience with live filtering plus Supabase sync and Open Data API support.",
       "link": "https://github.com/ezrasong/UW-Course-Planner",
       "tint": "#6fb1ff",
       "image": "https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=600&q=80",
@@ -144,7 +152,7 @@
     },
     {
       "title": "AIXFF Shopper App",
-      "description": "React Native prototype that simulates product listings, search, and detail flows across mock data services.",
+      "description": "React Native/Expo storefront prototype covering listings, search, filters, and detail flows backed by mock services.",
       "link": "https://github.com/ezrasong/aixff-app",
       "tint": "#ff8de9",
       "image": "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=600&q=80",
@@ -152,7 +160,7 @@
     },
     {
       "title": "Discord Mute Bot",
-      "description": "Vote-to-mute Discord bot with strict permission checks and environment-driven configuration.",
+      "description": "Permission-safe vote-to-mute Discord bot with environment-driven configuration and logging.",
       "link": "https://github.com/ezrasong/Discord-Mute-Bot",
       "tint": "#7dffe6",
       "image": "https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=600&q=80",
@@ -160,7 +168,7 @@
     },
     {
       "title": "YT-DLP GUI",
-      "description": "Tkinter-based downloader companion offering dark mode, auto-update, and packaging via PyInstaller.",
+      "description": "Tkinter-based downloader companion with dark mode, auto-updates, presets, and packaging via PyInstaller.",
       "link": "https://github.com/ezrasong/YT-DLP-GUI",
       "tint": "#9ca8ff",
       "image": "https://placehold.co/900x600/0a1830/8ad0ff/png?text=YT-DLP+GUI",

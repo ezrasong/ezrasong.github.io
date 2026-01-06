@@ -2,6 +2,7 @@ let destroyed = false;
 let animationId = null;
 let refreshIntervalId = null;
 const managedListeners = [];
+let reinitTimer = null;
 
 function addManagedListener(target, type, handler, options) {
   target.addEventListener(type, handler, options);
@@ -11,6 +12,10 @@ function addManagedListener(target, type, handler, options) {
 export function initScene() {
   destroyed = false;
   animationId = null;
+  if (reinitTimer !== null) {
+    clearTimeout(reinitTimer);
+    reinitTimer = null;
+  }
   if (!window.THREE) {
     console.error("Three.js is not available. Ensure the CDN script is loaded before main.js.");
     return;
@@ -29,6 +34,7 @@ export function initScene() {
   } = window.SITE_DATA || {};
 
   const canvas = document.getElementById("scene-canvas");
+  if (!canvas) return;
   const ASSET_BASE = (typeof import.meta !== "undefined" && import.meta.env?.BASE_URL) || "/";
   const assetPath = (path) => {
     const trimmedBase = ASSET_BASE.endsWith("/") ? ASSET_BASE.slice(0, -1) : ASSET_BASE;
@@ -40,13 +46,16 @@ export function initScene() {
   const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   const deviceMemory = typeof navigator !== "undefined" ? navigator.deviceMemory : null;
   const hasTouch = typeof navigator !== "undefined" ? navigator.maxTouchPoints > 0 : false;
+  const threadCount = typeof navigator !== "undefined" ? navigator.hardwareConcurrency : null;
   const isLowPower = reduceMotionQuery.matches || (deviceMemory && deviceMemory <= 4) || hasTouch;
+  const isPerfSaver =
+    reduceMotionQuery.matches || (deviceMemory && deviceMemory <= 3) || (threadCount && threadCount <= 4);
   const densityScaleBase = reduceMotionQuery.matches ? 0.55 : mediaSmall.matches ? 0.82 : 1;
-  const densityScale = densityScaleBase * (isLowPower ? 0.7 : 1);
+  const densityScale = densityScaleBase * (isLowPower ? 0.7 : 1) * (isPerfSaver ? 0.8 : 1);
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    antialias: !isPerfSaver,
     alpha: true,
   });
   let canvasIsVisible = true;
@@ -54,7 +63,8 @@ export function initScene() {
 
   function updateRendererQuality() {
     const baseCap = reduceMotionQuery.matches ? 1.1 : mediaSmall.matches ? 1.35 : 1.8;
-    const cap = baseCap * (isLowPower ? 0.75 : 1);
+    const qualityScale = isPerfSaver ? 0.55 : isLowPower ? 0.75 : 1;
+    const cap = baseCap * qualityScale;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
   }
 
@@ -795,7 +805,7 @@ export function initScene() {
     particleLayers.push(points);
   }
 
-  const dustDensity = Math.max(0.45, densityScale);
+  const dustDensity = Math.min(0.6, Math.max(0.3, densityScale * (isPerfSaver ? 0.7 : 1)));
   const dustScale = isLowPower ? 0.7 : 1;
   createDustLayer(Math.round(800 * dustDensity * dustScale), 30, 0.05, 0.45, 0x8fbaff, 0.002);
   createDustLayer(Math.round(600 * dustDensity * dustScale), 40, 0.08, 0.3, 0x5efbe0, -0.001);
@@ -803,7 +813,8 @@ export function initScene() {
 
   const bubblesGroup = new THREE.Group();
   scene.add(bubblesGroup);
-  const outerGeometry = new THREE.SphereGeometry(1, 96, 96);
+  const bubbleSegments = isPerfSaver ? 48 : isLowPower ? 72 : 96;
+  const outerGeometry = new THREE.SphereGeometry(1, bubbleSegments, bubbleSegments);
 
   const targetLookAt = new THREE.Vector3(0, 0.2, 0);
   const parallaxMouse = new THREE.Vector2(0, 0);
@@ -1087,12 +1098,16 @@ export function initScene() {
     roughness: 0.2,
   });
   const dropletSettings = {
-    minActive: Math.max(14, Math.round(22 * densityScale)),
-    maxActive: Math.max(40, Math.round((isLowPower ? 80 : 120) * densityScale)),
+    minActive: Math.max(10, Math.round((isPerfSaver ? 14 : 22) * densityScale)),
+    maxActive: Math.max(
+      isPerfSaver ? 24 : 40,
+      Math.round((isPerfSaver ? 36 : isLowPower ? 64 : 100) * densityScale)
+    ),
     radiusMin: 4.5,
-    radiusMax: 14,
-    verticalSpread: 5.2,
+    radiusMax: isPerfSaver ? 10 : 14,
+    verticalSpread: isPerfSaver ? 4.4 : 5.2,
   };
+  const enableSwimmers = !isPerfSaver;
   const droplets = [];
   const swimmers = [];
   const quagsireModelPath = assetPath("models/quagsire.glb");
@@ -1342,8 +1357,6 @@ export function initScene() {
     })();
   }
 
-  loadQuagsireSwimmer();
-
   function loadWailordSwimmer() {
     getGLTFLoader().then((GLTFLoader) => {
       if (!GLTFLoader) {
@@ -1404,7 +1417,12 @@ export function initScene() {
     });
   }
 
-  loadWailordSwimmer();
+  if (enableSwimmers) {
+    loadQuagsireSwimmer();
+    loadWailordSwimmer();
+  } else {
+    console.info("Low-power mode: skipping swimmer models for performance.");
+  }
 
   let activeDropletTarget = 0;
   function updateDropletActivity(force = false) {
@@ -2226,6 +2244,26 @@ export function initScene() {
   addManagedListener(window, "pointerup", endDrag);
   addManagedListener(window, "pointerleave", endDrag);
 
+  const scheduleSceneReinit = () => {
+    if (reinitTimer !== null) return;
+    reinitTimer = setTimeout(() => {
+      reinitTimer = null;
+      if (destroyed) return;
+      destroyScene();
+      initScene();
+    }, 80);
+  };
+
+  addManagedListener(canvas, "webglcontextlost", (event) => {
+    event.preventDefault();
+    setRenderPaused("context-lost", true);
+    scheduleSceneReinit();
+  });
+
+  addManagedListener(canvas, "webglcontextrestored", () => {
+    setRenderPaused("context-lost", false);
+  });
+
   if ("IntersectionObserver" in window && canvas) {
     canvasVisibilityObserver = new IntersectionObserver(
       (entries) => {
@@ -2247,6 +2285,8 @@ export function initScene() {
     setRenderPaused("hidden", document.hidden);
     if (!document.hidden) {
       lastElapsed = clock.getElapsedTime();
+      canvasIsVisible = true;
+      setRenderPaused("offscreen", false);
     }
   });
   setRenderPaused("hidden", document.hidden);
@@ -2603,6 +2643,11 @@ export function initScene() {
 
 export function destroyScene() {
   destroyed = true;
+  document.body.classList.remove("scene-paused");
+  if (reinitTimer !== null) {
+    clearTimeout(reinitTimer);
+    reinitTimer = null;
+  }
   if (animationId !== null) {
     cancelAnimationFrame(animationId);
     animationId = null;

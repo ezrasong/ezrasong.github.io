@@ -96,7 +96,7 @@ export default function App() {
             </a>
             <a
               className="ghost resume"
-              href="./EzraSong_Resume.pdf"
+              href="/Ezra_Resume.pdf"
               target="_blank"
               rel="noreferrer"
             >
@@ -227,7 +227,7 @@ export default function App() {
                   </div>
                 ) : null}
                 <footer>
-                  <a href={project.link} target="_blank" rel="noreferrer">
+                  <a className="text-link" href={project.link} target="_blank" rel="noreferrer">
                     View repo ↗
                   </a>
                 </footer>
@@ -276,16 +276,22 @@ export default function App() {
             to chat about React, React Native, Supabase, creative coding, or anything mathy.
           </p>
           <div className="contact-links">
-            <a data-link="email" href={`mailto:${profileLinks.email || "e34song@uwaterloo.ca"}`}>
+            <a
+              className="text-link"
+              data-link="email"
+              href={`mailto:${profileLinks.email || "e34song@uwaterloo.ca"}`}
+            >
               {profileLinks.email || "e34song@uwaterloo.ca"}
             </a>
             <a
+              className="text-link"
               data-link="phone"
               href={`tel:${(profileLinks.phone || "+1 (647) 564-6754").replace(/[^+\\d]/g, "")}`}
             >
               {profileLinks.phone || "+1 (647) 564-6754"}
             </a>
             <a
+              className="text-link"
               data-link="linkedin"
               href={profileLinks.linkedin || "https://linkedin.com/e34song"}
               target="_blank"
@@ -294,6 +300,7 @@ export default function App() {
               LinkedIn
             </a>
             <a
+              className="text-link"
               data-link="github"
               href={profileLinks.github || "https://github.com/ezrasong"}
               target="_blank"

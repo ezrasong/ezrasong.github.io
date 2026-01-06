@@ -746,6 +746,23 @@ body.scene-paused #scene-canvas {
   color: rgba(255, 255, 255, 0.6);
 }
 
+.text-link {
+  color: #f6e8cf;
+  font-weight: 600;
+  text-decoration: none;
+  padding-bottom: 0.16rem;
+  border-bottom: 1px solid currentColor;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.text-link:hover,
+.text-link:focus-visible {
+  color: #fff3de;
+  border-bottom-color: currentColor;
+}
+
 .contact-links {
   display: flex;
   flex-wrap: wrap;
@@ -754,17 +771,9 @@ body.scene-paused #scene-canvas {
 }
 
 .contact-links a {
-  color: #ffe8c8;
-  text-decoration: none;
-  font-weight: 600;
-  padding-bottom: 0.2rem;
-  border-bottom: 1px solid rgba(255, 232, 200, 0.8);
-}
-
-.contact-links a:hover,
-.contact-links a:focus-visible {
-  color: #fff2dc;
-  border-bottom-color: rgba(255, 242, 220, 0.95);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .bubble-panel {
