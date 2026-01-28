@@ -293,7 +293,7 @@ export default function App() {
             <a
               className="text-link"
               data-link="linkedin"
-              href={profileLinks.linkedin || "https://linkedin.com/e34song"}
+              href={profileLinks.linkedin || "https://linkedin.com/in/e34song"}
               target="_blank"
               rel="noreferrer"
             >
