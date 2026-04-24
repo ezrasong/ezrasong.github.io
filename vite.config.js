@@ -10,8 +10,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 1024,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ["three"],
+        manualChunks(id) {
+          if (id.includes("node_modules/three")) return "vendor";
         },
       },
     },

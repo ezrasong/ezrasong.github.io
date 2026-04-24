@@ -1019,7 +1019,7 @@ export function initScene() {
     shellMaterial = createBubbleMaterial(bubbleTint.clone(), accentColor.clone(), previewTexture);
     bubble = new THREE.Mesh(outerGeometry, shellMaterial);
     bubble.renderOrder = 2;
-    const baseScale = 0.9 + Math.random() * 0.5;
+    const baseScale = project.scale ?? (0.7 + Math.random() * 0.9);
     bubble.scale.setScalar(baseScale);
     const spawnOrigin = new THREE.Vector3(
       project.position?.x ?? (Math.random() - 0.5) * 3.5,

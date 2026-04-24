@@ -72,19 +72,19 @@ export default function App() {
 
       <div className="page">
         <header className="hero">
-          <p className="kicker">Portfolio 2025</p>
+          <p className="kicker">Student portfolio</p>
           <h1>
             Ezra Song
-            <span>Creative developer &amp; Waterloo&nbsp;math&nbsp;student</span>
+            <span>Waterloo math student who likes building things</span>
           </h1>
           <p className="lede">
-            University of Waterloo Honours Mathematics student, blending coursework rigor with
-            creative technology. I ship tactile UI experiments, intelligent bots, and data-driven
-            tools that feel cinematic yet practical.
+            Honours Math at the University of Waterloo. I build web apps, Discord bots, and desktop
+            tools in my spare time. Mostly to learn, sometimes because a class assignment sent me
+            off on a tangent.
           </p>
           <div className="hero-actions">
             <a className="primary" href="mailto:e34song@uwaterloo.ca">
-              Start a project
+              Say hi
             </a>
             <a
               className="ghost"
@@ -96,7 +96,7 @@ export default function App() {
             </a>
             <a
               className="ghost resume"
-              href="/Ezra_Resume.pdf"
+              href="/Ezra_Song_Resume.pdf"
               target="_blank"
               rel="noreferrer"
             >
@@ -114,11 +114,11 @@ export default function App() {
         </header>
 
         <section className="section about" id="about">
-          <h2>What I’m focused on</h2>
+          <h2>What I’m up to</h2>
           <p>
-            Coursework keeps my math brain sharp, while internships and side projects give me room
-            to experiment with React, React Native, data APIs, and automation. Below is a constantly
-            updated snapshot of the skills and roles I’ve been growing.
+            Right now I’m splitting time between classes, co-op hunting, and side projects. Some of
+            this started as an assignment I got too curious about; the rest is just weekend
+            tinkering that stuck around.
           </p>
           <ul className="stats" id="stats-list">
             {(stats || []).map((stat) => (
@@ -132,10 +132,8 @@ export default function App() {
 
         <section className="section skills" id="skills">
           <div className="section-heading">
-            <h2>Technical toolkit</h2>
-            <p>
-              Languages and frameworks from the latest term’s labs, internships, and club workshops.
-            </p>
+            <h2>Stuff I use</h2>
+            <p>Picked up across coursework, side projects, and a couple of internships.</p>
           </div>
           <div className="services-grid" id="skills-grid">
             {(skills || []).map((skill) => (
@@ -155,7 +153,7 @@ export default function App() {
         <section className="section experience" id="experience">
           <div className="section-heading">
             <h2>Experience</h2>
-            <p>Recent co-ops, internships, and volunteer work building thoughtful software.</p>
+            <p>Where I’ve worked so far and what I built while I was there.</p>
           </div>
           <div className="timeline" id="experience-list">
             {(experiences || []).map((exp) => (
@@ -184,10 +182,10 @@ export default function App() {
 
         <section className="section projects" id="projects">
           <div className="section-heading">
-            <h2>Selected GitHub projects</h2>
+            <h2>Things I’ve built</h2>
             <p>
-              Each bubble in the background corresponds to one of these repos. Tap, drag, or click
-              below to read more.
+              The floating bubbles in the background are these projects too. Drag them around if
+              you feel like it.
             </p>
           </div>
           <div className="project-grid" id="project-grid">
@@ -212,7 +210,7 @@ export default function App() {
                       loading="lazy"
                       decoding="async"
                       width="1200"
-                      height="675"
+                      height="600"
                     />
                   </div>
                 ) : null}
@@ -238,10 +236,8 @@ export default function App() {
 
         <section className="section extracurricular" id="extracurricular">
           <div className="section-heading">
-            <h2>Beyond class</h2>
-            <p>
-              Clubs, volunteer work, and orchestras where I practice leadership and collaboration.
-            </p>
+            <h2>Outside class</h2>
+            <p>Hackathons, clubs, and the occasional weekend project that turned into a win.</p>
           </div>
           <div className="extracurricular-grid" id="extracurricular-list">
             {(extracurriculars || []).map((item) => (
@@ -262,7 +258,7 @@ export default function App() {
           <div id="education-block">
             <p>
               <strong>{education.school || "University of Waterloo"}</strong>
-              {education.program ? ` · ${education.program}` : ""}{" "}
+              {education.program ? ` · ${education.program}` : ""}
               {education.location ? ` · ${education.location}` : ""}
             </p>
             <p>{education.graduation || "Expected Apr 2029"}</p>
@@ -270,10 +266,10 @@ export default function App() {
         </section>
 
         <section className="section contact" id="contact">
-          <h2>Let’s make something remarkable</h2>
+          <h2>Let’s talk</h2>
           <p>
-            Available for internships, freelance collaborations, and hackathon teams. Always happy
-            to chat about React, React Native, Supabase, creative coding, or anything mathy.
+            Currently on the frontend team at Unmodal Research. Happy to chat about React, React
+            Native, Supabase, creative coding, or anything math-adjacent.
           </p>
           <div className="contact-links">
             <a
@@ -286,7 +282,7 @@ export default function App() {
             <a
               className="text-link"
               data-link="phone"
-              href={`tel:${(profileLinks.phone || "+1 (647) 564-6754").replace(/[^+\\d]/g, "")}`}
+              href={`tel:${(profileLinks.phone || "+1 (647) 564-6754").replace(/[^+\d]/g, "")}`}
             >
               {profileLinks.phone || "+1 (647) 564-6754"}
             </a>
@@ -314,13 +310,16 @@ export default function App() {
 
       <div id="intro-prompt" className="intro-prompt" role="dialog" aria-modal="true">
         <div className="intro-card">
-          <p className="tag">Welcome</p>
-          <h2>Enter the studio?</h2>
-          <p>
-            Step inside to explore the projects, drag the bubbles, and trigger the cinematic panels.
-          </p>
+          <p className="tag">Quick tour</p>
+          <h2>How to use this site</h2>
+          <ul className="intro-steps">
+            <li>Scroll for the usual portfolio bits: about, skills, experience, projects.</li>
+            <li>The floating bubbles in the background are each a project. Click one to read about it.</li>
+            <li>You can drag the bubbles around if you want to mess with them.</li>
+            <li>Hit the audio toggle in the hero for a bit of ambience.</li>
+          </ul>
           <button id="intro-enter" type="button">
-            Let’s begin
+            Got it
           </button>
         </div>
       </div>
@@ -378,7 +377,7 @@ function ProjectPanel({ project, onClose }) {
               loading="lazy"
               decoding="async"
               width="1200"
-              height="900"
+              height="600"
             />
           ) : null}
         </div>
@@ -396,7 +395,14 @@ function ProjectPanel({ project, onClose }) {
           >
             Visit project
           </a>
-          <a id="bubble-panel-secondary" className="ghost" href="#projects">
+          <a
+            id="bubble-panel-secondary"
+            className="ghost"
+            href="#projects"
+            onClick={() => {
+              handleClose();
+            }}
+          >
             More work
           </a>
         </div>
