@@ -1,18 +1,289 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ezra Song · Creative Developer</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ezra Song — mathematics student &amp; software developer</title>
+  <meta name="description" content="Ezra Song studies mathematics at the University of Waterloo and builds software — currently shipping frontend at Unmodal Research." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,600;0,700;1,400;1,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' font-family='serif'>∎</text></svg>" />
+</head>
+<body>
+
+  <nav class="masthead" aria-label="Site">
+    <span class="masthead-title">ezrasong.github.io</span>
+    <div class="masthead-links">
+      <a href="#experience">§1 Experience</a>
+      <a href="#work">§3 Work</a>
+      <a href="#references">References</a>
+    </div>
+  </nav>
+
+  <main class="paper">
+
+    <header class="titleblock">
+      <p class="eyebrow">A working paper &middot; revised July 2026</p>
+      <h1>Ezra Song</h1>
+      <p class="authorline">
+        Dept. of Mathematics, University of Waterloo &middot; Frontend Engineer, Unmodal Research
+      </p>
+      <ul class="linkrow" aria-label="Profiles">
+        <li><a href="https://github.com/ezrasong">GitHub</a></li>
+        <li><a href="https://linkedin.com/in/e34song">LinkedIn</a></li>
+        <li><a href="mailto:e34song@uwaterloo.ca">Email</a></li>
+        <li><a href="assets/Ezra_Song_Resume.pdf">Résumé&nbsp;(PDF)</a></li>
+      </ul>
+    </header>
+
+    <section class="abstract reveal" aria-labelledby="abstract-h">
+      <h2 id="abstract-h" class="abstract-heading">Abstract</h2>
+      <p>
+        I study mathematics at Waterloo and build software that people
+        <span class="pen-underline">actually use</span> — course planners, chat
+        clients, research tooling. I care about interfaces that feel fast, read
+        clearly, and hold up under edge cases. Currently shipping frontend at
+        Unmodal Research; previously React&nbsp;Native prototypes, QA pipelines,
+        and production React UI. Three hackathon awards and counting.
+      </p>
+    </section>
+
+    <figure class="plot reveal" id="trajectory">
+      <svg viewBox="0 0 720 270" role="img" aria-label="A plotted curve rising from 2023 to the present, with labeled points for each role along the way.">
+        <!-- axes -->
+        <line class="axis" x1="52" y1="232" x2="688" y2="232" />
+        <line class="axis" x1="52" y1="232" x2="52" y2="24" />
+        <!-- x ticks + labels -->
+        <g class="tick-labels">
+          <text x="92"  y="252">2023</text>
+          <text x="252" y="252">2024</text>
+          <text x="412" y="252">2025</text>
+          <text x="572" y="252">2026</text>
+          <text x="672" y="252">t →</text>
+          <text x="40" y="30" text-anchor="end">y</text>
+        </g>
+        <!-- curve -->
+        <path class="curve" d="M 60 222 C 180 214, 310 188, 430 140 C 510 108, 570 78, 660 42" fill="none" />
+        <!-- points -->
+        <g class="point" style="--i:0">
+          <circle cx="98" cy="212" r="4.5" />
+          <text x="98" y="192" text-anchor="middle">North P&amp;D</text>
+        </g>
+        <g class="point" style="--i:1">
+          <circle cx="440" cy="136" r="4.5" />
+          <text x="440" y="168" text-anchor="middle">AIXFF · DoBetter</text>
+        </g>
+        <g class="point" style="--i:2">
+          <circle cx="520" cy="102" r="4.5" />
+          <text x="520" y="84" text-anchor="middle">BMath @ Waterloo</text>
+        </g>
+        <g class="point" style="--i:3">
+          <circle cx="628" cy="52" r="4.5" />
+          <text x="628" y="34" text-anchor="middle">Unmodal Research</text>
+        </g>
+      </svg>
+      <figcaption><span class="fig-label">Fig. 1.</span> Trajectory, 2023–present. Strictly increasing on its domain.</figcaption>
+    </figure>
+
+    <section id="experience" class="section reveal" aria-labelledby="experience-h">
+      <h2 id="experience-h"><span class="secnum">1.</span> Experience</h2>
+
+      <article class="entry">
+        <div class="entry-head">
+          <h3>Frontend Engineer, Unmodal Research Inc.</h3>
+          <span class="range">Jan 2026 — present</span>
+        </div>
+        <p>
+          Building the frontend of Unmodal's research tooling: features and
+          reusable UI components for internal and client-facing tools, shipped
+          alongside engineers across the stack.
+        </p>
+      </article>
+
+      <article class="entry">
+        <div class="entry-head">
+          <h3>Web Developer, DoBetter.love</h3>
+          <span class="range">Sep — Nov 2025</span>
+        </div>
+        <p>
+          Ran structured QA workflows for mobile app features — UI/UX
+          consistency and edge-case validation, detailed bug reports with
+          reproduction steps, and regression verification before each release.
+        </p>
+      </article>
+
+      <article class="entry">
+        <div class="entry-head">
+          <h3>Mobile App Developer, AIXFF</h3>
+          <span class="range">Jul — Aug 2025</span>
+        </div>
+        <p>
+          Built a storefront prototype in React Native and Expo — product
+          browsing, search, and cart flows — with modular API service layers
+          and app-wide state management via React Context.
+        </p>
+      </article>
+
+      <article class="entry">
+        <div class="entry-head">
+          <h3>Junior Software Engineer, North P&amp;D</h3>
+          <span class="range">Feb — Nov 2023</span>
+        </div>
+        <p>
+          Developed React UI components and improved responsiveness and
+          accessibility across the product, with cross-browser QA across
+          staging and production builds.
+        </p>
+      </article>
+    </section>
+
+    <section id="notation" class="section reveal" aria-labelledby="notation-h">
+      <h2 id="notation-h"><span class="secnum">2.</span> Notation</h2>
+      <p class="section-lede">Symbols and machinery used throughout this work.</p>
+      <dl class="notation-list">
+        <div class="notation-row">
+          <dt>Languages</dt>
+          <dd>Python · Java · C++ · C# · JavaScript · TypeScript · SQL · Racket · Perl · HTML/CSS</dd>
+        </div>
+        <div class="notation-row">
+          <dt>Frameworks</dt>
+          <dd>React · React Native · Node.js · Express · Supabase · Firebase</dd>
+        </div>
+        <div class="notation-row">
+          <dt>Tools</dt>
+          <dd>Docker · Git · GitHub Actions · Linux · REST APIs</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section id="work" class="section reveal" aria-labelledby="work-h">
+      <h2 id="work-h"><span class="secnum">3.</span> Selected work</h2>
+
+      <figure class="project">
+        <div class="project-body">
+          <svg class="project-mark" viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="6" y="8" width="36" height="34" rx="2" />
+            <line x1="6" y1="18" x2="42" y2="18" />
+            <line x1="18" y1="18" x2="18" y2="42" />
+            <line x1="30" y1="18" x2="30" y2="42" />
+            <rect class="fill-pen" x="21" y="22" width="6" height="6" rx="1" />
+            <rect class="fill-ink" x="33" y="30" width="6" height="6" rx="1" />
+          </svg>
+          <div>
+            <h3><a href="https://github.com/ezrasong/UW-Course-Planner">UW Course Planner</a></h3>
+            <p>
+              Interactive course-planning tool for Waterloo students —
+              drag-and-drop term organization, real-time filtering, Supabase
+              OAuth for sign-in and persistent schedules, full dark mode.
+            </p>
+          </div>
+        </div>
+        <figcaption><span class="fig-label">Fig. 2.</span> React · TypeScript · Supabase</figcaption>
+      </figure>
+
+      <figure class="project">
+        <div class="project-body">
+          <svg class="project-mark" viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M 8 10 h 32 v 22 h -20 l -8 8 v -8 h -4 z" />
+            <line class="stroke-pen" x1="15" y1="19" x2="33" y2="19" />
+            <line x1="15" y1="25" x2="28" y2="25" />
+          </svg>
+          <div>
+            <h3><a href="https://github.com/ezrasong/lowcord">Lowcord</a></h3>
+            <p>
+              Lightweight Discord-style chat client with real-time messaging,
+              channels, and presence indicators. Minimal low-latency UI focused
+              on keyboard-driven navigation.
+            </p>
+          </div>
+        </div>
+        <figcaption><span class="fig-label">Fig. 3.</span> TypeScript · Node.js · WebSockets</figcaption>
+      </figure>
+
+      <figure class="project">
+        <div class="project-body">
+          <svg class="project-mark" viewBox="0 0 48 48" aria-hidden="true">
+            <rect x="8" y="8" width="32" height="32" rx="3" />
+            <polyline class="stroke-pen" points="14,20 20,25 14,30" />
+            <line x1="24" y1="30" x2="34" y2="30" />
+          </svg>
+          <div>
+            <h3><a href="https://github.com/ezrasong/Discord-Bot">Discord Bot</a></h3>
+            <p>
+              Multi-purpose Discord bot supporting moderation, custom commands,
+              and server utilities — persistent configuration storage and
+              robust error handling for 24/7 uptime.
+            </p>
+          </div>
+        </div>
+        <figcaption><span class="fig-label">Fig. 4.</span> Python · discord.py</figcaption>
+      </figure>
+
+      <p class="footnote">
+        This page is Fig. 5 — hand-written HTML and CSS, no frameworks, no
+        build step. <a href="https://github.com/ezrasong/ezrasong.github.io">Source on GitHub</a>.
+      </p>
+    </section>
+
+    <section id="education" class="section reveal" aria-labelledby="education-h">
+      <h2 id="education-h"><span class="secnum">4.</span> Education &amp; awards</h2>
+
+      <article class="entry">
+        <div class="entry-head">
+          <h3>University of Waterloo</h3>
+          <span class="range">Sep 2025 — Apr 2029</span>
+        </div>
+        <p>Bachelor of Mathematics (BMath), Honours Mathematics. Waterloo, ON.</p>
+      </article>
+
+      <ul class="awards">
+        <li>
+          <span class="award-title">Best Use of ElevenLabs (MLH)</span> — UltraHacks 2026,
+          University of Toronto.
+        </li>
+        <li>
+          <span class="award-title">Top 8</span> — UTMIST AI² Tournament 2025; built a
+          small ML prototype over the weekend with a teammate.
+        </li>
+        <li>
+          <span class="award-title">Best Pitch</span> — Go On Hacks 2025, with
+          <em>LeReplacer</em>, a browser extension that swaps detected faces with a
+          custom image in real time.
+        </li>
+      </ul>
+    </section>
+
+    <section id="references" class="section reveal" aria-labelledby="references-h">
+      <h2 id="references-h">References</h2>
+      <ol class="reference-list">
+        <li>
+          <span class="ref-num">[1]</span> E. Song, <em>GitHub</em>.
+          <a href="https://github.com/ezrasong">github.com/ezrasong</a>
+        </li>
+        <li>
+          <span class="ref-num">[2]</span> E. Song, <em>LinkedIn</em>.
+          <a href="https://linkedin.com/in/e34song">linkedin.com/in/e34song</a>
+        </li>
+        <li>
+          <span class="ref-num">[3]</span> E. Song, <em>Correspondence</em>.
+          <a href="mailto:e34song@uwaterloo.ca">e34song@uwaterloo.ca</a>
+        </li>
+        <li>
+          <span class="ref-num">[4]</span> E. Song, <em>Résumé</em>.
+          <a href="assets/Ezra_Song_Resume.pdf">Ezra_Song_Resume.pdf</a>
+        </li>
+      </ol>
+    </section>
+
+    <footer class="colophon">
+      <span class="qed" aria-hidden="true">∎</span>
+      <p>Set in STIX Two Text &amp; IBM Plex. Waterloo, Ontario.</p>
+    </footer>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
 </html>
