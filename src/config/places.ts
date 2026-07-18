@@ -1,0 +1,117 @@
+import type { DistrictInfo, PlaceData } from '../types';
+
+/**
+ * Non-project portfolio locations: about, skills, experience, contact, links.
+ * Panel copy for these comes from profile.ts.
+ */
+export const PLACES: PlaceData[] = [
+  {
+    id: 'about',
+    kind: 'about',
+    title: 'About Ezra',
+    koreanTitle: '에즈라의 집',
+    tagline: 'A quiet hanok in the alley — come in for tea.',
+    buildingType: 'hanok-house',
+    district: 'hanok',
+    position: { x: 36, z: -36 },
+    rotation: 0,
+    facing: 'south',
+    accent: '#d99a4e',
+    size: { width: 9, depth: 7, floors: 1 },
+  },
+  {
+    id: 'skills',
+    kind: 'skills',
+    title: 'Skills Workshop',
+    koreanTitle: '기술 공방',
+    tagline: 'The toolbench: languages, frameworks, and machinery.',
+    buildingType: 'workshop',
+    district: 'hongdae',
+    position: { x: -52, z: 0 },
+    rotation: 0,
+    facing: 'east',
+    accent: '#ffb257',
+    size: { width: 9, depth: 8, floors: 2 },
+  },
+  {
+    id: 'experience',
+    kind: 'experience',
+    title: 'Experience Tower',
+    koreanTitle: '경력 타워',
+    tagline: 'Four floors of work history.',
+    buildingType: 'office-tower',
+    district: 'gangnam',
+    position: { x: 52, z: 2 },
+    rotation: 0,
+    facing: 'west',
+    accent: '#4ce0d2',
+    size: { width: 11, depth: 11, floors: 7 },
+  },
+  {
+    id: 'contact',
+    kind: 'contact',
+    title: 'Contact Booth',
+    koreanTitle: '공중전화',
+    tagline: 'An old phone booth that still gets great reception.',
+    buildingType: 'phone-booth',
+    district: 'plaza',
+    position: { x: -9, z: 13 },
+    rotation: 0.4,
+    facing: 'east',
+    accent: '#ff5d5d',
+    size: { width: 1.7, depth: 1.7, floors: 1 },
+  },
+  {
+    id: 'links',
+    kind: 'links',
+    title: 'Portfolio Station',
+    koreanTitle: '포트폴리오역',
+    tagline: 'Line 1 to GitHub, LinkedIn, and the résumé.',
+    buildingType: 'subway-station',
+    district: 'plaza',
+    position: { x: 11, z: 14 },
+    rotation: 0,
+    facing: 'north',
+    accent: '#7fb8e0',
+    size: { width: 6, depth: 4, floors: 1 },
+  },
+];
+
+export const DISTRICTS: DistrictInfo[] = [
+  {
+    id: 'plaza',
+    name: 'Starlight Plaza',
+    koreanName: '별빛광장',
+    bounds: { minX: -16, maxX: 18, minZ: -18, maxZ: 20 },
+  },
+  {
+    id: 'hongdae',
+    name: 'Hongdae Creative District',
+    koreanName: '홍대',
+    bounds: { minX: -70, maxX: -20, minZ: -22, maxZ: 22 },
+  },
+  {
+    id: 'gangnam',
+    name: 'Gangnam Tech District',
+    koreanName: '강남',
+    bounds: { minX: 22, maxX: 70, minZ: -24, maxZ: 22 },
+  },
+  {
+    id: 'hanok',
+    name: 'Hanok Alley',
+    koreanName: '한옥골목',
+    bounds: { minX: 22, maxX: 60, minZ: -46, maxZ: -24 },
+  },
+  {
+    id: 'riverside',
+    name: 'Han River Waterfront',
+    koreanName: '한강공원',
+    bounds: { minX: -70, maxX: 70, minZ: 24, maxZ: 68 },
+  },
+  {
+    id: 'namsan',
+    name: 'Namsan Hill',
+    koreanName: '남산',
+    bounds: { minX: -24, maxX: 24, minZ: -68, maxZ: -26 },
+  },
+];

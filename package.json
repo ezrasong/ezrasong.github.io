@@ -1,0 +1,25 @@
+{
+  "name": "ezrasong-voxel-seoul",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Interactive voxel-Seoul 3D portfolio of Ezra Song",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test:smoke": "node tests/smoke.mjs"
+  },
+  "dependencies": {
+    "cannon-es": "^0.20.0",
+    "gsap": "^3.12.5",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.170.0",
+    "playwright-core": "^1.49.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.3"
+  }
+}
