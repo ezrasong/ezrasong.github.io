@@ -99,6 +99,8 @@ export class App {
     this.followCam = new FollowCamera(this.sizes.aspect, this.player);
     this.followCam.setOccluders(this.world.occluders);
     this.followCam.attachOrbitControls(this.renderer.domElement);
+    // Wheel zoom must wake the renderer even when the scene is still.
+    this.renderer.domElement.addEventListener('wheel', () => (this.stillFrames = 0), { passive: true });
 
     this.weather = new Weather(this.world.scene);
     this.weather.init((kind) => this.ui.setWeather(WEATHER_LABEL[kind]));
@@ -224,7 +226,12 @@ export class App {
       this.weather.update(dt, this.player.position.x, this.player.position.z, this.world.daylight);
       this.world.weatherDim = this.weather.dim;
       this.world.update(elapsed);
-      this.ui.updateMinimap(this.player.position.x, this.player.position.z, this.player.yaw);
+      this.ui.updateMinimap(
+        this.player.position.x,
+        this.player.position.z,
+        this.player.yaw,
+        this.followCam.yaw
+      );
       this.audio.updateMovement(this.player.speedRatio, dt, this.player.grounded);
       if (this.player.justLanded) this.audio.land();
       this.trackDistrict();

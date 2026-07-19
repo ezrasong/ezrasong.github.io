@@ -33,6 +33,15 @@ export class FollowCamera {
   private orbitPitch = 0;
   private dragging = false;
 
+  // Scroll-wheel zoom: a damped multiplier on the follow distance.
+  private zoomTarget = 1;
+  private zoomCurrent = 1;
+
+  /** Effective camera yaw (follow + manual orbit) — the minimap rotates with it. */
+  get yaw(): number {
+    return this.followYaw + this.orbitYaw;
+  }
+
   constructor(
     aspect: number,
     private player: Player
@@ -76,6 +85,15 @@ export class FollowCamera {
     };
     dom.addEventListener('pointerup', end);
     dom.addEventListener('pointercancel', end);
+    // Scroll to zoom the shot in/out (persists across teleports).
+    dom.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        this.zoomTarget = clamp(this.zoomTarget * Math.exp(e.deltaY * 0.0011), 0.55, 2.1);
+      },
+      { passive: false }
+    );
   }
 
   /** Briefly widens the shot; called when the player enters a new district. */
@@ -106,12 +124,12 @@ export class FollowCamera {
     this.followYaw = this.player.yaw;
     this.orbitYaw = 0;
     this.orbitPitch = 0;
-    this.currentDist = CFG.distance;
+    this.currentDist = CFG.distance * this.zoomCurrent;
     this.currentBaseY = p.y;
     this.revealBoost = 0;
     this.currentLook.set(p.x, p.y + CFG.lookHeight, p.z);
     const pos = new THREE.Vector3();
-    this.composePosition(pos, this.followYaw, this.pitchFor(CFG.distance, CFG.height), CFG.distance);
+    this.composePosition(pos, this.followYaw, this.pitchFor(this.currentDist, CFG.height), this.currentDist);
     this.camera.position.copy(this.applyOcclusion(pos));
     this.camera.lookAt(this.currentLook);
   }
@@ -134,8 +152,11 @@ export class FollowCamera {
       this.orbitPitch = damp(this.orbitPitch, 0, 1.6, dt);
     }
 
-    const dist = CFG.distance + s * CFG.speedDistance + this.revealBoost * CFG.districtRevealDistance;
-    const height = CFG.height + s * CFG.speedHeight + this.revealBoost * 2.2;
+    this.zoomCurrent = damp(this.zoomCurrent, this.zoomTarget, 8, dt);
+    const dist =
+      (CFG.distance + s * CFG.speedDistance + this.revealBoost * CFG.districtRevealDistance) *
+      this.zoomCurrent;
+    const height = (CFG.height + s * CFG.speedHeight + this.revealBoost * 2.2) * (0.75 + 0.25 * this.zoomCurrent);
     this.currentDist = damp(this.currentDist, dist, posDamp, dt);
     this.currentBaseY = damp(this.currentBaseY, p.y, posDamp, dt);
 

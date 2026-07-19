@@ -47,8 +47,8 @@ export class UI {
         <div class="hud-left">
           <span class="hud-name">${PROFILE.name}<small>${PROFILE.title}</small></span>
           <div class="minimap-wrap">
-            <canvas class="minimap" width="288" height="288" role="button" tabindex="0"
-              aria-label="City minimap — click to expand"></canvas>
+            <canvas class="minimap" width="320" height="320" role="button" tabindex="0"
+              aria-label="City minimap — scroll to zoom, click to expand"></canvas>
             <span class="minimap-expand" aria-hidden="true">⤢</span>
           </div>
           <span class="hud-weather" aria-live="polite"></span>
@@ -153,62 +153,118 @@ export class UI {
   private minimapTargets: { x: number; z: number; accent: string }[] = [];
 
   /** Backing resolution of the minimap canvas (CSS scales it down). */
-  private static readonly MM = 288;
+  private static readonly MM = 320;
+  /** Minimap zoom: world-units-across = 208 / zoom. Scroll wheel adjusts. */
+  private minimapZoom = 2.0;
 
-  /** Pre-scales the painted ground once; per-frame work is two blits. */
+  /** Pre-scales the painted ground once; per-frame work is one clipped blit. */
   initMinimap(ground: HTMLCanvasElement | null, targets: InteractionTarget[]): void {
     if (!ground) return;
-    const MM = UI.MM;
+    // Mid-res copy: sharp up to max zoom without blitting the full 3120².
     const base = document.createElement('canvas');
-    base.width = MM;
-    base.height = MM;
+    base.width = 1280;
+    base.height = 1280;
     const b = base.getContext('2d')!;
-    b.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, MM, MM);
-    // Mute it so the live markers pop
-    b.fillStyle = 'rgba(16,18,26,0.28)';
-    b.fillRect(0, 0, MM, MM);
-    b.fillStyle = 'rgba(245,234,210,0.75)';
-    b.font = '700 16px sans-serif';
-    b.textAlign = 'center';
-    b.fillText('N', MM / 2, 18);
+    b.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, 1280, 1280);
+    b.fillStyle = 'rgba(16,18,26,0.24)'; // mute so the live markers pop
+    b.fillRect(0, 0, 1280, 1280);
     this.minimapBase = base;
     this.minimapTargets = targets.map((t) => ({ x: t.entrance.x, z: t.entrance.z, accent: t.accent }));
+
+    // Scroll on the minimap to zoom it (independent of the camera zoom).
+    const el = this.q('.minimap') as HTMLCanvasElement;
+    el.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        this.minimapZoom = Math.min(5, Math.max(1.1, this.minimapZoom * Math.exp(-e.deltaY * 0.0014)));
+      },
+      { passive: false }
+    );
   }
 
-  /** World x/z ∈ [-104, 104] maps onto the minimap canvas. */
-  updateMinimap(x: number, z: number, yaw: number): void {
+  /**
+   * Player-centered rotating minimap: the map turns with the camera so
+   * "up" is always where you're looking, like a car navi. `camYaw` drives
+   * the rotation; the center arrow shows the player's own heading.
+   */
+  updateMinimap(x: number, z: number, playerYaw: number, camYaw: number): void {
     if (!this.minimapBase) return;
     const MM = UI.MM;
     const canvas = this.q('.minimap') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d')!;
-    const map = (v: number) => ((v + 104) / 208) * MM;
+    const k = (MM / 208) * this.minimapZoom; // screen px per world unit
+    const rot = camYaw - Math.PI; // camera-forward maps to screen-up
+    const c = MM / 2;
+    const R = c - 2;
+
     ctx.clearRect(0, 0, MM, MM);
-    ctx.drawImage(this.minimapBase, 0, 0);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c, c, R, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = '#12141d';
+    ctx.fillRect(0, 0, MM, MM);
+    // Ground: one blit of the pre-scaled base, rotated about the player.
+    ctx.translate(c, c);
+    ctx.rotate(rot);
+    const scale = 208 * k; // full world size in screen px at this zoom
+    ctx.drawImage(this.minimapBase, (-104 - x) * k, (-104 - z) * k, scale, scale);
+    ctx.restore();
+
+    // Pins: camera-rotated, clipped to the disc, decluttered — a pin that
+    // would overlap an earlier one is skipped instead of stacking.
+    const cosR = Math.cos(rot);
+    const sinR = Math.sin(rot);
+    const placed: [number, number][] = [];
     for (const t of this.minimapTargets) {
+      const dx = (t.x - x) * k;
+      const dz = (t.z - z) * k;
+      const sx = c + dx * cosR - dz * sinR;
+      const sy = c + dx * sinR + dz * cosR;
+      const dr = Math.hypot(sx - c, sy - c);
+      if (dr > R - 9) continue;
+      if (placed.some(([px, py]) => Math.hypot(px - sx, py - sy) < 11)) continue;
+      placed.push([sx, sy]);
       ctx.fillStyle = t.accent;
-      ctx.strokeStyle = 'rgba(12,14,20,0.8)';
-      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = 'rgba(12,14,20,0.85)';
+      ctx.lineWidth = 1.3;
       ctx.beginPath();
-      ctx.arc(map(t.x), map(t.z), 4.4, 0, Math.PI * 2);
+      ctx.arc(sx, sy, 4.2, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     }
-    // Player arrow (forward = (sin yaw, cos yaw) in world x/z)
+
+    // Player arrow at the center; camera-relative so it only tilts when
+    // the view and the poro's heading disagree (drag-look, turns).
     ctx.save();
-    ctx.translate(map(x), map(z));
-    ctx.rotate(Math.PI - yaw);
+    ctx.translate(c, c);
+    ctx.rotate(Math.PI - playerYaw + rot);
     ctx.fillStyle = '#ffd447';
     ctx.strokeStyle = 'rgba(12,14,20,0.9)';
     ctx.lineWidth = 1.7;
     ctx.beginPath();
-    ctx.moveTo(0, -8.7);
-    ctx.lineTo(6.4, 6.7);
-    ctx.lineTo(0, 3.5);
-    ctx.lineTo(-6.4, 6.7);
+    ctx.moveTo(0, -9);
+    ctx.lineTo(6.6, 6.9);
+    ctx.lineTo(0, 3.6);
+    ctx.lineTo(-6.6, 6.9);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
     ctx.restore();
+
+    // North compass riding the rim.
+    const nx = c + Math.sin(rot) * (R - 13);
+    const ny = c - Math.cos(rot) * (R - 13);
+    ctx.fillStyle = 'rgba(24,26,36,0.8)';
+    ctx.beginPath();
+    ctx.arc(nx, ny, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f0e6d0';
+    ctx.font = '700 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('N', nx, ny + 0.5);
   }
 
   setWeather(label: string): void {
