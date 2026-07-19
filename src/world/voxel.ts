@@ -94,6 +94,24 @@ export class VoxelKit {
   }
 
   /**
+   * Right-triangle wedge: a ramp rising from 0 at -x to h at +x, width w
+   * along x, depth d along z, sitting on baseY. rotY reorients the rise.
+   */
+  wedge(w: number, h: number, d: number, x: number, baseY: number, z: number, color: string, rotY = 0): void {
+    const shape = new THREE.Shape();
+    shape.moveTo(-w / 2, 0);
+    shape.lineTo(w / 2, 0);
+    shape.lineTo(w / 2, h);
+    shape.closePath();
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false });
+    geo.translate(0, 0, -d / 2);
+    if (rotY !== 0) geo.rotateY(rotY);
+    geo.translate(x, baseY, z);
+    paint(geo, color);
+    this.parts.push(geo);
+  }
+
+  /**
    * Straight square-section member between two points — stay cables,
    * struts, diagonal braces.
    */

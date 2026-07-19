@@ -221,15 +221,15 @@ export function createRiver(): { object: THREE.Object3D; update: (t: number) => 
 /**
  * A drivable Han River road bridge. Two coherent structural styles:
  *
- *  - 'cable': a compact cable-stayed bridge — twin A-pylons rising from the
- *    water with stay cables fanning to the deck edge (the main Hangang
- *    crossing, silhouette inspired by Seoul's Olympic Bridge)
+ *  - 'arch': twin steel tied-arches with vertical hangers and cross-braced
+ *    crowns, painted the pale blue of the real 한강대교 (Hangang Bridge) —
+ *    the main crossing's silhouette is lifted straight from it
  *  - 'girder': a modern concrete girder bridge on tapered twin-column
  *    piers with cap beams (the quieter Yanghwa crossing)
  *
- * Both keep the same walkable layout: deck top 29cm reached over a shallow
- * ramp slab, chamfered deck fascia, sidewalks, railings, lamps, and piers
- * that reach the riverbed.
+ * Both keep the same walkable layout: deck top 29cm reached over true
+ * wedge ramps, chamfered deck fascia, sidewalks, railings, lamps, expansion
+ * joints, and piers that reach the riverbed.
  */
 export function createBridge(
   x: number,
@@ -237,7 +237,7 @@ export function createBridge(
   name?: string,
   z0 = 15,
   z1 = 49.5,
-  style: 'cable' | 'girder' = 'girder'
+  style: 'arch' | 'girder' = 'girder'
 ): LandmarkResult {
   const kit = new VoxelKit();
   const glow = new VoxelKit();
@@ -250,16 +250,22 @@ export function createBridge(
   const CONCRETE = '#8b9099';
   const CONCRETE_DARK = '#6e747d';
 
-  // Deck (top 0.29, above the tallest wave) + approach ramps that finish on
-  // the banks — never on top of a road junction. Surface colors match the
-  // painted roads so bridge and street read as one network.
+  // Deck (top 0.29, above the tallest wave) + true wedge approach ramps
+  // that finish on the banks — never on top of a road junction. Surface
+  // colors match the painted roads so bridge and street read as one network.
   kit.box(width, 0.34, len, x, 0.12, cz, P.asphalt);
   // Chamfered fascia girders along both deck edges, hanging below the slab.
   for (const side of [-1, 1]) {
     kit.rbox(0.5, 0.62, len, x + side * (width / 2 - 0.05), -0.2, cz, CONCRETE_DARK, 0.12);
   }
-  kit.box(width, 0.145, 3, x, 0.0725, z0 - 1.5, P.asphalt);
-  kit.box(width, 0.145, 3, x, 0.0725, z1 + 1.5, P.asphalt);
+  // Wedge ramps: a continuous slope from the bank up to the deck, so the
+  // approach never reads as stacked slabs.
+  kit.wedge(4.2, 0.29, width, x, 0, z0 - 2.05, P.asphalt, -Math.PI / 2);
+  kit.wedge(4.2, 0.29, width, x, 0, z1 + 2.05, P.asphalt, Math.PI / 2);
+  // Expansion joints across the deck
+  for (const jz of [z0 + 0.4, cz, z1 - 0.4]) {
+    kit.box(width - 1.6, 0.02, 0.14, x, 0.3, jz, '#3d434c');
+  }
   // Sidewalk strips along both edges
   for (const side of [-1, 1]) {
     kit.box(1.0, 0.42, len, x + side * (width / 2 - 0.5), 0.14, cz, P.sidewalk);
@@ -291,39 +297,53 @@ export function createBridge(
     lampSide *= -1;
   }
 
-  // Pylons live in their own mesh so the follow camera can treat them as
-  // view blockers without the thin cables hijacking the occlusion ray.
+  // Arches live in their own mesh so the follow camera can treat them as
+  // view blockers without the thin hangers hijacking the occlusion ray.
   const pylonKit = new VoxelKit();
-  if (style === 'cable') {
-    // --- Twin A-pylons with fanned stay cables.
-    for (const pz of [z0 + 9, z1 - 9.5]) {
+  if (style === 'arch') {
+    // --- Twin steel tied-arches (Hangang Bridge pale blue), one per span.
+    const ARCH = '#7fa9bc';
+    const ARCH_DARK = '#6b96aa';
+    const supports = [z0 + 1.2, cz, z1 - 1.2];
+    const RIB_X = width / 2 - 0.35;
+    const ribPoint = (za: number, zb: number, t: number): [number, number] => [
+      za + t * (zb - za),
+      0.32 + Math.sin(t * Math.PI) * 5.8,
+    ];
+    for (let spanI = 0; spanI < 2; spanI++) {
+      const za = supports[spanI];
+      const zb = supports[spanI + 1];
+      const SEGS = 9;
       for (const side of [-1, 1]) {
-        const px = x + side * (width / 2 + 0.35);
-        // Legs lean together toward the top.
-        pylonKit.bar(px + side * 0.5, -1.6, pz, px - side * 0.35, 9.2, pz, 0.55, '#c8555a');
-        // Foot pier into the water
-        pylonKit.rbox(1.6, 2.2, 2.4, px + side * 0.3, -1.0, pz, CONCRETE_DARK, 0.15);
-      }
-      // Crossbeams
-      pylonKit.box(width + 1.4, 0.5, 0.5, x, 8.6, pz, '#c8555a');
-      pylonKit.box(width + 2.2, 0.45, 0.55, x, 3.7, pz, '#b04b50');
-      // Beacon on top
-      glow.box(0.22, 0.22, 0.22, x, 9.1, pz, '#ff5d5d');
-      // Stay cables fanning both directions along the deck
-      for (const dir of [-1, 1]) {
-        for (let i = 1; i <= 4; i++) {
-          const dz = pz + dir * (2.5 + i * 2.6);
-          if (dz < z0 + 0.5 || dz > z1 - 0.5) continue;
-          for (const side of [-1, 1]) {
-            const rx2 = x + side * (width / 2 - 0.15);
-            kit.bar(x + side * 0.28, 8.35, pz, rx2, 0.5, dz, 0.05, '#dfe4ea');
-          }
+        const rx = x + side * RIB_X;
+        // Rib: chained bar segments approximating the arc
+        for (let i = 0; i < SEGS; i++) {
+          const [pz0, py0] = ribPoint(za, zb, i / SEGS);
+          const [pz1, py1] = ribPoint(za, zb, (i + 1) / SEGS);
+          pylonKit.bar(rx, py0, pz0, rx, py1, pz1, 0.42, side < 0 ? ARCH : ARCH_DARK);
         }
+        // Vertical hangers from rib to deck edge
+        for (let i = 1; i < 8; i++) {
+          const [hz, hy] = ribPoint(za, zb, i / 8);
+          kit.bar(rx, hy - 0.15, hz, rx, 0.32, hz, 0.07, '#dfe4ea');
+        }
+        // Tie beam along the deck edge between bearings
+        pylonKit.box(0.34, 0.3, zb - za, rx, 0.42, (za + zb) / 2, ARCH_DARK);
       }
+      // Cross-braces between the two ribs near the crown
+      for (const t of [0.32, 0.5, 0.68]) {
+        const [bz, by] = ribPoint(za, zb, t);
+        pylonKit.box(RIB_X * 2, 0.22, 0.22, x, by, bz, ARCH_DARK);
+      }
+      const [crownZ, crownY] = ribPoint(za, zb, 0.5);
+      glow.box(0.2, 0.2, 0.2, x, crownY + 0.24, crownZ, '#ff5d5d');
     }
-    // Mid-span pier
-    kit.rbox(width - 2.4, 1.7, 1.2, x, -0.75, cz, CONCRETE_DARK, 0.2);
-    kit.box(width - 1.6, 0.35, 1.6, x, 0.02, cz, CONCRETE);
+    // Concrete piers under the three bearing lines, reaching the riverbed.
+    for (const pz of supports) {
+      kit.rbox(width - 1.6, 2.3, 1.7, x, -0.95, pz, CONCRETE_DARK, 0.16);
+      kit.box(width - 1.0, 0.34, 2.1, x, -1.95, pz, '#5f656e');
+      kit.box(width - 2.2, 0.35, 1.9, x, 0.06, pz, CONCRETE);
+    }
   } else {
     // --- Girder piers: twin tapered columns + cap beam, reaching the bed.
     for (let z = z0 + 7; z < z1 - 4; z += 10) {
@@ -379,20 +399,63 @@ export function createBridge(
     object: group,
     occluders,
     colliders: [
-      // Walkable deck + ramps (tops at 0.29 / 0.145)
+      // Walkable deck + graded ramp steps (the visual ramp is a smooth
+      // wedge; the collider staircase stays under its surface)
       { x, z: cz, spec: { w: width, h: 0.58, d: len, x: 0, y: 0, z: 0 } },
-      { x, z: z0 - 1.5, spec: { w: width, h: 0.29, d: 3.4, x: 0, y: 0, z: 0 } },
-      { x, z: z1 + 1.5, spec: { w: width, h: 0.29, d: 3.4, x: 0, y: 0, z: 0 } },
+      { x, z: z0 - 1.975, spec: { w: width, h: 0.2, d: 1.45, x: 0, y: 0, z: 0 } },
+      { x, z: z0 - 0.6, spec: { w: width, h: 0.4, d: 1.3, x: 0, y: 0, z: 0 } },
+      { x, z: z1 + 1.975, spec: { w: width, h: 0.2, d: 1.45, x: 0, y: 0, z: 0 } },
+      { x, z: z1 + 0.6, spec: { w: width, h: 0.4, d: 1.3, x: 0, y: 0, z: 0 } },
       // Side railings keep the player out of the water
       { x: x - (width / 2 - 0.12), z: cz, spec: { w: 0.3, h: 2.6, d: len, x: 0, y: 1.15, z: 0 } },
       { x: x + (width / 2 - 0.12), z: cz, spec: { w: 0.3, h: 2.6, d: len, x: 0, y: 1.15, z: 0 } },
-      // Pylon legs (cable style) so the poro can't walk through them
-      ...(style === 'cable'
-        ? [z0 + 9, z1 - 9.5].flatMap((pz) => [
-            { x: x - (width / 2 + 0.35), z: pz, spec: { w: 0.9, h: 8, d: 0.9, x: 0, y: 2.5, z: 0 } },
-            { x: x + (width / 2 + 0.35), z: pz, spec: { w: 0.9, h: 8, d: 0.9, x: 0, y: 2.5, z: 0 } },
+      // Arch rib bearings so the poro can't roll through the steel
+      ...(style === 'arch'
+        ? [z0 + 1.2, (z0 + z1) / 2, z1 - 1.2].flatMap((pz) => [
+            { x: x - (width / 2 - 0.35), z: pz, spec: { w: 0.7, h: 1.6, d: 1.4, x: 0, y: 0.8, z: 0 } },
+            { x: x + (width / 2 - 0.35), z: pz, spec: { w: 0.7, h: 1.6, d: 1.4, x: 0, y: 0.8, z: 0 } },
           ])
         : []),
+    ],
+  };
+}
+
+/**
+ * Green Korean expressway direction gantry spanning an east-west arterial
+ * near the map edge: the road visually continues toward real Seoul
+ * destinations instead of dead-ending in grass. `facing` is the x-direction
+ * approaching drivers come FROM (the sign faces them).
+ */
+export function createGantry(x: number, z: number, text: string, facing: 1 | -1): LandmarkResult {
+  const kit = new VoxelKit();
+  const group = new THREE.Group();
+  const H = 5.2;
+  for (const side of [-1, 1]) {
+    kit.cylinder(0.12, 0.16, H, x, H / 2, z + side * 4.6, '#5b6068', 8);
+  }
+  kit.box(0.22, 0.34, 9.2, x, H - 0.17, z, '#5b6068');
+  // Board core so the sign is solid from behind
+  kit.box(0.14, 1.7, 6.4, x + facing * 0.05, H - 1.1, z, '#1e3b2e');
+  group.add(kit.toMesh(MATERIALS.lit));
+
+  const sign = makeSign({
+    text,
+    bg: '#2d6b46',
+    fg: '#ffffff',
+    border: '#ffffff',
+    width: 6.4,
+    height: 1.7,
+    glow: true,
+  });
+  sign.position.set(x + facing * 0.14, H - 1.1, z);
+  sign.rotation.y = facing > 0 ? Math.PI / 2 : -Math.PI / 2;
+  group.add(sign);
+
+  return {
+    object: group,
+    colliders: [
+      { x, z: z - 4.6, spec: { w: 0.4, h: H, d: 0.4, x: 0, y: H / 2, z: 0 } },
+      { x, z: z + 4.6, spec: { w: 0.4, h: H, d: 0.4, x: 0, y: H / 2, z: 0 } },
     ],
   };
 }
@@ -456,10 +519,13 @@ export function createForestBelts(): LandmarkResult {
       kit.blob(r * 0.62, x + r * 0.6, 1.3 * scale + r * 0.5, z + (rng() - 0.5) * r, '#4a7a45', 0.8);
     }
   };
-  // West and east belts (skip the river band where the water runs out)
+  // West and east belts (skip the river band where the water runs out and
+  // the four arterial corridors that now continue past the boundary)
+  const roadBands = [-34, 8, 56, 80];
   for (const sx of [-1, 1]) {
     for (let z = -82; z < 94; z += 4.5) {
       if (z > 16 && z < 52) continue;
+      if (roadBands.some((r) => Math.abs(z - r) < 5.5)) continue;
       const jitterX = sx * (91.5 + rng() * 5);
       cluster(jitterX, z + (rng() - 0.5) * 3, 0.9 + rng() * 0.7);
       if (rng() < 0.5) cluster(sx * (97 + rng() * 5), z + (rng() - 0.5) * 3, 1.0 + rng() * 0.8);

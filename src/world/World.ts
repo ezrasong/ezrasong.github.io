@@ -20,6 +20,9 @@ import {
   createStreetFurniture,
   createFillerBlocks,
   createCityDetails,
+  createRoadFurniture,
+  createTrafficSignals,
+  createUtilityRun,
   type FillerSpec,
 } from './Props';
 import {
@@ -28,11 +31,13 @@ import {
   createPier,
   createSignpost,
   createBridge,
+  createGantry,
   createMountains,
   createForestBelts,
   NAMSAN_BASE_RADIUS,
 } from './Landmarks';
-import { makeDecal, KOREAN_FONT } from './SignTexture';
+import { makeDecal, makeShopSignAtlas, KOREAN_FONT } from './SignTexture';
+import { ROADS, JUNCTIONS } from './GroundPainter';
 
 /**
  * Assembles the whole miniature Seoul: ground, landmarks, project buildings,
@@ -318,9 +323,10 @@ export class World {
     this.scene.add(water.object);
     this.waterMaterial = water.material;
 
-    // Two road bridges cross the Han: the main cable-stayed Hangang bridge
-    // on the spine and the girder Yanghwa bridge linking Hongdae to Yeouido.
-    const hangangBridge = createBridge(0, 7, '한강대교 HANGANG BR.', 15, 49.5, 'cable');
+    // Two road bridges cross the Han: the tied-arch Hangang bridge on the
+    // spine (silhouette from the real 한강대교) and the girder Yanghwa
+    // bridge linking Hongdae to Yeouido.
+    const hangangBridge = createBridge(0, 7, '한강대교 HANGANG BR.', 15, 49.5, 'arch');
     this.scene.add(hangangBridge.object);
     this.registerColliders(hangangBridge);
 
@@ -341,6 +347,25 @@ export class World {
 
     const forestBelts = createForestBelts();
     this.scene.add(forestBelts.object);
+
+    // Green expressway gantries where the arterials leave the map: the
+    // roads keep going toward real Seoul destinations instead of dead-
+    // ending in grass at the boundary.
+    const gantries: [number, number, string, 1 | -1][] = [
+      [-86, -34, '마포 · 김포공항 방면', 1],
+      [86, -34, '왕십리 · 강변북로', -1],
+      [-86, 8, '합정 · 일산 방면', 1],
+      [86, 8, '광진 · 구리 방면', -1],
+      [-86, 56, '김포 · 인천 방면', 1],
+      [86, 56, '송파 · 강동 방면', -1],
+      [-86, 80, '서초 · 사당 방면', 1],
+      [86, 80, '삼성 · 잠실 방면', -1],
+    ];
+    for (const [gx, gz, text, facing] of gantries) {
+      const gantry = createGantry(gx, gz, text, facing);
+      this.scene.add(gantry.object);
+      this.registerColliders(gantry);
+    }
   }
 
   private registerColliders(result: {
@@ -407,15 +432,17 @@ export class World {
     // --- Backdrop city mass past the playable edge, so the map never reads
     // as ending abruptly: low-detail rows just outside the perimeter walls.
     const backdrop: FillerSpec[] = [
-      { x: -97, z: -30, w: 8, d: 10, floors: 4, wall: '#6b6a7a', window: P.windowWarm, windowChance: 0.4 },
-      { x: -97, z: -12, w: 8, d: 9, floors: 3, wall: '#7a6a5f', window: P.windowWarm, windowChance: 0.4 },
-      { x: -97, z: 4, w: 8, d: 9, floors: 5, wall: '#5b6d84', window: P.windowWarm, windowChance: 0.4 },
-      { x: -97, z: 64, w: 8, d: 10, floors: 8, wall: '#54667c', window: P.windowCool, windowChance: 0.4 },
-      { x: -97, z: 84, w: 8, d: 9, floors: 7, wall: '#61748c', window: P.windowWarm, windowChance: 0.4 },
-      { x: 97, z: -28, w: 8, d: 9, floors: 4, wall: '#7a6a5f', window: P.windowWarm, windowChance: 0.4 },
+      // Kept clear of the four arterial corridors, which now run past the
+      // boundary under the gantry signs.
+      { x: -97, z: -22, w: 8, d: 8, floors: 4, wall: '#6b6a7a', window: P.windowWarm, windowChance: 0.4 },
+      { x: -97, z: -12, w: 8, d: 8, floors: 3, wall: '#7a6a5f', window: P.windowWarm, windowChance: 0.4 },
+      { x: -97, z: -2, w: 8, d: 8, floors: 5, wall: '#5b6d84', window: P.windowWarm, windowChance: 0.4 },
+      { x: -97, z: 68, w: 8, d: 9, floors: 8, wall: '#54667c', window: P.windowCool, windowChance: 0.4 },
+      { x: -97, z: 90, w: 8, d: 9, floors: 7, wall: '#61748c', window: P.windowWarm, windowChance: 0.4 },
+      { x: 97, z: -24, w: 8, d: 8, floors: 4, wall: '#7a6a5f', window: P.windowWarm, windowChance: 0.4 },
       { x: 97, z: -8, w: 8, d: 9, floors: 6, wall: '#6b6a7a', window: P.windowWarm, windowChance: 0.4 },
-      { x: 97, z: 64, w: 8, d: 10, floors: 9, wall: '#4e6076', window: P.windowCool, windowChance: 0.4 },
-      { x: 97, z: 86, w: 8, d: 9, floors: 7, wall: '#5b6d84', window: P.windowWarm, windowChance: 0.4 },
+      { x: 97, z: 68, w: 8, d: 9, floors: 9, wall: '#4e6076', window: P.windowCool, windowChance: 0.4 },
+      { x: 97, z: 91, w: 8, d: 8, floors: 7, wall: '#5b6d84', window: P.windowWarm, windowChance: 0.4 },
       { x: -76, z: 101, w: 10, d: 8, floors: 6, wall: '#54667c', window: P.windowWarm, windowChance: 0.4 },
       { x: -56, z: 101, w: 9, d: 8, floors: 8, wall: '#4e6076', window: P.windowCool, windowChance: 0.4 },
       { x: -34, z: 101, w: 10, d: 8, floors: 5, wall: '#61748c', window: P.windowWarm, windowChance: 0.4 },
@@ -432,6 +459,8 @@ export class World {
     for (const c of built.colliders) {
       this.physics.addStaticBox(c.x + c.spec.x, c.spec.y, c.z + c.spec.z, c.spec.w, c.spec.h, c.spec.d);
     }
+    // Every filler shop band's Korean signboard, batched into one atlas mesh.
+    if (built.signSpots.length > 0) this.scene.add(makeShopSignAtlas(built.signSpots));
   }
 
   /* ---------------------------------------------------------------- */
@@ -565,13 +594,47 @@ export class World {
       beds: [
         { x: -14, z: -2 }, { x: 14, z: -2 }, { x: -14, z: -26 }, { x: 14, z: -26 },
       ],
-      poles: [
-        { x: 26, z: -41.3 }, { x: 44, z: -41.3 }, { x: 56, z: -41.3 },
-      ],
+      // Wooden alley poles replaced by the wired concrete utility runs below.
+      poles: [],
       postboxes: [{ x: 11, z: -18, ry: -0.5 }],
     });
     this.scene.add(details.object);
     this.addPropColliders(details.colliders);
+
+    // Raised curbs along every street + bollards at the zebra corners.
+    const curbs = createRoadFurniture(ROADS, JUNCTIONS);
+    this.scene.add(curbs.object);
+
+    // Korean mast-arm traffic signals at the player-facing junctions.
+    // (0,-34) is skipped — the gate piers own that corner.
+    const signals = createTrafficSignals([
+      { x: -64, z: -34 }, { x: -32, z: -34 }, { x: 32, z: -34 }, { x: 64, z: -34 },
+      { x: 0, z: 8 }, { x: -32, z: 8 }, { x: 32, z: 8 },
+      { x: 0, z: 56 }, { x: -48, z: 56 },
+      { x: 0, z: 80 }, { x: 32, z: 80 },
+    ]);
+    this.scene.add(signals.object);
+    this.addPropColliders(signals.colliders);
+
+    // Concrete utility poles with sagging wire runs — Euljiro / hanok-alley
+    // texture along the older streets.
+    const utilityRuns: { x: number; z: number }[][] = [
+      [
+        { x: 24, z: -41.4 }, { x: 33, z: -41.7 }, { x: 42, z: -41.2 },
+        { x: 51, z: -41.7 }, { x: 60, z: -41.3 }, { x: 69, z: -41.6 },
+      ],
+      [
+        { x: 35.7, z: -27 }, { x: 35.7, z: -18 }, { x: 35.7, z: -9 }, { x: 35.7, z: -1 },
+      ],
+      [
+        { x: -70, z: -37.9 }, { x: -60, z: -38.2 }, { x: -50, z: -37.8 }, { x: -40, z: -38.1 },
+      ],
+    ];
+    for (const run of utilityRuns) {
+      const utility = createUtilityRun(run);
+      this.scene.add(utility.object);
+      this.addPropColliders(utility.colliders);
+    }
   }
 
   private addPropColliders(

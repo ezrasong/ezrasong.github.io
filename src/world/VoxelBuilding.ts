@@ -363,9 +363,10 @@ function buildHanok(spec: BuildingSpec): BuiltStructure {
   }
   // Door (front +X)
   addDoor(kit, glow, w / 2, spec.accent, 0.5);
-  // Low courtyard wall with gate gap
-  kit.boxOn(0.4, 1.1, d * 0.7, w / 2 + 2.6, 0, -d / 2 - 0.6, P.hanokWall);
-  kit.boxOn(0.5, 0.2, d * 0.7, w / 2 + 2.6, 1.1, -d / 2 - 0.6, P.roofTile);
+  // Low courtyard wall with gate gap — hugs the house side of the approach
+  // so it never juts into the alley the door opens onto.
+  kit.boxOn(0.4, 1.1, d * 0.7, w / 2 + 1.1, 0, -d / 2 - 0.6, P.hanokWall);
+  kit.boxOn(0.5, 0.2, d * 0.7, w / 2 + 1.1, 1.1, -d / 2 - 0.6, P.roofTile);
 
   group.add(kit.toMesh(MATERIALS.lit));
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
@@ -388,7 +389,7 @@ function buildHanok(spec: BuildingSpec): BuiltStructure {
     group,
     colliders: [
       { w: w + 0.8, h: bodyH + 2, d: d + 0.8, x: 0, y: (bodyH + 2) / 2, z: 0 },
-      { w: 0.4, h: 1.3, d: d * 0.7, x: w / 2 + 2.6, y: 0.65, z: -d / 2 - 0.6 },
+      { w: 0.4, h: 1.3, d: d * 0.7, x: w / 2 + 1.1, y: 0.65, z: -d / 2 - 0.6 },
     ],
     entranceLocal: new THREE.Vector3(w / 2 + 1.6, 0, 0),
     occluders: [bodyMesh],
