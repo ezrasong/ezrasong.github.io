@@ -665,7 +665,7 @@ export function createFillerBlocks(
       signSpots.push({
         x: f.x,
         y: floorH * 0.82 + 0.42,
-        z: f.z + f.d / 2 + 0.19,
+        z: f.z + f.d / 2 + 0.22,
         w: Math.min(f.w * 0.84, 7),
         h: 0.78,
         ry: 0,

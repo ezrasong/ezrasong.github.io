@@ -124,6 +124,9 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
   // facade reads structured in daylight, alive at night.
   const winW = 0.95;
   const winH = 1.15;
+  // The name sign mounts over the door on floor 1 — the cells behind it
+  // must stay clear or their glowing panes bleed through the board.
+  const signW = Math.min(w * 0.8, 6);
   const addWindows = (faceW: number, axis: 'x' | 'z', sign: 1 | -1) => {
     const cols = Math.max(1, Math.floor((faceW - 1.6) / 1.7));
     const startOffset = -((cols - 1) * 1.7) / 2;
@@ -133,6 +136,8 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
         const isFront = axis === 'x' && sign === 1;
         // Ground floor: door column clear; shops get a storefront instead.
         if (f === 0 && (isShop || (isFront && Math.abs(along) < 1.5))) continue;
+        // Floor 1: keep the sign band clear on the front face.
+        if (f === 1 && isFront && Math.abs(along) < signW / 2 + winW / 2 + 0.2) continue;
         const y = f * FLOOR_H + FLOOR_H * 0.58;
         const wall = axis === 'x' ? w : d;
         const off = wall / 2 - (f === 0 ? 0.12 : 0);
@@ -285,10 +290,10 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
     group.add(glowMesh);
   }
 
-  // Sign above the door, mounted on a sign box that stands off the wall
-  const signW = Math.min(w * 0.8, 6);
+  // Sign above the door, mounted on a sign box that stands off the wall —
+  // clear of the pane plane (w/2+0.10) so no window can bleed through it.
   const mount = new VoxelKit();
-  mount.box(0.14, 1.4, signW + 0.16, w / 2 + 0.02, FLOOR_H + 0.9, 0, '#141824');
+  mount.box(0.14, 1.4, signW + 0.16, w / 2 + 0.08, FLOOR_H + 0.9, 0, '#141824');
   const mountMesh = new THREE.Mesh(mount.merge(), MATERIALS.lit);
   mountMesh.castShadow = true;
   group.add(mountMesh);
@@ -301,7 +306,7 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
     height: 1.25,
     glow: true,
   });
-  sign.position.set(w / 2 + 0.1, FLOOR_H + 0.9, 0);
+  sign.position.set(w / 2 + 0.16, FLOOR_H + 0.9, 0);
   sign.rotation.y = Math.PI / 2;
   group.add(sign);
 

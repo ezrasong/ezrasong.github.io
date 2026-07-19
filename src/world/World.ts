@@ -512,12 +512,12 @@ export class World {
       // Teheran-ro (z=80), north side: arms south
       { x: -60, z: 74.9, ry: ARM_S }, { x: -24, z: 74.9, ry: ARM_S }, { x: 8, z: 74.9, ry: ARM_S },
       { x: 54, z: 74.9, ry: ARM_S }, { x: 72, z: 74.9, ry: ARM_S },
-      // North-south streets
-      { x: -27.9, z: -24, ry: ARM_W }, { x: -36.1, z: 1, ry: ARM_E },
+      // North-south streets (kept out of the project-sign sightlines)
+      { x: -27.9, z: -14, ry: ARM_W }, { x: -36.1, z: 1, ry: ARM_E },
       { x: -59.9, z: -24, ry: ARM_W }, { x: -68.1, z: -6, ry: ARM_E },
       { x: 27.9, z: -22, ry: ARM_E }, { x: 36.1, z: -4, ry: ARM_W },
       { x: 59.9, z: -22, ry: ARM_E }, { x: 68.1, z: -4, ry: ARM_W },
-      { x: 27.9, z: 62, ry: ARM_E }, { x: 36.1, z: 72, ry: ARM_W },
+      { x: 27.9, z: 62, ry: ARM_E }, { x: 27.9, z: 72, ry: ARM_E },
       { x: 59.9, z: 64, ry: ARM_E }, { x: 68.1, z: 74, ry: ARM_W },
       { x: -43.9, z: 64, ry: ARM_W }, { x: -52.1, z: 72, ry: ARM_E },
       // Spine (south bank; the north stretch is lit by the boulevard lights)

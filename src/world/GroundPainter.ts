@@ -456,10 +456,15 @@ export function paintGroundCanvas(): HTMLCanvasElement {
     ctx.fillText('BUS', u(x), v(82.1));
   }
 
-  // Clear the junction boxes: no line may run through an intersection.
+  // Clear the junctions: no longitudinal line may run through the box OR
+  // under the crosswalks, so the wipe is a plus shape reaching past the
+  // zebra zone (±3.1..5.3) on every leg that exists.
   ctx.fillStyle = P.asphalt;
   for (const j of JUNCTIONS) {
-    ctx.fillRect(u(j.x - 3), v(j.z - 3), s(6), s(6));
+    ctx.fillRect(u(j.x - 6.1), v(j.z - 3), s(12.2), s(6));
+    const zn = j.n ? 6.1 : 3;
+    const zs = j.s ? 6.1 : 3;
+    ctx.fillRect(u(j.x - 3), v(j.z - zn), s(6), s(zn + zs));
   }
 
   // Full Korean junction treatment: zebra crosswalks across every real leg
@@ -481,11 +486,13 @@ export function paintGroundCanvas(): HTMLCanvasElement {
     if (j.s) zebra(j.x, j.z + 4.2, true); // south leg
     zebra(j.x - 4.2, j.z, false); // crossing the e-w arterial, west leg
     zebra(j.x + 4.2, j.z, false); // east leg
-    // Stop lines: the approach lane sits right of center heading in.
-    if (j.s) stopLine(j.x - 0.3, j.z + 5.6, true); // northbound from south
-    if (j.n) stopLine(j.x + 2.9, j.z - 5.6, true); // southbound from north
-    stopLine(j.x - 5.6, j.z - 0.3, false); // eastbound from west
-    stopLine(j.x + 5.6, j.z + 2.9, false); // westbound from east
+    // Stop lines: right-hand traffic, so the approach lane heading into
+    // the box is east of center going north, west going south, south of
+    // center going east, north going west.
+    if (j.s) stopLine(j.x + 2.9, j.z + 5.6, true); // northbound from south
+    if (j.n) stopLine(j.x - 0.3, j.z - 5.6, true); // southbound from north
+    stopLine(j.x - 5.6, j.z + 2.9, false); // eastbound from west
+    stopLine(j.x + 5.6, j.z - 0.3, false); // westbound from east
   }
 
   // Turn arrows on the spine approaches to the river boulevard.
