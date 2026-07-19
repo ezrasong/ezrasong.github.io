@@ -2,8 +2,8 @@
 export const PROFILE = {
   name: 'Ezra Song',
   koreanName: '송에즈라',
-  title: 'Frontend Engineer & Creative Developer',
-  koreanTitle: '프론트엔드 엔지니어',
+  title: 'Software Engineer & Creative Developer',
+  koreanTitle: '소프트웨어 엔지니어',
   location: 'Waterloo · Toronto, Canada',
 
   links: {

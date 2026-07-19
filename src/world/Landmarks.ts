@@ -55,7 +55,7 @@ export function createGate(x: number, z: number): LandmarkResult {
   for (const side of [1, -1]) {
     const sign = makeSign({
       text: 'EZRA SONG',
-      subtext: '송에즈라 · FRONTEND ENGINEER & CREATIVE DEVELOPER',
+      subtext: '송에즈라 · SOFTWARE ENGINEER & CREATIVE DEVELOPER',
       bg: '#1d222e',
       fg: '#ffd447',
       border: '#8f3b2e',

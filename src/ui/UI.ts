@@ -47,7 +47,7 @@ export class UI {
         <div class="hud-left">
           <span class="hud-name">${PROFILE.name}<small>${PROFILE.title}</small></span>
           <div class="minimap-wrap">
-            <canvas class="minimap" width="192" height="192" role="button" tabindex="0"
+            <canvas class="minimap" width="288" height="288" role="button" tabindex="0"
               aria-label="City minimap — click to expand"></canvas>
             <span class="minimap-expand" aria-hidden="true">⤢</span>
           </div>
@@ -152,39 +152,44 @@ export class UI {
   private minimapBase: HTMLCanvasElement | null = null;
   private minimapTargets: { x: number; z: number; accent: string }[] = [];
 
+  /** Backing resolution of the minimap canvas (CSS scales it down). */
+  private static readonly MM = 288;
+
   /** Pre-scales the painted ground once; per-frame work is two blits. */
   initMinimap(ground: HTMLCanvasElement | null, targets: InteractionTarget[]): void {
     if (!ground) return;
+    const MM = UI.MM;
     const base = document.createElement('canvas');
-    base.width = 192;
-    base.height = 192;
+    base.width = MM;
+    base.height = MM;
     const b = base.getContext('2d')!;
-    b.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, 192, 192);
+    b.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, MM, MM);
     // Mute it so the live markers pop
     b.fillStyle = 'rgba(16,18,26,0.28)';
-    b.fillRect(0, 0, 192, 192);
+    b.fillRect(0, 0, MM, MM);
     b.fillStyle = 'rgba(245,234,210,0.75)';
-    b.font = '700 11px sans-serif';
+    b.font = '700 16px sans-serif';
     b.textAlign = 'center';
-    b.fillText('N', 96, 12);
+    b.fillText('N', MM / 2, 18);
     this.minimapBase = base;
     this.minimapTargets = targets.map((t) => ({ x: t.entrance.x, z: t.entrance.z, accent: t.accent }));
   }
 
-  /** World x/z ∈ [-104, 104] maps onto the 192px canvas. */
+  /** World x/z ∈ [-104, 104] maps onto the minimap canvas. */
   updateMinimap(x: number, z: number, yaw: number): void {
     if (!this.minimapBase) return;
+    const MM = UI.MM;
     const canvas = this.q('.minimap') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d')!;
-    const map = (v: number) => ((v + 104) / 208) * 192;
-    ctx.clearRect(0, 0, 192, 192);
+    const map = (v: number) => ((v + 104) / 208) * MM;
+    ctx.clearRect(0, 0, MM, MM);
     ctx.drawImage(this.minimapBase, 0, 0);
     for (const t of this.minimapTargets) {
       ctx.fillStyle = t.accent;
       ctx.strokeStyle = 'rgba(12,14,20,0.8)';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
-      ctx.arc(map(t.x), map(t.z), 3, 0, Math.PI * 2);
+      ctx.arc(map(t.x), map(t.z), 4.4, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     }
@@ -194,12 +199,12 @@ export class UI {
     ctx.rotate(Math.PI - yaw);
     ctx.fillStyle = '#ffd447';
     ctx.strokeStyle = 'rgba(12,14,20,0.9)';
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.7;
     ctx.beginPath();
-    ctx.moveTo(0, -6);
-    ctx.lineTo(4.4, 4.6);
-    ctx.lineTo(0, 2.4);
-    ctx.lineTo(-4.4, 4.6);
+    ctx.moveTo(0, -8.7);
+    ctx.lineTo(6.4, 6.7);
+    ctx.lineTo(0, 3.5);
+    ctx.lineTo(-6.4, 6.7);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();

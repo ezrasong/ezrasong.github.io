@@ -260,8 +260,8 @@ button {
 
 .minimap {
   display: block;
-  width: 148px;
-  height: 148px;
+  width: 208px;
+  height: 208px;
   border-radius: 10px;
   border: 2px solid rgba(245, 234, 210, 0.16);
   background: #151823;
@@ -372,8 +372,8 @@ button {
 
 @media (max-width: 640px) {
   .minimap {
-    width: 104px;
-    height: 104px;
+    width: 132px;
+    height: 132px;
   }
 }
 
