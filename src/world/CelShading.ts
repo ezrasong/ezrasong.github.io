@@ -37,15 +37,21 @@ interface CelProfile {
   fresnel: number;
   /** How strongly dark bands pull toward ENV.shadowTint. */
   shadowTintAmount: number;
+  /**
+   * World-anchored albedo grain (±fraction). Breaks up flat single-color
+   * faces into subtle material variation — concrete pitting, brick tone
+   * shifts — without any real textures.
+   */
+  grain: number;
 }
 
 const PROFILES: Record<CelProfileName, CelProfile> = {
-  concrete: { bands: 3, softness: 0.10, floor: 0.46, rim: 0.0, rimPower: 3, fresnel: 0, shadowTintAmount: 0.5 },
-  ground: { bands: 3, softness: 0.22, floor: 0.52, rim: 0.0, rimPower: 3, fresnel: 0, shadowTintAmount: 0.42 },
-  foliage: { bands: 2, softness: 0.24, floor: 0.55, rim: 0.14, rimPower: 2.6, fresnel: 0, shadowTintAmount: 0.4 },
-  metal: { bands: 4, softness: 0.05, floor: 0.38, rim: 0.10, rimPower: 3.4, fresnel: 0, shadowTintAmount: 0.55 },
-  character: { bands: 4, softness: 0.30, floor: 0.55, rim: 0.32, rimPower: 2.4, fresnel: 0, shadowTintAmount: 0.35 },
-  glass: { bands: 3, softness: 0.14, floor: 0.5, rim: 0.12, rimPower: 3, fresnel: 0.22, shadowTintAmount: 0.45 },
+  concrete: { bands: 3, softness: 0.10, floor: 0.46, rim: 0.0, rimPower: 3, fresnel: 0, shadowTintAmount: 0.5, grain: 0.11 },
+  ground: { bands: 3, softness: 0.22, floor: 0.52, rim: 0.0, rimPower: 3, fresnel: 0, shadowTintAmount: 0.42, grain: 0.07 },
+  foliage: { bands: 2, softness: 0.24, floor: 0.55, rim: 0.14, rimPower: 2.6, fresnel: 0, shadowTintAmount: 0.4, grain: 0.12 },
+  metal: { bands: 4, softness: 0.05, floor: 0.38, rim: 0.10, rimPower: 3.4, fresnel: 0, shadowTintAmount: 0.55, grain: 0.06 },
+  character: { bands: 4, softness: 0.30, floor: 0.55, rim: 0.32, rimPower: 2.4, fresnel: 0, shadowTintAmount: 0.35, grain: 0 },
+  glass: { bands: 3, softness: 0.14, floor: 0.5, rim: 0.12, rimPower: 3, fresnel: 0.22, shadowTintAmount: 0.45, grain: 0.05 },
 };
 
 /** Gradient ramps are shared: one texture per profile, generated once. */
@@ -140,6 +146,30 @@ export function patchCel(
     shader.uniforms.uRim = { value: rim };
     shader.uniforms.uFresnel = { value: profile.fresnel };
     shader.uniforms.uShadowTintAmt = { value: profile.shadowTintAmount };
+    shader.uniforms.uGrain = { value: profile.grain };
+
+    if (profile.grain > 0) {
+      // World-position varying for the albedo grain (instance-aware; kept
+      // additive after project_vertex so addWindSway's replacement of that
+      // include still composes).
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          varying vec3 vGrainW;`
+        )
+        .replace(
+          '#include <project_vertex>',
+          `#include <project_vertex>
+          {
+            vec4 grainP = vec4( transformed, 1.0 );
+            #ifdef USE_INSTANCING
+            grainP = instanceMatrix * grainP;
+            #endif
+            vGrainW = ( modelMatrix * grainP ).xyz;
+          }`
+        );
+    }
 
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -151,7 +181,34 @@ export function patchCel(
         uniform float uDaylight;
         uniform float uRim;
         uniform float uFresnel;
-        uniform float uShadowTintAmt;`
+        uniform float uShadowTintAmt;
+        uniform float uGrain;
+        ${profile.grain > 0
+          ? `varying vec3 vGrainW;
+        float celGrainHash( vec2 q ) { return fract( sin( dot( q, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
+        float celGrainNoise( vec2 q ) {
+          vec2 i = floor( q );
+          vec2 f = fract( q );
+          vec2 u2 = f * f * ( 3.0 - 2.0 * f );
+          return mix(
+            mix( celGrainHash( i ), celGrainHash( i + vec2( 1.0, 0.0 ) ), u2.x ),
+            mix( celGrainHash( i + vec2( 0.0, 1.0 ) ), celGrainHash( i + vec2( 1.0, 1.0 ) ), u2.x ),
+            u2.y );
+        }`
+          : ''}`
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        ${profile.grain > 0
+          ? `{
+          // Slanted projection so vertical walls vary along their height and
+          // horizontal surfaces vary across their extent.
+          vec2 grainQ = vec2( vGrainW.x + vGrainW.y * 0.71, vGrainW.z - vGrainW.y * 0.53 );
+          float celGrain = celGrainNoise( grainQ * 0.55 ) * 0.55 + celGrainNoise( grainQ * 2.6 ) * 0.45;
+          diffuseColor.rgb *= 1.0 + ( celGrain - 0.5 ) * uGrain * 2.0;
+        }`
+          : ''}`
       )
       .replace(
         '#include <opaque_fragment>',
@@ -180,7 +237,7 @@ export function patchCel(
   };
   // Distinct programs per profile+rim combination.
   mat.customProgramCacheKey = () =>
-    `cel|${profile.bands}|${profile.softness}|${profile.floor}|${rim}|${profile.fresnel}|${profile.shadowTintAmount}`;
+    `cel|${profile.bands}|${profile.softness}|${profile.floor}|${rim}|${profile.fresnel}|${profile.shadowTintAmount}|${profile.grain}`;
 }
 
 /**

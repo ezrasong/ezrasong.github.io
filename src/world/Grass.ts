@@ -56,10 +56,11 @@ function southBankKeep(x: number, z: number): boolean {
 }
 
 const PATCHES: Patch[] = [
-  // Hangang park band (the big one)
-  { sample: rect(-84, 84, 11.5, 19.2), budget: 5200, keep: parkKeep, sMin: 0.75, sMax: 1.25 },
-  // South bank strip
-  { sample: rect(-84, 84, 49.8, 53.2), budget: 2400, keep: southBankKeep, sMin: 0.7, sMax: 1.15 },
+  // Hangang park band (the big one) — starts past the Gangbyeon sidewalk
+  // apron (road z 5..11, sidewalk to 12.6) so no blade grows on pavement
+  { sample: rect(-84, 84, 12.8, 19.2), budget: 5200, keep: parkKeep, sMin: 0.75, sMax: 1.25 },
+  // South bank strip — ends before the Olympic-daero sidewalk (from 51.4)
+  { sample: rect(-84, 84, 49.8, 51.2), budget: 1800, keep: southBankKeep, sMin: 0.7, sMax: 1.15 },
   // Hongdae pocket park
   { sample: rect(-29, -22.6, -13, 0.5), budget: 500, sMin: 0.7, sMax: 1.1 },
   // Hanok courtyard tufts

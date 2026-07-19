@@ -270,12 +270,11 @@ export function createBridge(
   for (const side of [-1, 1]) {
     kit.box(1.0, 0.42, len, x + side * (width / 2 - 0.5), 0.14, cz, P.sidewalk);
   }
-  // Center lane dashes + edge lines
-  for (let z = z0 + 2; z < z1 - 1; z += 4) {
-    kit.box(0.24, 0.04, 1.4, x, 0.31, z, P.laneMark);
-  }
+  // Markings match the street scheme: solid yellow center line separating
+  // directions, white edge lines outside the lanes.
+  kit.box(0.14, 0.04, len - 1.2, x, 0.31, cz, '#d9a93c');
   for (const side of [-1, 1]) {
-    kit.box(0.12, 0.03, len - 2, x + side * (width / 2 - 1.15), 0.31, cz, '#9aa0a8');
+    kit.box(0.12, 0.03, len - 2, x + side * (width / 2 - 1.15), 0.31, cz, '#dcdad2');
   }
   // Railings: posts, twin rails, and a mid mesh band
   for (const side of [-1, 1]) {
@@ -639,13 +638,14 @@ export function createSignpost(x: number, z: number): LandmarkResult {
   kit.boxOn(0.22, 3.4, 0.22, 0, 0, 0, P.hanokWood);
   kit.boxOn(0.5, 0.12, 0.5, 0, 0, 0, '#87817a');
 
-  // Arm heading `a`: board long axis maps to (cos a, 0, -sin a).
-  // Opposite directions share a height so the boards never overlap visually.
+  // Arm heading `a`: board long axis maps to (cos a, 0, -sin a). Every arm
+  // gets its own height and every board's inner edge sits clear of the
+  // pole, so no two boards can ever interpenetrate.
   const arms: { text: string; a: number; y: number }[] = [
-    { text: '한옥골목 HANOK →', a: 0, y: 2.85 }, // east
-    { text: '홍대 HONGDAE →', a: Math.PI, y: 2.85 }, // west
-    { text: '한강 · 강남 RIVER →', a: -Math.PI / 2, y: 2.25 }, // south, across the bridge
-    { text: '남산 NAMSAN →', a: Math.PI / 2, y: 2.25 }, // north
+    { text: '한옥골목 HANOK →', a: 0, y: 3.0 }, // east
+    { text: '홍대 HONGDAE →', a: Math.PI, y: 2.55 }, // west
+    { text: '한강 · 강남 RIVER →', a: -Math.PI / 2, y: 2.1 }, // south, across the bridge
+    { text: '남산 NAMSAN →', a: Math.PI / 2, y: 1.65 }, // north
   ];
   const W = 2.4;
   const H = 0.46;
@@ -655,8 +655,8 @@ export function createSignpost(x: number, z: number): LandmarkResult {
   for (const arm of arms) {
     const dirX = Math.cos(arm.a);
     const dirZ = -Math.sin(arm.a);
-    const cx = dirX * (W / 2 - 0.08);
-    const cz = dirZ * (W / 2 - 0.08);
+    const cx = dirX * (W / 2 + 0.16);
+    const cz = dirZ * (W / 2 + 0.16);
     // Board core (gives the sign thickness and roots it in the pole)
     kit.box(W, H, 0.14, cx, arm.y, cz, '#1a2536', arm.a);
     for (const side of [1, -1] as const) {

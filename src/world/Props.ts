@@ -388,15 +388,29 @@ export function createRoadFurniture(
   const W = 0.24;
   const EDGE = 88; // past the boundary wall nothing is reachable
 
-  const addRun = (horizontal: boolean, c: number, edge: number, a0: number, a1: number, cuts: number[]) => {
+  const addRun = (
+    horizontal: boolean,
+    c: number,
+    edge: number,
+    a0: number,
+    a1: number,
+    cuts: number[],
+    spanCuts: [number, number][] = []
+  ) => {
     a0 = Math.max(a0, -EDGE);
     a1 = Math.min(a1, EDGE);
-    const pts = cuts.filter((t) => t > a0 - 4.6 && t < a1 + 4.6).sort((m, n) => m - n);
+    // Junction cuts (±4.6 around each) plus arbitrary excluded spans,
+    // e.g. where a road crosses flush plaza paving.
+    const gaps = cuts
+      .filter((t) => t > a0 - 4.6 && t < a1 + 4.6)
+      .map((t): [number, number] => [t - 4.6, t + 4.6])
+      .concat(spanCuts)
+      .sort((m, n) => m[0] - n[0]);
     let cur = a0;
     const segs: [number, number][] = [];
-    for (const t of pts) {
-      if (t - 4.6 > cur) segs.push([cur, t - 4.6]);
-      cur = Math.max(cur, t + 4.6);
+    for (const [g0, g1] of gaps) {
+      if (g0 > cur) segs.push([cur, Math.min(g0, a1)]);
+      cur = Math.max(cur, g1);
     }
     if (a1 > cur) segs.push([cur, a1]);
     for (const [s0, s1] of segs) {
@@ -407,6 +421,10 @@ export function createRoadFurniture(
       else kit.box(W, H, len, c + edge, H / 2, mid, CURB);
     }
   };
+
+  // The Starlight Plaza circle (center z -14, r 12 at x 0): the spine
+  // crosses it as flush paving, so curbs stop at the plaza rim.
+  const PLAZA: [number, number] = [-26.2, -1.8];
 
   for (const [x, z, w, d] of roads) {
     const horizontal = w > d;
@@ -420,7 +438,8 @@ export function createRoadFurniture(
       // Streets that reach the river hand over to the bridge approaches.
       if (z0 < 10.5 && z1 > 10.5) z1 = 10.5;
       if (z0 > 20 && z0 < 54.2) z0 = 54.2;
-      for (const side of [-1, 1]) addRun(false, x, side * (w / 2 + 0.12), z0, z1, cuts);
+      const spans: [number, number][] = Math.abs(x) < 4 && z0 < 0 ? [PLAZA] : [];
+      for (const side of [-1, 1]) addRun(false, x, side * (w / 2 + 0.12), z0, z1, cuts, spans);
     }
   }
 

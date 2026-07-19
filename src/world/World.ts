@@ -504,9 +504,10 @@ export class World {
       // Gangbyeon boulevard (z=8), north side: arms south
       { x: -72, z: 3.9, ry: ARM_S }, { x: -40, z: 3.9, ry: ARM_S }, { x: -16, z: 3.9, ry: ARM_S },
       { x: 16, z: 3.9, ry: ARM_S }, { x: 40, z: 3.9, ry: ARM_S }, { x: 72, z: 3.9, ry: ARM_S },
-      // Olympic-daero (z=56), south side: arms north
+      // Olympic-daero (z=56), south side: arms north. 13.5 sits in the gap
+      // between the station and Voxel Seoul so no pole crosses either sign.
       { x: -76, z: 60.9, ry: ARM_N }, { x: -56, z: 60.9, ry: ARM_N }, { x: -28, z: 60.9, ry: ARM_N },
-      { x: -12, z: 60.9, ry: ARM_N }, { x: 16, z: 60.9, ry: ARM_N }, { x: 46, z: 60.9, ry: ARM_N },
+      { x: -12, z: 60.9, ry: ARM_N }, { x: 13.5, z: 60.9, ry: ARM_N }, { x: 46, z: 60.9, ry: ARM_N },
       { x: 76, z: 60.9, ry: ARM_N },
       // Teheran-ro (z=80), north side: arms south
       { x: -60, z: 74.9, ry: ARM_S }, { x: -24, z: 74.9, ry: ARM_S }, { x: 8, z: 74.9, ry: ARM_S },

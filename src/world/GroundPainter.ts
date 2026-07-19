@@ -393,10 +393,11 @@ export function paintGroundCanvas(): HTMLCanvasElement {
   ctx.fillRect(u(-51.4), v(48), s(6.8), s(5.2)); // Yanghwa bridge landing
 
   // ------------------------------------------------------------- markings
-  // Korean scheme: yellow center lines separate directions (double on the
-  // arterials, single elsewhere), white dashes separate same-direction
-  // lanes, white edge lines, zebra crosswalks + stop lines at junctions.
+  // Korean scheme, kept strictly two-tone so it never reads muddled:
+  // YELLOW only ever separates directions (center lines); WHITE does
+  // everything else (lane dashes, edge lines, zebras, stop lines, arrows).
   const YELLOW = '#d9a93c';
+  const WHITE = '#e9e7de';
   const arterial = (c: number) => {
     // Double yellow center line
     ctx.fillStyle = YELLOW;
@@ -404,7 +405,7 @@ export function paintGroundCanvas(): HTMLCanvasElement {
       ctx.fillRect(u(-104), v(c + off), s(208), s(0.12));
     }
     // White lane dashes at ±1.5
-    ctx.fillStyle = P.laneMark;
+    ctx.fillStyle = WHITE;
     for (const off of [-1.5, 1.5]) {
       for (let t = -104; t < 104; t += 3.2) {
         ctx.fillRect(u(t), v(c + off - 0.08), s(1.5), s(0.16));
@@ -432,7 +433,7 @@ export function paintGroundCanvas(): HTMLCanvasElement {
   centerline(-48, 52, 80);
 
   // Edge lines along the arterials (solid, outside the dashes).
-  ctx.fillStyle = 'rgba(216,210,192,0.5)';
+  ctx.fillStyle = 'rgba(233,231,222,0.78)';
   for (const [x, z, w, d] of ROADS) {
     const horizontal = w > d;
     if (horizontal) {
@@ -464,14 +465,14 @@ export function paintGroundCanvas(): HTMLCanvasElement {
   // Full Korean junction treatment: zebra crosswalks across every real leg
   // plus a stop line on each approach lane (right-hand traffic).
   const zebra = (x: number, z: number, alongX: boolean) => {
-    ctx.fillStyle = P.laneMark;
+    ctx.fillStyle = WHITE;
     for (let i = -2.2; i <= 2.2; i += 0.8) {
       if (alongX) ctx.fillRect(u(x + i - 0.225), v(z - 1.1), s(0.45), s(2.2));
       else ctx.fillRect(u(x - 1.1), v(z + i - 0.225), s(2.2), s(0.45));
     }
   };
   const stopLine = (x: number, z: number, alongX: boolean) => {
-    ctx.fillStyle = P.laneMark;
+    ctx.fillStyle = WHITE;
     if (alongX) ctx.fillRect(u(x - 2.6), v(z - 0.2), s(2.5), s(0.4));
     else ctx.fillRect(u(x - 0.2), v(z - 2.6), s(0.4), s(2.5));
   };
@@ -492,7 +493,7 @@ export function paintGroundCanvas(): HTMLCanvasElement {
     ctx.save();
     ctx.translate(u(x), v(z));
     if (dirZ === -1) ctx.rotate(Math.PI);
-    ctx.fillStyle = P.laneMark;
+    ctx.fillStyle = WHITE;
     ctx.beginPath();
     ctx.moveTo(0, s(1.4));
     ctx.lineTo(0, -s(0.6));
