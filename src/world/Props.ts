@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PALETTE as P } from '../config/palette';
 import { MATERIALS, VoxelKit } from './voxel';
+import { addWindSway, celMaterial } from './CelShading';
 import type { ColliderSpec } from './VoxelBuilding';
 
 const dummy = new THREE.Object3D();
@@ -10,48 +11,110 @@ export interface PropResult {
   colliders: { x: number; z: number; spec: ColliderSpec }[];
 }
 
-/** Chunky instanced trees: trunk + two stacked leaf cubes. */
-export function createTrees(positions: { x: number; z: number; s?: number }[]): PropResult {
+/**
+ * Stylized low-poly trees in three instanced families, each a tapered
+ * trunk plus a canopy of clustered, two-tone icosphere blobs whose upper
+ * halves sway in the wind:
+ *
+ *  - street: round layered canopy (default city tree)
+ *  - riverside: taller, slimmer silhouette for the waterfront
+ *  - blossom: pink flowering tree, scattered sparingly
+ *
+ * Family is chosen per position (explicit `kind`, else derived: riverside
+ * near the water, a deterministic sprinkle of blossoms elsewhere).
+ */
+export function createTrees(
+  positions: { x: number; z: number; s?: number; kind?: 'street' | 'riverside' | 'blossom' }[]
+): PropResult {
   const group = new THREE.Group();
 
-  const trunkGeo = new THREE.BoxGeometry(0.34, 1.2, 0.34);
-  trunkGeo.translate(0, 0.6, 0);
-  const trunk = new THREE.InstancedMesh(
-    trunkGeo,
-    new THREE.MeshLambertMaterial({ color: P.treeTrunk }),
-    positions.length
-  );
+  const families = {
+    street: {
+      trunk: (k: VoxelKit) => {
+        k.cylinder(0.1, 0.19, 1.5, 0, 0.75, 0, P.treeTrunk, 7);
+        k.bar(0, 1.1, 0, 0.5, 1.8, 0.25, 0.09, P.treeTrunk);
+        k.bar(0, 1.3, 0, -0.45, 1.9, -0.2, 0.08, P.treeTrunk);
+      },
+      canopy: (k: VoxelKit) => {
+        k.blob(0.95, 0, 2.0, 0, P.leaf, 0.85);
+        k.blob(0.62, 0.6, 1.7, 0.25, P.leafDark, 0.85);
+        k.blob(0.6, -0.55, 1.75, -0.2, P.leafDark, 0.8);
+        k.blob(0.58, 0.08, 2.62, -0.05, '#6fae62', 0.85);
+      },
+    },
+    riverside: {
+      trunk: (k: VoxelKit) => {
+        k.cylinder(0.09, 0.17, 2.3, 0, 1.15, 0, '#7a5a3e', 7);
+        k.bar(0, 1.7, 0, 0.4, 2.4, 0.2, 0.08, '#7a5a3e');
+      },
+      canopy: (k: VoxelKit) => {
+        k.blob(0.72, 0, 2.7, 0, P.leafDark, 1.1);
+        k.blob(0.55, 0.35, 3.35, 0.12, P.leaf, 1.0);
+        k.blob(0.42, -0.3, 2.3, -0.15, P.leaf, 0.9);
+      },
+    },
+    blossom: {
+      trunk: (k: VoxelKit) => {
+        k.cylinder(0.09, 0.16, 1.3, 0, 0.65, 0, '#6b4a3a', 7);
+        k.bar(0, 0.9, 0, 0.45, 1.6, 0.2, 0.08, '#6b4a3a');
+        k.bar(0, 1.0, 0, -0.4, 1.7, -0.22, 0.07, '#6b4a3a');
+      },
+      canopy: (k: VoxelKit) => {
+        k.blob(0.85, 0, 1.85, 0, '#e8a7c3', 0.8);
+        k.blob(0.55, 0.55, 1.6, 0.22, '#d98bb0', 0.8);
+        k.blob(0.52, -0.5, 1.7, -0.18, '#efc0d6', 0.75);
+        k.blob(0.5, 0.05, 2.4, -0.05, '#e8a7c3', 0.8);
+      },
+    },
+  } as const;
 
-  const leafGeo = new THREE.BoxGeometry(1.5, 1.3, 1.5);
-  leafGeo.translate(0, 1.75, 0);
-  const leafTopGeo = new THREE.BoxGeometry(0.95, 0.8, 0.95);
-  leafTopGeo.translate(0, 2.7, 0);
-  const leafMat = new THREE.MeshLambertMaterial({ color: P.leaf });
-  const leaves = new THREE.InstancedMesh(leafGeo, leafMat, positions.length);
-  const leavesTop = new THREE.InstancedMesh(leafTopGeo, leafMat, positions.length);
+  // Family assignment: explicit kind wins; otherwise riverside near the
+  // water bands, with a deterministic ~14% blossom sprinkle elsewhere.
+  const assigned = positions.map((p, i) => {
+    if (p.kind) return p.kind;
+    if ((p.z > 11 && p.z < 20) || (p.z > 48 && p.z < 54)) return i % 3 === 0 ? 'street' : 'riverside';
+    return (i * 53) % 100 > 86 ? 'blossom' : 'street';
+  });
 
   const color = new THREE.Color();
-  positions.forEach((p, i) => {
-    const s = p.s ?? 0.85 + ((i * 37) % 10) / 22;
-    dummy.position.set(p.x, 0, p.z);
-    dummy.rotation.y = (i * 2.39996) % Math.PI;
-    dummy.scale.setScalar(s);
-    dummy.updateMatrix();
-    trunk.setMatrixAt(i, dummy.matrix);
-    leaves.setMatrixAt(i, dummy.matrix);
-    leavesTop.setMatrixAt(i, dummy.matrix);
-    // vary foliage between green and early-autumn
-    const t = (i * 53) % 100;
-    color.set(t > 82 ? P.leafAutumn : t > 40 ? P.leaf : P.leafDark);
-    leaves.setColorAt(i, color);
-    leavesTop.setColorAt(i, color);
-  });
-  for (const m of [trunk, leaves, leavesTop]) {
-    m.castShadow = true;
-    m.receiveShadow = true;
-    m.instanceMatrix.needsUpdate = true;
+  for (const fam of ['street', 'riverside', 'blossom'] as const) {
+    const list = positions.filter((_, i) => assigned[i] === fam);
+    if (list.length === 0) continue;
+    const def = families[fam];
+    const tk = new VoxelKit();
+    def.trunk(tk);
+    const ck = new VoxelKit();
+    def.canopy(ck);
+    const trunkGeo = tk.merge();
+    const canopyGeo = ck.merge();
+
+    const trunk = new THREE.InstancedMesh(trunkGeo, MATERIALS.lit, list.length);
+    const canopyMat = celMaterial({ profile: 'foliage', vertexColors: true });
+    addWindSway(canopyMat, 0.06, 1.7, 1.2, 2.8);
+    const canopy = new THREE.InstancedMesh(canopyGeo, canopyMat, list.length);
+
+    list.forEach((p, i) => {
+      const idx = positions.indexOf(p);
+      const s = p.s ?? 0.85 + ((idx * 37) % 10) / 22;
+      dummy.position.set(p.x, 0, p.z);
+      dummy.rotation.y = (idx * 2.39996) % Math.PI;
+      dummy.scale.setScalar(s);
+      dummy.updateMatrix();
+      trunk.setMatrixAt(i, dummy.matrix);
+      canopy.setMatrixAt(i, dummy.matrix);
+      // Per-tree tint over the vertex-colored two-tone canopy.
+      const t = (idx * 53) % 100;
+      if (fam === 'blossom') color.setScalar(0.92 + (t / 100) * 0.16);
+      else color.set(t > 82 ? '#c4a45a' : '#ffffff').lerp(new THREE.Color('#ffffff'), t > 82 ? 0.35 : 0).multiplyScalar(0.88 + (t / 100) * 0.24);
+      canopy.setColorAt(i, color);
+    });
+    trunk.castShadow = true;
+    canopy.castShadow = true;
+    canopy.receiveShadow = false;
+    trunk.instanceMatrix.needsUpdate = true;
+    canopy.instanceMatrix.needsUpdate = true;
+    group.add(trunk, canopy);
   }
-  group.add(trunk, leaves, leavesTop);
 
   return {
     object: group,

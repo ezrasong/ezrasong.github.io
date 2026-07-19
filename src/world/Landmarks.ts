@@ -99,13 +99,17 @@ export function createNamsan(x: number, z: number): LandmarkResult {
     kit.cylinder(r * 0.82, r, h, 0, y + h / 2, 0, y < 4 ? P.grassDark : '#456f44', 10);
     y += h;
   }
-  // Scattered forest cubes on the slopes
+  // Scattered forest canopies on the slopes
   const rng = mulberry32(99);
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 30; i++) {
     const a = rng() * Math.PI * 2;
-    const rr = 5 + rng() * 9;
+    const rr = 5 + rng() * 9.5;
     const hh = hillHeightAt(rr, steps);
-    kit.boxOn(1.1, 1.2, 1.1, Math.cos(a) * rr, hh - 0.4, Math.sin(a) * rr, rng() < 0.7 ? P.leafDark : P.leaf);
+    const r = 0.65 + rng() * 0.55;
+    kit.blob(r, Math.cos(a) * rr, hh + r * 0.4, Math.sin(a) * rr, rng() < 0.7 ? P.leafDark : P.leaf, 0.85);
+    if (rng() < 0.4) {
+      kit.blob(r * 0.6, Math.cos(a) * rr + r * 0.5, hh + r * 0.8, Math.sin(a) * rr + (rng() - 0.5) * r, '#3f6b3e', 0.8);
+    }
   }
   // Tower: shaft, observation pod, spire
   const baseY = y;
@@ -384,17 +388,33 @@ export function createMountains(): LandmarkResult {
   const group = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: '#3d6b40', flatShading: true });
   const matFar = new THREE.MeshLambertMaterial({ color: '#35583a', flatShading: true });
-  const peaks: { x: number; z: number; r: number; h: number; far?: boolean }[] = [
+  // Farthest ridge sits in the fog and reads as atmosphere, not geometry.
+  const matHaze = new THREE.MeshLambertMaterial({ color: '#42597a', flatShading: true });
+  const peaks: { x: number; z: number; r: number; h: number; tier?: 1 | 2 }[] = [
     { x: -42, z: -97, r: 24, h: 18 },
     { x: 0, z: -102, r: 30, h: 23 },
     { x: 46, z: -96, r: 22, h: 15 },
-    { x: 84, z: -94, r: 16, h: 11, far: true },
-    { x: -84, z: -95, r: 17, h: 12, far: true },
-    { x: -16, z: -104, r: 22, h: 26, far: true },
-    { x: 26, z: -104, r: 24, h: 20, far: true },
+    { x: 84, z: -94, r: 16, h: 11, tier: 1 },
+    { x: -84, z: -95, r: 17, h: 12, tier: 1 },
+    { x: -16, z: -104, r: 22, h: 26, tier: 1 },
+    { x: 26, z: -104, r: 24, h: 20, tier: 1 },
+    // Hazy horizon ridge behind everything (and off both back corners)
+    { x: -70, z: -128, r: 40, h: 30, tier: 2 },
+    { x: -8, z: -136, r: 48, h: 36, tier: 2 },
+    { x: 58, z: -128, r: 42, h: 28, tier: 2 },
+    { x: 118, z: -110, r: 34, h: 22, tier: 2 },
+    { x: -122, z: -108, r: 36, h: 24, tier: 2 },
+    // Distant hills east and west so the side horizons roll too
+    { x: -150, z: -40, r: 34, h: 18, tier: 2 },
+    { x: 152, z: -30, r: 36, h: 20, tier: 2 },
+    { x: 158, z: 70, r: 32, h: 16, tier: 2 },
+    { x: -155, z: 80, r: 34, h: 17, tier: 2 },
   ];
   for (const p of peaks) {
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(p.r, p.h, 7), p.far ? matFar : mat);
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(p.r, p.h, 7),
+      p.tier === 2 ? matHaze : p.tier === 1 ? matFar : mat
+    );
     cone.position.set(p.x, p.h / 2 - 0.3, p.z);
     cone.rotation.y = (p.x * 13.7) % Math.PI;
     group.add(cone);

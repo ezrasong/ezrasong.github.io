@@ -11,6 +11,7 @@ import { createSky } from './Sky';
 import { createWater } from './Water';
 import { ENV, timeOverride } from './Env';
 import { celMaterial } from './CelShading';
+import { createGrass } from './Grass';
 import { buildStructure, facingToYaw, type BuiltStructure } from './VoxelBuilding';
 import {
   createTrees,
@@ -50,6 +51,7 @@ export class World {
 
   private sun!: THREE.DirectionalLight;
   private hemi!: THREE.HemisphereLight;
+  private grassDensity!: (d: number) => void;
   private sunMesh!: THREE.Mesh;
   private moonMesh!: THREE.Mesh;
   private skyColor = new THREE.Color();
@@ -67,6 +69,9 @@ export class World {
     this.scene.add(createSky());
     const terrain = createTerrain(paintGroundCanvas());
     this.scene.add(terrain.inner, terrain.apron);
+    const grass = createGrass();
+    this.scene.add(grass.object);
+    this.grassDensity = grass.setDensity;
     this.addLandmarks();
     this.addStructures();
     this.addFiller();
@@ -200,6 +205,7 @@ export class World {
       this.sun.shadow.map = null;
     }
     (this.scene.fog as THREE.Fog).far = preset.fogFar;
+    this.grassDensity(preset.grassDensity);
   }
 
   /* ---------------------------------------------------------------- */

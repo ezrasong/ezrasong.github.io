@@ -7,12 +7,27 @@ export interface QualityPreset {
   shadows: boolean;
   shadowMapSize: number;
   fogFar: number;
+  /** 0..1 fraction of grass/reed instances rendered. */
+  grassDensity: number;
+  /** Cloud cluster count. */
+  clouds: number;
+  /** Stylized water sky-reflection strength on/off. */
+  waterReflections: boolean;
 }
 
 const PRESETS: Record<QualityLevel, QualityPreset> = {
-  low: { level: 'low', label: '낮음 LOW', pixelRatioCap: 1, shadows: false, shadowMapSize: 512, fogFar: 150 },
-  medium: { level: 'medium', label: '중간 MED', pixelRatioCap: 1.5, shadows: true, shadowMapSize: 1024, fogFar: 200 },
-  high: { level: 'high', label: '높음 HIGH', pixelRatioCap: 2, shadows: true, shadowMapSize: 2048, fogFar: 260 },
+  low: {
+    level: 'low', label: '낮음 LOW', pixelRatioCap: 1, shadows: false, shadowMapSize: 512,
+    fogFar: 150, grassDensity: 0.3, clouds: 5, waterReflections: false,
+  },
+  medium: {
+    level: 'medium', label: '중간 MED', pixelRatioCap: 1.5, shadows: true, shadowMapSize: 1024,
+    fogFar: 200, grassDensity: 0.65, clouds: 8, waterReflections: true,
+  },
+  high: {
+    level: 'high', label: '높음 HIGH', pixelRatioCap: 2, shadows: true, shadowMapSize: 2048,
+    fogFar: 260, grassDensity: 1, clouds: 11, waterReflections: true,
+  },
 };
 
 const STORAGE_KEY = 'voxel-seoul-quality';
