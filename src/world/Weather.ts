@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { VoxelKit } from './voxel';
+import { celMaterial } from './CelShading';
 
 /**
  * Weather for the miniature Seoul. The current condition mirrors the real
@@ -38,7 +40,7 @@ export class Weather {
   private snow: THREE.InstancedMesh;
   private drops = new Float32Array(DROPS * 3); // local offsets in the box
   private clouds: { group: THREE.Group; speed: number }[] = [];
-  private cloudMat: THREE.MeshLambertMaterial;
+  private cloudMat: THREE.MeshToonMaterial;
   private dummy = new THREE.Object3D();
   private cycleTimer = 0;
   private usingFallback = false;
@@ -76,22 +78,53 @@ export class Weather {
 
     scene.add(this.rain, this.snow);
 
-    // Voxel clouds drifting over the city.
-    this.cloudMat = new THREE.MeshLambertMaterial({ color: '#e9edf3' });
+    // Stylized blob clouds: each cloud is a cluster of flattened icospheres
+    // with a brighter cap and a shaded belly (baked as vertex colors), on
+    // four base silhouettes at varying altitude and scale. One shared cel
+    // material lets the day cycle and weather tint every cloud at once.
+    this.cloudMat = celMaterial({ profile: 'foliage', vertexColors: true });
     const rng = mulberry32(2026);
-    for (let i = 0; i < 8; i++) {
-      const group = new THREE.Group();
-      const puffs = 2 + Math.floor(rng() * 3);
+    const TOP = '#ffffff';
+    const BELLY = '#c3cbd9';
+    const buildVariant = (variant: number, kit: VoxelKit) => {
+      const puffs = 4 + (variant % 3);
+      let cx = 0;
       for (let p = 0; p < puffs; p++) {
-        const w = 6 + rng() * 8;
-        const puff = new THREE.Mesh(new THREE.BoxGeometry(w, 1.6 + rng() * 1.4, 4 + rng() * 5), this.cloudMat);
-        puff.position.set((p - puffs / 2) * (w * 0.55), rng() * 1.2, (rng() - 0.5) * 4);
-        group.add(puff);
+        const r = 2.6 + rng() * 2.6 * (1 - Math.abs(p - puffs / 2) / puffs);
+        const y = rng() * 1.4 + r * 0.15;
+        const z = (rng() - 0.5) * 3.5;
+        kit.blob(r, cx, y, z, TOP, 0.62, 1);
+        kit.blob(r * 0.78, cx + 0.4, y - r * 0.35, z + 0.3, BELLY, 0.5, 1);
+        cx += r * (1.05 + rng() * 0.3);
       }
-      group.position.set(-130 + rng() * 260, 34 + rng() * 10, -95 + rng() * 195);
-      this.clouds.push({ group, speed: 0.5 + rng() * 0.9 });
+      // A trailing wisp
+      kit.blob(1.5 + rng(), cx + 0.8, 0.4, (rng() - 0.5) * 3, BELLY, 0.45, 1);
+    };
+    const variants: THREE.BufferGeometry[] = [];
+    for (let v = 0; v < 4; v++) {
+      const kit = new VoxelKit();
+      buildVariant(v, kit);
+      variants.push(kit.merge());
+    }
+    for (let i = 0; i < 11; i++) {
+      const geo = variants[i % 4];
+      const mesh = new THREE.Mesh(geo, this.cloudMat);
+      const group = new THREE.Group();
+      group.add(mesh);
+      const s = 0.8 + rng() * 1.3;
+      group.scale.setScalar(s);
+      group.rotation.y = rng() * Math.PI;
+      group.position.set(-130 + rng() * 260, 36 + rng() * 22, -110 + rng() * 215);
+      this.clouds.push({ group, speed: (0.5 + rng() * 0.9) / Math.sqrt(s) });
       scene.add(group);
     }
+  }
+
+  /** Quality presets cap how many clusters are visible. */
+  applyCloudCount(count: number): void {
+    this.clouds.forEach((c, i) => {
+      c.group.visible = i < count;
+    });
   }
 
   /** Start following the real Seoul sky, with a procedural fallback. */

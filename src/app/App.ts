@@ -102,6 +102,7 @@ export class App {
 
     this.weather = new Weather(this.world.scene);
     this.weather.init((kind) => this.ui.setWeather(WEATHER_LABEL[kind]));
+    this.weather.applyCloudCount(this.quality.current.clouds);
     this.ui.initMinimap(getGroundCanvas(), this.world.targets);
 
     this.ui.setProgress(1);
@@ -380,6 +381,7 @@ export class App {
     this.renderer.shadowMap.enabled = preset.shadows;
     this.renderer.setPixelRatio(Math.min(this.sizes.pixelRatio, preset.pixelRatioCap));
     this.world.applyQuality(preset);
+    this.weather.applyCloudCount(preset.clouds);
     // Force material recompile for shadow toggle
     this.world.scene.traverse((o) => {
       const mesh = o as THREE.Mesh;

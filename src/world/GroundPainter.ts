@@ -446,13 +446,7 @@ export function paintGroundCanvas(): HTMLCanvasElement {
   }
   ctx.restore();
 
-  // Curved footpaths: plaza → boulevard sidewalk, plaza → Hongdae pocket park.
-  strokePath(
-    ctx,
-    (t) => [Math.sin(t * 2.6) * 3.2, -2 + t * 5.6],
-    1.4,
-    P.plaza
-  );
+  // Curved footpath: plaza → Hongdae pocket park.
   strokePath(
     ctx,
     (t) => [-12 - t * 12.5, -14 + Math.sin(t * 2.2) * 2.4 + t * 6],
