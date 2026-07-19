@@ -106,31 +106,55 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
   const glow = new VoxelKit();
   const group = new THREE.Group();
   const rng = mulberry32(hashCode(spec.signText));
+  const FRAME = '#2c313d';
+  const PANE_DARK = '#3d4657';
+  const isShop = spec.type === 'arcade' || spec.type === 'creative-studio' || spec.type === 'glass-store' || spec.type === 'workshop';
 
-  // Body
-  kit.boxOn(w, h, d, 0, 0, 0, style.wall);
-  // Parapet
-  kit.boxOn(w + 0.3, 0.35, d + 0.3, 0, h, 0, style.roof);
+  // Massing: chamfered main body over a slightly recessed ground band, so
+  // the block reads as base + shaft instead of one extrusion.
+  kit.boxOn(w - 0.24, FLOOR_H, d - 0.24, 0, 0, 0, style.wallAlt);
+  kit.rbox(w, h - FLOOR_H, d, 0, FLOOR_H + (h - FLOOR_H) / 2, 0, style.wall, 0.12);
+  // Belt course between base and shaft
+  kit.box(w + 0.14, 0.22, d + 0.14, 0, FLOOR_H, 0, style.roof);
+  // Parapet (chamfered) + roof slab
+  kit.rboxOn(w + 0.26, 0.4, d + 0.26, 0, h - 0.05, 0, style.roof, 0.1);
+  kit.box(w - 0.5, 0.14, d - 0.5, 0, h + 0.3, 0, '#565c66');
 
-  // Window grid on all four faces (glow boxes proud of the wall)
-  const winW = 0.85;
-  const winH = 1.0;
+  // Window grid: framed cells with lit or dark panes on every face — the
+  // facade reads structured in daylight, alive at night.
+  const winW = 0.95;
+  const winH = 1.15;
   const addWindows = (faceW: number, axis: 'x' | 'z', sign: 1 | -1) => {
     const cols = Math.max(1, Math.floor((faceW - 1.6) / 1.7));
     const startOffset = -((cols - 1) * 1.7) / 2;
     for (let f = 0; f < floors; f++) {
       for (let c = 0; c < cols; c++) {
-        // Leave the door column clear on the front ground floor.
         const along = startOffset + c * 1.7;
         const isFront = axis === 'x' && sign === 1;
-        if (isFront && f === 0 && Math.abs(along) < 1.5) continue;
-        if (rng() > style.windowChance) continue;
-        const y = f * FLOOR_H + FLOOR_H * 0.55;
-        const warm = rng() < 0.8;
-        const color = warm ? style.window : '#5b667a';
+        // Ground floor: door column clear; shops get a storefront instead.
+        if (f === 0 && (isShop || (isFront && Math.abs(along) < 1.5))) continue;
+        const y = f * FLOOR_H + FLOOR_H * 0.58;
         const wall = axis === 'x' ? w : d;
-        if (axis === 'x') glow.box(0.08, winH, winW, sign * (wall / 2 + 0.03), y, along, color);
-        else glow.box(winW, winH, 0.08, along, y, sign * (wall / 2 + 0.03), color);
+        const off = wall / 2 - (f === 0 ? 0.12 : 0);
+        const lit = rng() < style.windowChance && rng() < 0.8;
+        const color = lit ? style.window : PANE_DARK;
+        if (axis === 'x') {
+          kit.box(0.1, winH + 0.18, winW + 0.18, sign * (off + 0.02), y, along, FRAME);
+          if (lit) glow.box(0.08, winH, winW, sign * (off + 0.06), y, along, color);
+          else kit.box(0.08, winH, winW, sign * (off + 0.06), y, along, color);
+          // Occasional AC unit under a window
+          if (f > 0 && rng() < 0.12) {
+            kit.box(0.36, 0.34, 0.5, sign * (off + 0.2), y - winH / 2 - 0.26, along + 0.2, '#9aa0a5');
+            kit.box(0.05, 0.24, 0.4, sign * (off + 0.39), y - winH / 2 - 0.26, along + 0.2, '#7e858b');
+          }
+        } else {
+          kit.box(winW + 0.18, winH + 0.18, 0.1, along, y, sign * (off + 0.02), FRAME);
+          if (lit) glow.box(winW, winH, 0.08, along, y, sign * (off + 0.06), color);
+          else kit.box(winW, winH, 0.08, along, y, sign * (off + 0.06), color);
+          if (f > 0 && rng() < 0.12) {
+            kit.box(0.5, 0.34, 0.36, along - 0.2, y - winH / 2 - 0.26, sign * (off + 0.2), '#9aa0a5');
+          }
+        }
       }
     }
   };
@@ -139,8 +163,39 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
   addWindows(w, 'z', 1);
   addWindows(w, 'z', -1);
 
-  // Door on +X face
-  addDoor(kit, glow, w / 2, spec.accent);
+  // Shops: full-width storefront glass band on the front face with an
+  // accent awning; the door slots into it.
+  if (isShop) {
+    const bx = (w - 0.24) / 2;
+    glow.box(0.08, FLOOR_H * 0.62, d - 1.6, bx + 0.02, FLOOR_H * 0.42, 0, style.window);
+    kit.box(0.12, FLOOR_H * 0.72, 0.16, bx + 0.04, FLOOR_H * 0.42, -(d - 1.5) / 2, FRAME);
+    kit.box(0.12, FLOOR_H * 0.72, 0.16, bx + 0.04, FLOOR_H * 0.42, (d - 1.5) / 2, FRAME);
+    kit.box(0.12, 0.16, d - 1.3, bx + 0.04, FLOOR_H * 0.78, 0, FRAME);
+    // Awning: sloped slab standing off the wall
+    kit.box(1.1, 0.09, d - 1.0, bx + 0.62, FLOOR_H * 0.92, 0, spec.accent);
+    kit.box(1.0, 0.05, d - 1.2, bx + 0.6, FLOOR_H * 0.87, 0, '#efe7d8');
+  }
+
+  // Utility pipe down one rear corner + drain shoe.
+  kit.cylinder(0.07, 0.07, h - 0.4, -w / 2 - 0.09, (h - 0.4) / 2, -d / 2 + 0.5, '#6f757c', 6);
+  kit.box(0.2, 0.3, 0.2, -w / 2 - 0.09, 0.15, -d / 2 + 0.5, '#6f757c');
+
+  // Rooftop clutter: water tank + HVAC with pipe elbow (deterministic mix).
+  if (rng() < 0.8) {
+    kit.cylinder(0.62, 0.62, 1.0, -w / 4, h + 0.85, -d / 4, '#c8b98f', 10);
+    kit.cylinder(0.66, 0.66, 0.12, -w / 4, h + 1.42, -d / 4, '#a89a75', 10);
+    for (let leg = 0; leg < 3; leg++) {
+      const a = (leg / 3) * Math.PI * 2;
+      kit.box(0.08, 0.5, 0.08, -w / 4 + Math.cos(a) * 0.45, h + 0.55, -d / 4 + Math.sin(a) * 0.45, '#7a6f52');
+    }
+  }
+  if (rng() < 0.7) {
+    kit.rboxOn(1.3, 0.7, 1.0, w / 5, h + 0.35, d / 5, '#8a9096', 0.08);
+    kit.box(0.9, 0.06, 0.7, w / 5, h + 1.08, d / 5, '#767c82');
+  }
+
+  // Door on +X face (mounted on the recessed ground band)
+  addDoor(kit, glow, (w - 0.24) / 2, spec.accent);
 
   // Type-specific dressing
   switch (spec.type) {
@@ -282,16 +337,30 @@ function buildHanok(spec: BuildingSpec): BuiltStructure {
   // Lattice windows (warm)
   glow.box(0.06, 1.1, 1.4, w / 2 + 0.01, 1.7, -d / 4, P.windowWarm);
   glow.box(0.06, 1.1, 1.4, w / 2 + 0.01, 1.7, d / 4, P.windowWarm);
-  // Curved tiled roof approximated with stacked, widening slabs
+  // Tiled roof: wide lifted eaves stepping into a true gabled ridge, with
+  // eave-end caps — the classic hanok silhouette instead of a slab stack.
   const roofBase = 0.5 + bodyH;
-  const layers = 4;
-  for (let i = 0; i < layers; i++) {
-    const t = i / (layers - 1);
-    const rw = w + 2.4 - t * 2.0;
-    const rd = d + 2.4 - t * 2.0;
-    kit.boxOn(rw, 0.34, rd, 0, roofBase + i * 0.34, 0, i === 0 ? P.hanokRoof : P.roofTile);
+  kit.boxOn(w + 2.6, 0.3, d + 2.6, 0, roofBase, 0, P.hanokRoof);
+  kit.boxOn(w + 1.7, 0.3, d + 1.7, 0, roofBase + 0.3, 0, P.roofTile);
+  kit.prism(d + 1.0, 1.35, w + 0.8, 0, roofBase + 0.6, 0, P.hanokRoof, Math.PI / 2);
+  kit.box(w + 1.0, 0.22, 0.7, 0, roofBase + 1.95, 0, '#333a45'); // ridge beam
+  // Eave-end caps (the pale roundels along the eave edges, ±z sides)
+  for (const side of [-1, 1]) {
+    const cols = Math.max(4, Math.round(w / 1.6));
+    for (let i = 0; i < cols; i++) {
+      const xx = -w / 2 - 0.9 + (i / (cols - 1)) * (w + 1.8);
+      kit.box(0.18, 0.18, 0.18, xx, roofBase + 0.08, side * (d / 2 + 1.2), '#d9d2c0');
+    }
   }
-  kit.boxOn(w * 0.5, 0.4, 1.0, 0, roofBase + layers * 0.34, 0, P.hanokRoof); // ridge
+  // Tile courses: thin ridges parallel to the roof ridge, stepping up the
+  // ±z slopes of the prism.
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 4; i++) {
+      const t = i / 4;
+      const zz = side * ((d + 1.0) / 2) * (1 - t);
+      kit.box(w + 0.9 - t * 0.5, 0.1, 0.14, 0, roofBase + 0.62 + t * 1.28, zz, '#39404b');
+    }
+  }
   // Door (front +X)
   addDoor(kit, glow, w / 2, spec.accent, 0.5);
   // Low courtyard wall with gate gap

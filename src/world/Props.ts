@@ -304,52 +304,85 @@ export interface FillerSpec {
 }
 
 /**
- * Background city mass: simple non-interactive buildings merged into one lit
- * mesh + one glow mesh so whole districts cost two draw calls.
+ * Background city mass: non-interactive buildings merged into one lit mesh
+ * + one glow mesh so whole districts cost two draw calls. Each block draws
+ * from a deterministic bag of variations — chamfered massing, top-floor
+ * setbacks, balcony rows, gabled villa roofs, rooftop tanks and signage —
+ * so streets read authored rather than duplicated.
  */
 export function createFillerBlocks(specs: FillerSpec[]): PropResult & { occluders: THREE.Mesh[] } {
   const kit = new VoxelKit();
   const glow = new VoxelKit();
   const rng = mulberry32(1234);
   const floorH = 2.5;
+  const PANE_DARK = '#454e5f';
 
   for (const f of specs) {
     const h = f.floors * floorH;
-    kit.boxOn(f.w, h, f.d, f.x, 0, f.z, f.wall);
-    kit.boxOn(f.w + 0.25, 0.3, f.d + 0.25, f.x, h, f.z, P.roof);
-    if (rng() < 0.4) kit.boxOn(1.2, 0.9, 1.2, f.x + f.w / 4, h + 0.3, f.z, '#8a9096');
-    if (rng() < 0.3) {
-      kit.boxOn(0.15, 2.2, 0.15, f.x - f.w / 4, h + 0.3, f.z - f.d / 4, '#4d565f');
+    const lowRise = f.floors <= 2;
+    const setback = !lowRise && rng() < 0.4;
+    const bodyH = setback ? h - floorH : h;
+
+    // Massing
+    kit.rboxOn(f.w, bodyH, f.d, f.x, 0, f.z, f.wall, 0.1);
+    if (setback) {
+      kit.rboxOn(f.w * 0.68, floorH, f.d * 0.72, f.x - f.w * 0.1, bodyH, f.z, shade(f.wall, 0.92), 0.1);
+      kit.box(f.w * 0.72, 0.22, f.d * 0.76, f.x - f.w * 0.1, h + 0.1, f.z, P.roof);
     }
+    // Roofline: villa gable for low-rises, parapet slab otherwise
+    if (lowRise && rng() < 0.6) {
+      kit.prism(f.d + 0.7, 1.1 + rng() * 0.5, f.w + 0.6, f.x, bodyH, f.z, rng() < 0.5 ? '#5c6470' : '#7a4a3a', Math.PI / 2);
+    } else {
+      kit.boxOn(f.w + 0.25, 0.32, f.d + 0.25, f.x, bodyH, f.z, P.roof);
+    }
+    // Rooftop clutter
+    if (rng() < 0.45) kit.rboxOn(1.2, 0.9, 1.2, f.x + f.w / 4, bodyH + 0.3, f.z, '#8a9096', 0.08);
+    if (rng() < 0.35) {
+      kit.cylinder(0.55, 0.55, 0.9, f.x - f.w / 4, bodyH + 0.75, f.z + f.d / 5, '#c8b98f', 8);
+    }
+    if (rng() < 0.3) {
+      kit.boxOn(0.15, 2.2, 0.15, f.x - f.w / 4, bodyH + 0.3, f.z - f.d / 4, '#4d565f');
+    }
+    // Ground-floor shop band on some street-facing blocks
+    const shopBand = lowRise || rng() < 0.35;
+    if (shopBand) {
+      glow.box(f.w * 0.7, floorH * 0.5, 0.07, f.x, floorH * 0.38, f.z + f.d / 2 + 0.03, rng() < 0.6 ? P.windowWarm : P.neonCyan);
+      kit.box(f.w * 0.76, 0.1, 0.5, f.x, floorH * 0.72, f.z + f.d / 2 + 0.2, rng() < 0.5 ? '#b04b50' : '#3f6f5a');
+    }
+
     const chance = f.windowChance ?? 0.6;
-    // Windows on all four faces so no street ever looks at a blank wall.
+    // Window cells on all four faces: every cell gets a pane (dark by day),
+    // a subset glows — no street ever looks at a blank wall.
     const cols = Math.max(1, Math.floor((f.w - 1) / 1.6));
     const start = -((cols - 1) * 1.6) / 2;
     const colsD = Math.max(1, Math.floor((f.d - 1) / 1.6));
     const startD = -((colsD - 1) * 1.6) / 2;
+    const balconyFloors = !lowRise && f.w >= 9 && rng() < 0.45;
     for (let fl = 0; fl < f.floors; fl++) {
+      if (setback && fl >= f.floors - 1) break;
       const y = fl * floorH + floorH * 0.55;
       for (let c = 0; c < cols; c++) {
-        if (rng() > chance) continue;
-        const warm = rng() < 0.75;
-        glow.box(
-          0.8, 0.9, 0.07,
-          f.x + start + c * 1.6,
-          y,
-          f.z + (f.d / 2 + 0.02) * (rng() < 0.5 ? 1 : -1),
-          warm ? P.windowWarm : '#5b667a'
-        );
+        const wx = f.x + start + c * 1.6;
+        for (const sign of [1, -1]) {
+          if (fl === 0 && sign === 1 && shopBand) continue;
+          const lit = rng() < chance && rng() < 0.75;
+          const zz = f.z + (f.d / 2 + 0.03) * sign;
+          if (lit) glow.box(0.8, 0.95, 0.07, wx, y, zz, rng() < 0.8 ? f.window : '#5b667a');
+          else kit.box(0.8, 0.95, 0.07, wx, y, zz, PANE_DARK);
+        }
       }
       for (let c = 0; c < colsD; c++) {
-        if (rng() > chance * 0.8) continue;
-        const warm = rng() < 0.75;
-        glow.box(
-          0.07, 0.9, 0.8,
-          f.x + (f.w / 2 + 0.02) * (rng() < 0.5 ? 1 : -1),
-          y,
-          f.z + startD + c * 1.6,
-          warm ? P.windowWarm : '#5b667a'
-        );
+        const wz = f.z + startD + c * 1.6;
+        const sign = rng() < 0.5 ? 1 : -1;
+        const lit = rng() < chance * 0.8 && rng() < 0.75;
+        const xx = f.x + (f.w / 2 + 0.03) * sign;
+        if (lit) glow.box(0.07, 0.95, 0.8, xx, y, wz, rng() < 0.8 ? f.window : '#5b667a');
+        else kit.box(0.07, 0.95, 0.8, xx, y, wz, PANE_DARK);
+      }
+      // Balcony rows on the street face of wide apartment slabs
+      if (balconyFloors && fl > 0) {
+        kit.box(f.w * 0.9, 0.1, 0.5, f.x, y - 0.75, f.z + f.d / 2 + 0.28, shade(f.wall, 0.8));
+        kit.box(f.w * 0.9, 0.4, 0.06, f.x, y - 0.5, f.z + f.d / 2 + 0.52, shade(f.wall, 0.7));
       }
     }
   }
@@ -368,6 +401,15 @@ export function createFillerBlocks(specs: FillerSpec[]): PropResult & { occluder
       spec: { w: f.w, h: f.floors * floorH, d: f.d, x: 0, y: (f.floors * floorH) / 2, z: 0 },
     })),
   };
+}
+
+/** Multiplies a hex color's value by `f` (cheap shade/tint). */
+function shade(hex: string, f: number): string {
+  const c = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.round(((c >> 16) & 255) * f));
+  const g = Math.min(255, Math.round(((c >> 8) & 255) * f));
+  const b = Math.min(255, Math.round((c & 255) * f));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
 function mulberry32(seed: number): () => number {
