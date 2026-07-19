@@ -4,7 +4,7 @@ import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { PLAYER_CONFIG as CFG } from '../config/player';
 import type { Physics } from '../physics/Physics';
 import type { Input } from '../input/Input';
-import { clamp, damp, moveToward } from '../utils/math';
+import { clamp, damp, dampAngle, moveToward } from '../utils/math';
 
 /**
  * The Poro. A dynamic sphere in the physics world drives a normalized,
@@ -18,6 +18,8 @@ export class Player {
   readonly body: CANNON.Body;
 
   yaw = CFG.spawn.yaw;
+  private headingTarget: number = CFG.spawn.yaw;
+  private turnedAround = false;
   speed = 0;
   /** 0..1 how fast we are relative to max — used by camera and audio. */
   speedRatio = 0;
@@ -32,6 +34,10 @@ export class Player {
   private stuckTimer = 0;
   private bouncePhase = 0;
   private lean = 0;
+  private wantJump = false;
+  private landSquash = 0;
+  /** True on the frame the poro touches down; consumed by App for audio. */
+  justLanded = false;
   private reducedMotion: boolean;
 
   constructor(
@@ -93,6 +99,28 @@ export class Player {
     });
     this.body.linearDamping = 0.0;
     physics.world.addBody(this.body);
+
+    input.onJump(() => {
+      this.wantJump = true;
+    });
+
+    this.syncVisual();
+  }
+
+  /**
+   * Copies the physics body pose onto the visual container immediately.
+   * Must run after any direct body reposition (teleport, respawn) so the
+   * follow camera's snap() reads the new location, not last frame's.
+   */
+  syncVisual(): void {
+    this.container.position.set(
+      this.body.position.x,
+      this.body.position.y - CFG.bodyRadius,
+      this.body.position.z
+    );
+    this.container.rotation.y = this.yaw;
+    this.lastX = this.body.position.x;
+    this.lastZ = this.body.position.z;
   }
 
   /** Plays a one-shot clip (interact, greeting…) over the locomotion layer. */
@@ -121,26 +149,50 @@ export class Player {
   update(dt: number): void {
     const throttle = this.frozen ? 0 : this.input.throttle;
     const steer = this.frozen ? 0 : this.input.steer;
+    const sprint = !this.frozen && this.input.sprint;
 
-    // --- Steering: weaker at standstill, reversed when backing up.
+    // --- Steering rotates the heading target; weaker at a standstill.
     const steerAuthority =
       CFG.turnSpeedStationaryFactor +
-      (1 - CFG.turnSpeedStationaryFactor) * Math.min(1, Math.abs(this.speed) / 3);
-    const reverseSign = this.speed < -0.3 ? -1 : 1;
-    this.yaw += steer * CFG.turnSpeed * steerAuthority * reverseSign * dt;
+      (1 - CFG.turnSpeedStationaryFactor) * Math.min(1, this.speed / 3);
+    this.headingTarget += steer * CFG.turnSpeed * steerAuthority * dt;
 
-    // --- Throttle with momentum.
-    const target =
-      throttle >= 0 ? throttle * CFG.maxSpeed : throttle * CFG.maxReverseSpeed;
-    const opposing = Math.sign(target) !== Math.sign(this.speed) && Math.abs(this.speed) > 0.1;
-    const rate =
-      throttle === 0
-        ? CFG.idleDeceleration
-        : opposing
-          ? CFG.brakingDeceleration
-          : CFG.acceleration;
-    this.speed = moveToward(this.speed, target, rate * dt);
-    this.speedRatio = clamp(Math.abs(this.speed) / CFG.maxSpeed, 0, 1);
+    // --- Throttle. No reverse gear: S brakes, then swings the poro around.
+    const sprintMult = sprint ? CFG.sprintMultiplier : 1;
+    let speedTarget = 0;
+    let rate: number = CFG.idleDeceleration;
+    if (throttle > 0.05) {
+      this.turnedAround = false;
+      speedTarget = throttle * CFG.maxSpeed * sprintMult;
+      rate = CFG.acceleration;
+    } else if (throttle < -0.05) {
+      if (this.speed > 2 && !this.turnedAround) {
+        // Still rolling forward: brake first.
+        speedTarget = 0;
+        rate = CFG.brakingDeceleration;
+      } else {
+        if (!this.turnedAround) {
+          this.turnedAround = true;
+          this.headingTarget += Math.PI;
+        }
+        speedTarget = -throttle * CFG.maxSpeed * sprintMult;
+        rate = CFG.acceleration;
+      }
+    } else {
+      this.turnedAround = false;
+    }
+    this.speed = moveToward(this.speed, speedTarget, rate * dt);
+    this.yaw = dampAngle(this.yaw, this.headingTarget, CFG.facingLambda, dt);
+    this.speedRatio = clamp(this.speed / CFG.maxSpeed, 0, 1.6);
+
+    // --- Jump
+    if (this.wantJump) {
+      this.wantJump = false;
+      if (this.grounded && !this.frozen) {
+        this.body.velocity.y = CFG.jumpSpeed;
+        this.grounded = false;
+      }
+    }
 
     // --- Drive the physics body horizontally; gravity keeps vertical honest.
     const fx = Math.sin(this.yaw);
@@ -148,14 +200,20 @@ export class Player {
     this.body.velocity.x = fx * this.speed;
     this.body.velocity.z = fz * this.speed;
 
-    this.grounded = this.body.position.y < CFG.bodyRadius + 0.15;
+    const wasGrounded = this.grounded;
+    this.grounded =
+      this.body.position.y < CFG.bodyRadius + 0.2 && this.body.velocity.y <= 0.5;
+    this.justLanded = !wasGrounded && this.grounded;
+    if (this.justLanded) this.landSquash = 0.28;
+    this.landSquash = damp(this.landSquash, 0, 9, dt);
 
-    // --- Visual placement
-    this.container.position.set(
-      this.body.position.x,
-      this.body.position.y - CFG.bodyRadius,
-      this.body.position.z
-    );
+    // --- Visual placement. The physics world steps at a fixed 60Hz while
+    // rendering runs at the display's rate; reading the raw body position
+    // aliases the two clocks and makes walking shake. cannon-es keeps an
+    // interpolated pose for exactly this — the camera follows this
+    // container, so it smooths both the poro and the view.
+    const ip = this.body.interpolatedPosition;
+    this.container.position.set(ip.x, ip.y - CFG.bodyRadius, ip.z);
     this.container.rotation.y = this.yaw;
 
     // --- Procedural flourish: lean into turns, bounce with speed.
@@ -165,9 +223,14 @@ export class Player {
     this.rig.rotation.x = -this.speedRatio * 0.05 * motionScale;
 
     this.bouncePhase += dt * CFG.bounceFrequency * (0.5 + this.speedRatio);
-    const bounce = Math.abs(Math.sin(this.bouncePhase)) * CFG.bounceAmount * this.speedRatio;
+    const bounce = this.grounded
+      ? Math.abs(Math.sin(this.bouncePhase)) * CFG.bounceAmount * this.speedRatio
+      : 0;
     this.rig.position.y = CFG.groundOffset + bounce * motionScale;
-    const squash = 1 - Math.sin(this.bouncePhase * 2) * CFG.squashAmount * this.speedRatio * motionScale;
+    let squash =
+      1 - Math.sin(this.bouncePhase * 2) * CFG.squashAmount * this.speedRatio * motionScale;
+    squash *= 1 - this.landSquash * motionScale; // touchdown squish
+    if (!this.grounded) squash *= 1.04; // slight stretch in the air
     this.rig.scale.set(1 / Math.sqrt(squash), squash, 1 / Math.sqrt(squash));
 
     // --- Animation state
@@ -175,10 +238,10 @@ export class Player {
       if (this.speedRatio > 0.05) {
         this.fidgeting = false;
         this.idleTimer = 0;
-        const fast = this.speedRatio > 0.75 && this.actions[CFG.clips.runFast];
+        const fast = this.speedRatio > 1.02 && this.actions[CFG.clips.runFast];
         this.setLocomotion(
           fast ? CFG.clips.runFast : CFG.clips.run,
-          0.6 + this.speedRatio * 0.9
+          0.6 + Math.min(this.speedRatio, 1.3) * 0.9
         );
       } else if (!this.fidgeting) {
         this.setLocomotion(CFG.clips.idle, 1);
@@ -201,7 +264,7 @@ export class Player {
     }
     const actualSpeed = Math.hypot(this.body.velocity.x, this.body.velocity.z);
     const posDelta = Math.hypot(p.x - this.lastX, p.z - this.lastZ);
-    if (Math.abs(this.speed) > 2 && posDelta < 0.5 * dt && actualSpeed > 1) {
+    if (this.speed > 2 && posDelta < 0.5 * dt && actualSpeed > 1) {
       this.stuckTimer += dt;
       if (this.stuckTimer > 2.5) {
         // Gentle unstick: hop up and kill momentum.
@@ -219,12 +282,22 @@ export class Player {
   private lastX: number = CFG.spawn.x;
   private lastZ: number = CFG.spawn.z;
 
+  /** Snap heading and facing at once (teleports, tests). */
+  face(yaw: number): void {
+    this.yaw = yaw;
+    this.headingTarget = yaw;
+    this.turnedAround = false;
+  }
+
   reset(): void {
     this.body.position.set(CFG.spawn.x, CFG.bodyRadius + 0.6, CFG.spawn.z);
     this.body.velocity.setZero();
     this.speed = 0;
     this.yaw = CFG.spawn.yaw;
+    this.headingTarget = CFG.spawn.yaw;
+    this.turnedAround = false;
     this.stuckTimer = 0;
+    this.syncVisual();
   }
 
   get position(): THREE.Vector3 {

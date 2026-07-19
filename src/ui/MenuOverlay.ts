@@ -1,4 +1,5 @@
 import type { InteractionTarget } from '../types';
+import { trapFocus } from './focusTrap';
 
 /**
  * The conventional navigation fallback: a keyboard-first list of every
@@ -93,6 +94,11 @@ export class MenuOverlay {
         this.close();
         actions.onClose();
       }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (this.root.classList.contains('hidden')) return;
+      if (e.key === 'Tab') trapFocus(this.root, e);
     });
   }
 

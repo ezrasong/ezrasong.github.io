@@ -33,24 +33,35 @@ export class UI {
           <p class="title-kr">${PROFILE.koreanName} · 복셀 서울</p>
           <h1>${PROFILE.name}</h1>
           <p class="title-sub">${PROFILE.title}</p>
-          <button type="button" class="btn btn-primary title-start">입장 · Press Start</button>
-          <p class="title-hint">WASD / 방향키 move · E enter · M map · R reset</p>
+          <button type="button" class="btn btn-primary title-start">Press Start · 입장</button>
+          <div class="title-howto">
+            <p class="howto-title">How to play · 조작법</p>
+            <p class="title-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>SHIFT</kbd> sprint · <kbd>SPACE</kbd> jump</p>
+            <p class="title-hint"><kbd>E</kbd> enter buildings · <kbd>M</kbd> city directory · <kbd>R</kbd> back to plaza</p>
+            <p class="title-hint">Drag to look around. Walk across the Han River bridges to explore Gangnam.</p>
+          </div>
         </div>
       </div>
 
       <div class="hud hidden">
         <div class="hud-left">
           <span class="hud-name">${PROFILE.name}<small>${PROFILE.title}</small></span>
+          <div class="minimap-wrap">
+            <canvas class="minimap" width="192" height="192" role="button" tabindex="0"
+              aria-label="City minimap — click to expand"></canvas>
+            <span class="minimap-expand" aria-hidden="true">⤢</span>
+          </div>
+          <span class="hud-weather" aria-live="polite"></span>
         </div>
         <div class="hud-right" role="toolbar" aria-label="Settings">
-          <button type="button" class="hud-btn hud-sound" aria-pressed="false" title="Sound (muted)">🔇</button>
+          <button type="button" class="hud-btn hud-sound" aria-pressed="false" aria-label="Sound (muted)" title="Sound (muted)">🔇</button>
           <button type="button" class="hud-btn hud-quality" title="Graphics quality"></button>
-          <button type="button" class="hud-btn hud-menu" title="City directory (M)">🗺</button>
-          <button type="button" class="hud-btn hud-reset" title="Reset position (R)">↺</button>
+          <button type="button" class="hud-btn hud-menu" aria-label="City directory (M)" title="City directory (M)">🗺<span class="hud-btn-label">지도 MAP</span></button>
+          <button type="button" class="hud-btn hud-reset" aria-label="Reset position (R)" title="Reset position (R)">↺</button>
         </div>
       </div>
 
-      <div class="controls-hint hidden">W A S D — 움직이기 move</div>
+      <div class="controls-hint hidden">WASD walk · SHIFT sprint · SPACE jump · E enter</div>
       <div class="prompt hidden" aria-live="polite"></div>
       <div class="toast hidden" aria-live="polite"></div>
 
@@ -122,11 +133,14 @@ export class UI {
   setSoundState(on: boolean): void {
     this.soundBtn.textContent = on ? '🔊' : '🔇';
     this.soundBtn.setAttribute('aria-pressed', String(on));
-    this.soundBtn.title = on ? 'Sound (on)' : 'Sound (muted)';
+    const label = on ? 'Sound (on)' : 'Sound (muted)';
+    this.soundBtn.title = label;
+    this.soundBtn.setAttribute('aria-label', label);
   }
 
   setQualityLabel(label: string): void {
     this.qualityBtn.textContent = label;
+    this.qualityBtn.setAttribute('aria-label', `Graphics quality: ${label}`);
   }
 
   hideControlsHint(): void {
@@ -134,8 +148,82 @@ export class UI {
   }
 
   /* ---- prompt & toast ---- */
+  /* ---- Minimap + weather ---- */
+  private minimapBase: HTMLCanvasElement | null = null;
+  private minimapTargets: { x: number; z: number; accent: string }[] = [];
+
+  /** Pre-scales the painted ground once; per-frame work is two blits. */
+  initMinimap(ground: HTMLCanvasElement | null, targets: InteractionTarget[]): void {
+    if (!ground) return;
+    const base = document.createElement('canvas');
+    base.width = 192;
+    base.height = 192;
+    const b = base.getContext('2d')!;
+    b.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, 192, 192);
+    // Mute it so the live markers pop
+    b.fillStyle = 'rgba(16,18,26,0.28)';
+    b.fillRect(0, 0, 192, 192);
+    b.fillStyle = 'rgba(245,234,210,0.75)';
+    b.font = '700 11px sans-serif';
+    b.textAlign = 'center';
+    b.fillText('N', 96, 12);
+    this.minimapBase = base;
+    this.minimapTargets = targets.map((t) => ({ x: t.entrance.x, z: t.entrance.z, accent: t.accent }));
+  }
+
+  /** World x/z ∈ [-104, 104] maps onto the 192px canvas. */
+  updateMinimap(x: number, z: number, yaw: number): void {
+    if (!this.minimapBase) return;
+    const canvas = this.q('.minimap') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const map = (v: number) => ((v + 104) / 208) * 192;
+    ctx.clearRect(0, 0, 192, 192);
+    ctx.drawImage(this.minimapBase, 0, 0);
+    for (const t of this.minimapTargets) {
+      ctx.fillStyle = t.accent;
+      ctx.strokeStyle = 'rgba(12,14,20,0.8)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(map(t.x), map(t.z), 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    // Player arrow (forward = (sin yaw, cos yaw) in world x/z)
+    ctx.save();
+    ctx.translate(map(x), map(z));
+    ctx.rotate(Math.PI - yaw);
+    ctx.fillStyle = '#ffd447';
+    ctx.strokeStyle = 'rgba(12,14,20,0.9)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(0, -6);
+    ctx.lineTo(4.4, 4.6);
+    ctx.lineTo(0, 2.4);
+    ctx.lineTo(-4.4, 4.6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  setWeather(label: string): void {
+    (this.q('.hud-weather') as HTMLElement).textContent = label;
+  }
+
+  /** Click (or Enter/Space) on the minimap expands it to the full map. */
+  bindMinimap(onExpand: () => void): void {
+    const el = this.q('.minimap') as HTMLElement;
+    el.addEventListener('click', onExpand);
+    el.addEventListener('keydown', (e) => {
+      if (e.code === 'Enter' || e.code === 'Space') {
+        e.preventDefault();
+        onExpand();
+      }
+    });
+  }
+
   showPrompt(target: InteractionTarget): void {
-    this.prompt.innerHTML = `<kbd>E</kbd> ${target.koreanTitle} · <strong>${target.title}</strong> 들어가기 enter`;
+    this.prompt.innerHTML = `<kbd>E</kbd> Enter <strong>${target.title}</strong> · ${target.koreanTitle}`;
     this.prompt.style.setProperty('--accent', target.accent);
     this.prompt.classList.remove('hidden');
   }

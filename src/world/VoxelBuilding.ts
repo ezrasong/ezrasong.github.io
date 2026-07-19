@@ -162,9 +162,9 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
       break;
     }
     case 'creative-studio': {
-      // Cream band + awning over the door
+      // Cream band + awning over the door (rooted into the wall face)
       kit.box(w + 0.1, 0.5, d + 0.1, 0, FLOOR_H, 0, '#e5d9bd');
-      kit.box(0.9, 0.12, 3.4, w / 2 + 0.5, FLOOR_H * 0.85, 0, spec.accent);
+      kit.box(0.9, 0.12, 3.4, w / 2 + 0.42, FLOOR_H * 0.85, 0, spec.accent);
       // Paper stack by the door
       kit.boxOn(0.7, 0.5, 0.9, w / 2 + 0.9, 0, 2.3, '#efe9da');
       kit.boxOn(0.6, 0.35, 0.8, w / 2 + 0.9, 0.5, 2.3, '#e2dbc8');
@@ -177,14 +177,16 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
       kit.boxOn(0.22, 3.6, 0.22, -w / 2 + 1.2, h, -d / 2 + 1.2, '#4d565f');
       glow.box(0.3, 0.3, 0.3, -w / 2 + 1.2, h + 3.7, -d / 2 + 1.2, '#ff5d5d');
       kit.cylinder(0.9, 0.25, 0.5, w / 4, h + 0.4, d / 4, '#c8cdd2', 10);
-      // Cyan data strip around the body
-      glow.box(w + 0.08, 0.14, d + 0.08, 0, h * 0.66, 0, spec.accent);
+      // Cyan data strip around the body, snapped to a floor boundary so it
+      // never slices through a window row.
+      glow.box(w + 0.08, 0.14, d + 0.08, 0, Math.round((h * 0.66) / FLOOR_H) * FLOOR_H, 0, spec.accent);
       break;
     }
     case 'glass-store': {
-      // Mullion frame lines
+      // Mullion frame lines; verticals sit on the window-grid pitch (1.7) so
+      // they land between window quads instead of crossing them.
       for (let f = 1; f < floors; f++) kit.box(w + 0.12, 0.14, d + 0.12, 0, f * FLOOR_H, 0, '#e8e4dc');
-      for (const cx of [-w / 3, 0, w / 3]) kit.box(0.14, h, 0.14, w / 2 + 0.02, h / 2, cx, '#e8e4dc');
+      for (const cx of [-3.4, 0, 3.4]) kit.box(0.14, h, 0.14, w / 2 + 0.02, h / 2, cx, '#e8e4dc');
       // Floating cube logo on the roof
       glow.boxOn(0.9, 0.9, 0.9, 0, h + 0.7, 0, spec.accent);
       break;
@@ -228,17 +230,23 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
     group.add(glowMesh);
   }
 
-  // Sign above the door
+  // Sign above the door, mounted on a sign box that stands off the wall
+  const signW = Math.min(w * 0.8, 6);
+  const mount = new VoxelKit();
+  mount.box(0.14, 1.4, signW + 0.16, w / 2 + 0.02, FLOOR_H + 0.9, 0, '#141824');
+  const mountMesh = new THREE.Mesh(mount.merge(), MATERIALS.lit);
+  mountMesh.castShadow = true;
+  group.add(mountMesh);
   const sign = makeSign({
     text: spec.signText,
     subtext: spec.signSubtext,
     bg: '#1d1f2a',
     fg: spec.accent,
-    width: Math.min(w * 0.8, 6),
+    width: signW,
     height: 1.25,
     glow: true,
   });
-  sign.position.set(w / 2 + 0.08, FLOOR_H + 0.9, 0);
+  sign.position.set(w / 2 + 0.1, FLOOR_H + 0.9, 0);
   sign.rotation.y = Math.PI / 2;
   group.add(sign);
 
@@ -384,7 +392,8 @@ function buildSubwayStation(spec: BuildingSpec): BuiltStructure {
     }
   }
   kit.boxOn(w + 0.6, 0.35, d + 0.6, 0, canopyY, 0, '#4d6275');
-  glow.box(w + 0.5, 0.14, 0.14, 0, canopyY - 0.12, d / 2 + 0.28, spec.accent);
+  // Accent strip embedded in the canopy fascia (not hanging below its edge)
+  glow.box(w + 0.5, 0.14, 0.14, 0, canopyY + 0.12, d / 2 + 0.28, spec.accent);
 
   // Stairwell: dark pit ringed by a low wall, steps fading down
   kit.boxOn(0.3, 0.9, d - 0.8, -w / 2 + 0.9, 0, 0, '#8f958f');
@@ -397,25 +406,31 @@ function buildSubwayStation(spec: BuildingSpec): BuiltStructure {
   }
   glow.box(w - 2.4, 0.05, d - 1.6, -0.2, -0.72, 0, '#ffedbe'); // light from below
 
+  // Rooftop sign mounting: two posts + a solid board core
+  const signY = canopyY + 1.15;
+  kit.boxOn(0.12, 0.85, 0.12, -1.6, canopyY + 0.35, 0, '#3f4d5c');
+  kit.boxOn(0.12, 0.85, 0.12, 1.6, canopyY + 0.35, 0, '#3f4d5c');
+  kit.box(4.4, 1.1, 0.08, 0, signY, 0, '#0d2545');
+
   group.add(kit.toMesh(MATERIALS.lit));
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
 
-  // Line-1 style roundel sign
-  const sign = makeSign({
-    text: '① 포트폴리오역',
-    subtext: 'PORTFOLIO STN · LINKS',
-    bg: '#12325c',
-    fg: '#ffffff',
-    border: spec.accent,
-    width: 4.4,
-    height: 1.1,
-    glow: true,
-  });
-  sign.position.set(0, canopyY + 0.75, 0);
-  group.add(sign);
-  const signBack = sign.clone();
-  signBack.rotation.y = Math.PI;
-  group.add(signBack);
+  // Line-1 style roundel sign on both faces of the board
+  for (const side of [1, -1] as const) {
+    const sign = makeSign({
+      text: '① 포트폴리오역',
+      subtext: 'PORTFOLIO STN · LINKS',
+      bg: '#12325c',
+      fg: '#ffffff',
+      border: spec.accent,
+      width: 4.4,
+      height: 1.1,
+      glow: true,
+    });
+    sign.position.set(0, signY, side * 0.06);
+    if (side === -1) sign.rotation.y = Math.PI;
+    group.add(sign);
+  }
 
   return {
     group,

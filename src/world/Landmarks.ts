@@ -123,11 +123,15 @@ export function createNamsan(x: number, z: number): LandmarkResult {
   const bodyMesh = group.children[0] as THREE.Mesh;
   return {
     object: group,
-    // One fat cylinder-ish box keeps the player off the hill.
-    colliders: [{ x, z, spec: { w: 30, h: 12, d: 26, x: 0, y: 6, z: 0 } }],
+    // Blocking is intentional (the hill is scenery, not walkable); the
+    // cylinder collider is added by World so it matches the base radius.
+    colliders: [],
     occluders: [bodyMesh],
   };
 }
+
+/** Radius of the hill's lowest step — the collider must match it exactly. */
+export const NAMSAN_BASE_RADIUS = 16;
 
 function hillHeightAt(r: number, steps: [number, number][]): number {
   let y = 0;
@@ -137,68 +141,245 @@ function hillHeightAt(r: number, steps: [number, number][]): number {
   return y;
 }
 
-/** The Han River: two slowly drifting water planes south of the city. */
+/**
+ * The Han River: a flat-shaded, vertex-displaced water surface. Three
+ * overlapping wave trains travel downstream (east) and give the low-poly
+ * facets moving specular glints; a foam line breathes along the bank.
+ * flatShading derives normals in the shader, so per-frame CPU work is just
+ * the height writes (~1.1k vertices).
+ */
 export function createRiver(): { object: THREE.Object3D; update: (t: number) => void } {
   const group = new THREE.Group();
-  const base = new THREE.Mesh(
-    new THREE.PlaneGeometry(170, 26),
-    new THREE.MeshLambertMaterial({ color: P.waterDeep })
-  );
-  base.rotation.x = -Math.PI / 2;
-  base.position.set(0, 0.02, 50);
-  base.receiveShadow = true;
-  group.add(base);
 
-  const shimmer = new THREE.Mesh(
-    new THREE.PlaneGeometry(170, 26, 40, 8),
-    new THREE.MeshBasicMaterial({ color: P.water, transparent: true, opacity: 0.45 })
+  // Water spans the full map width; the river cuts the city in two,
+  // z ∈ [20, 48], just like the real Han.
+  const geo = new THREE.PlaneGeometry(212, 28, 84, 14);
+  geo.rotateX(-Math.PI / 2);
+  const water = new THREE.Mesh(
+    geo,
+    new THREE.MeshPhongMaterial({
+      color: '#4d84a8',
+      emissive: '#12293a',
+      flatShading: true,
+      shininess: 45,
+      specular: '#9fc8de',
+    })
   );
-  shimmer.rotation.x = -Math.PI / 2;
-  shimmer.position.set(0, 0.09, 50);
-  group.add(shimmer);
+  water.position.set(0, 0.06, 34);
+  water.receiveShadow = true;
+  group.add(water);
 
-  const pos = shimmer.geometry.attributes.position;
-  const original = pos.array.slice() as Float32Array;
+  const pos = geo.attributes.position;
+  const baseX = new Float32Array(pos.count);
+  const baseZ = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    baseX[i] = pos.getX(i);
+    baseZ[i] = pos.getZ(i);
+  }
+
+  // Foam lines where the water meets both banks
+  const foamGeo = new THREE.PlaneGeometry(206, 0.55);
+  const foamMatN = new THREE.MeshBasicMaterial({ color: '#dcebf2', transparent: true, opacity: 0.5 });
+  const foamMatS = foamMatN.clone();
+  const foamN = new THREE.Mesh(foamGeo, foamMatN);
+  foamN.rotation.x = -Math.PI / 2;
+  foamN.position.set(0, 0.16, 20.55);
+  const foamS = new THREE.Mesh(foamGeo, foamMatS);
+  foamS.rotation.x = -Math.PI / 2;
+  foamS.position.set(0, 0.16, 47.45);
+  group.add(foamN, foamS);
 
   return {
     object: group,
     update: (t: number) => {
       for (let i = 0; i < pos.count; i++) {
-        const ox = original[i * 3];
-        const oy = original[i * 3 + 1];
-        pos.setZ(i, Math.sin(ox * 0.25 + t * 0.9) * 0.12 + Math.cos(oy * 0.5 + t * 0.6) * 0.08);
+        const x = baseX[i];
+        const z = baseZ[i];
+        // Peak amplitude ≈ 0.20 + the 0.06 water level keeps every wave
+        // below the bridge decks (tops at 0.29).
+        const h =
+          Math.sin(x * 0.16 - t * 1.15) * 0.1 +
+          Math.sin(x * 0.31 + z * 0.24 - t * 0.72) * 0.064 +
+          Math.sin(z * 0.55 + t * 1.5 + x * 0.05) * 0.036;
+        // Waves calm down near both banks so the foam lines stay believable.
+        const shoreFade = Math.min(1, Math.max(0.12, (13.4 - Math.abs(z)) * 0.35));
+        pos.setY(i, h * shoreFade);
       }
       pos.needsUpdate = true;
+      foamMatN.opacity = 0.38 + Math.sin(t * 1.3) * 0.12;
+      foamMatS.opacity = 0.38 + Math.sin(t * 1.3 + 1.7) * 0.12;
+      foamN.position.z = 20.55 + Math.sin(t * 0.65) * 0.1;
+      foamS.position.z = 47.45 - Math.sin(t * 0.65 + 0.9) * 0.1;
     },
   };
 }
 
-/** Wooden viewing pier reaching out over the river at the end of the spine road. */
+/**
+ * A drivable Han River road bridge: low deck with sidewalks, railings,
+ * lane dashes, lamps, and piers standing in the water. The deck top sits
+ * 22cm up, reached over a 10cm ramp slab — two shallow steps the player
+ * sphere rolls over without noticing.
+ */
+export function createBridge(
+  x: number,
+  width: number,
+  name?: string,
+  z0 = 15,
+  z1 = 49.5
+): LandmarkResult {
+  const kit = new VoxelKit();
+  const glow = new VoxelKit();
+  const group = new THREE.Group();
+  const len = z1 - z0;
+  const cz = (z0 + z1) / 2;
+
+  // Deck (top 0.29, above the tallest wave) + approach ramps that finish on
+  // the banks — never on top of a road junction. Surface colors match the
+  // painted roads so bridge and street read as one network.
+  kit.box(width, 0.34, len, x, 0.12, cz, P.asphalt);
+  kit.box(width, 0.145, 3, x, 0.0725, z0 - 1.5, P.asphalt);
+  kit.box(width, 0.145, 3, x, 0.0725, z1 + 1.5, P.asphalt);
+  // Sidewalk strips along both edges
+  for (const side of [-1, 1]) {
+    kit.box(1.0, 0.42, len, x + side * (width / 2 - 0.5), 0.14, cz, P.sidewalk);
+  }
+  // Center lane dashes
+  for (let z = z0 + 2; z < z1 - 1; z += 4) {
+    kit.box(0.24, 0.04, 1.4, x, 0.31, z, P.laneMark);
+  }
+  // Railings: posts + continuous beam
+  for (const side of [-1, 1]) {
+    const rx = x + side * (width / 2 - 0.12);
+    for (let z = z0; z <= z1; z += 5) {
+      kit.box(0.14, 1.05, 0.14, rx, 0.85, z, '#39586e');
+    }
+    kit.box(0.1, 0.14, len, rx, 1.42, cz, '#4a7085');
+  }
+  // Lamps every 10m, alternating sides
+  let lampSide = 1;
+  for (let z = z0 + 5; z < z1; z += 10) {
+    const lx = x + lampSide * (width / 2 - 0.12);
+    kit.box(0.12, 1.6, 0.12, lx, 2.15, z, '#4d5560');
+    glow.box(0.3, 0.18, 0.3, lx, 3.0, z, P.lampGlow);
+    lampSide *= -1;
+  }
+  // Piers standing in the water
+  for (let z = z0 + 7; z < z1 - 4; z += 10) {
+    kit.box(width - 1.6, 1.7, 1.3, x, -0.75, z, '#6e747d');
+    kit.box(width - 0.8, 0.35, 1.7, x, 0.02, z, '#787e88');
+  }
+
+  group.add(kit.toMesh(MATERIALS.lit));
+  group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
+
+  // Name plaques over the sidewalk at both entries, like the real Han
+  // bridges — kept between railing posts (posts sit at 5m marks from z0)
+  // so nothing clips through the lettering.
+  if (name) {
+    const backGeo = new THREE.BoxGeometry(2.72, 0.6, 0.07);
+    const backMat = new THREE.MeshLambertMaterial({ color: '#2c3644' });
+    const signX = x + (width / 2 - 1.45);
+    for (const [pz, ry] of [
+      [z0 + 2.5, Math.PI],
+      [z1 - 2.5, 0],
+    ] as const) {
+      // Backing board first, so the plaque reads as a solid object from
+      // behind instead of a floating mirrored sticker.
+      const back = new THREE.Mesh(backGeo, backMat);
+      back.position.set(signX, 1.3, pz + (ry === 0 ? -0.05 : 0.05));
+      group.add(back);
+      const sign = makeSign({
+        text: name,
+        bg: '#243247',
+        fg: '#ffe9c9',
+        width: 2.6,
+        height: 0.5,
+        glow: true,
+      });
+      sign.position.set(signX, 1.3, pz);
+      sign.rotation.y = ry;
+      group.add(sign);
+    }
+  }
+
+  return {
+    object: group,
+    colliders: [
+      // Walkable deck + ramps (tops at 0.29 / 0.145)
+      { x, z: cz, spec: { w: width, h: 0.58, d: len, x: 0, y: 0, z: 0 } },
+      { x, z: z0 - 1.5, spec: { w: width, h: 0.29, d: 3.4, x: 0, y: 0, z: 0 } },
+      { x, z: z1 + 1.5, spec: { w: width, h: 0.29, d: 3.4, x: 0, y: 0, z: 0 } },
+      // Side railings keep the player out of the water
+      { x: x - (width / 2 - 0.12), z: cz, spec: { w: 0.3, h: 2.6, d: len, x: 0, y: 1.15, z: 0 } },
+      { x: x + (width / 2 - 0.12), z: cz, spec: { w: 0.3, h: 2.6, d: len, x: 0, y: 1.15, z: 0 } },
+    ],
+  };
+}
+
+/**
+ * Bukhansan-style mountain backdrop: big flat-shaded cones past the city's
+ * north edge so the horizon never reads as an empty table edge.
+ */
+export function createMountains(): LandmarkResult {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: '#3d6b40', flatShading: true });
+  const matFar = new THREE.MeshLambertMaterial({ color: '#35583a', flatShading: true });
+  const peaks: { x: number; z: number; r: number; h: number; far?: boolean }[] = [
+    { x: -42, z: -97, r: 24, h: 18 },
+    { x: 0, z: -102, r: 30, h: 23 },
+    { x: 46, z: -96, r: 22, h: 15 },
+    { x: 84, z: -94, r: 16, h: 11, far: true },
+    { x: -84, z: -95, r: 17, h: 12, far: true },
+    { x: -16, z: -104, r: 22, h: 26, far: true },
+    { x: 26, z: -104, r: 24, h: 20, far: true },
+  ];
+  for (const p of peaks) {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(p.r, p.h, 7), p.far ? matFar : mat);
+    cone.position.set(p.x, p.h / 2 - 0.3, p.z);
+    cone.rotation.y = (p.x * 13.7) % Math.PI;
+    group.add(cone);
+  }
+  return { object: group, colliders: [] };
+}
+
+/**
+ * Wooden viewing pier reaching from the north bank out over the river.
+ * The deck is genuinely walkable: a low slab (top ≈ 0.22) entered over a
+ * half-height step slab, with railings on both sides and across the end.
+ */
 export function createPier(x: number): LandmarkResult {
   const kit = new VoxelKit();
   const glow = new VoxelKit();
   const group = new THREE.Group();
 
-  const startZ = 36.5;
-  const endZ = 48;
+  const startZ = 20;
+  const endZ = 30;
   const width = 4.2;
   const len = endZ - startZ;
   const cz = (startZ + endZ) / 2;
 
-  kit.box(width, 0.35, len, x, 0.28, cz, P.hanokWood);
+  // Entry step on the bank, then the deck slab (top 0.3, above the waves)
+  kit.box(width - 1, 0.15, 1.6, x, 0.075, startZ - 0.7, '#6a4630');
+  kit.box(width, 0.36, len, x, 0.12, cz, P.hanokWood);
   // Plank lines
-  for (let i = 0; i < 7; i++) {
-    kit.box(width, 0.06, 0.12, x, 0.48, startZ + 1 + i * 1.6, '#6a4630');
+  for (let i = 0; i < 6; i++) {
+    kit.box(width, 0.05, 0.12, x, 0.32, startZ + 1 + i * 1.6, '#6a4630');
+  }
+  // Posts into the water
+  for (const z of [startZ + 2, cz, endZ - 0.6]) {
+    for (const side of [-1, 1]) {
+      kit.box(0.26, 1.4, 0.26, x + side * (width / 2 - 0.25), -0.5, z, '#5c3d2a');
+    }
   }
   // Railings
   for (const side of [-1, 1]) {
-    kit.box(0.16, 0.9, len, x + (side * width) / 2, 0.9, cz, P.hanokWood);
+    kit.box(0.16, 0.9, len, x + (side * width) / 2, 0.75, cz, P.hanokWood);
   }
-  kit.box(width, 0.9, 0.16, x, 0.9, endZ, P.hanokWood);
+  kit.box(width, 0.9, 0.16, x, 0.75, endZ, P.hanokWood);
   // End lanterns
   for (const side of [-1, 1]) {
-    kit.boxOn(0.18, 1.6, 0.18, x + side * (width / 2 - 0.3), 0.45, endZ - 0.5, '#3a3f47');
-    glow.boxOn(0.34, 0.3, 0.34, x + side * (width / 2 - 0.3), 2.05, endZ - 0.5, P.lampGlow);
+    kit.boxOn(0.18, 1.5, 0.18, x + side * (width / 2 - 0.3), 0.25, endZ - 0.5, '#3a3f47');
+    glow.boxOn(0.34, 0.3, 0.34, x + side * (width / 2 - 0.3), 1.75, endZ - 0.5, P.lampGlow);
   }
 
   group.add(kit.toMesh(MATERIALS.lit));
@@ -207,6 +388,10 @@ export function createPier(x: number): LandmarkResult {
   return {
     object: group,
     colliders: [
+      // Walkable step + deck (tops at 0.15 / 0.30)
+      { x, z: startZ - 0.7, spec: { w: width - 1, h: 0.3, d: 1.6, x: 0, y: 0, z: 0 } },
+      { x, z: cz, spec: { w: width, h: 0.6, d: len, x: 0, y: 0, z: 0 } },
+      // Railings
       { x: x - width / 2, z: cz, spec: { w: 0.3, h: 1.6, d: len, x: 0, y: 0.8, z: 0 } },
       { x: x + width / 2, z: cz, spec: { w: 0.3, h: 1.6, d: len, x: 0, y: 0.8, z: 0 } },
       { x, z: endZ, spec: { w: width, h: 1.6, d: 0.3, x: 0, y: 0.8, z: 0 } },
@@ -214,56 +399,86 @@ export function createPier(x: number): LandmarkResult {
   };
 }
 
-/** A small arched pedestrian bridge over the riverside path. */
+/** A small arched pedestrian bridge over the riverside jogging path. */
 export function createFootbridge(x: number, z: number): LandmarkResult {
   const kit = new VoxelKit();
   const group = new THREE.Group();
   const len = 10;
-  const segs = 7;
+  const segs = 13;
+  const arcH = 0.75;
+  const stepD = len / segs;
   for (let i = 0; i < segs; i++) {
-    const t = i / (segs - 1);
-    const y = Math.sin(t * Math.PI) * 1.1;
-    kit.box(1.6, 0.25, len / segs + 0.15, x, 0.4 + y, z - len / 2 + (i + 0.5) * (len / segs), P.woodLight);
+    const t = (i + 0.5) / segs;
+    const y = Math.sin(t * Math.PI) * arcH;
+    kit.box(1.7, 0.18, stepD + 0.06, x, 0.18 + y, z - len / 2 + (i + 0.5) * stepD, P.woodLight);
   }
+  // Handrails: posts + a continuous top beam following the arc
   for (const side of [-1, 1]) {
-    for (let i = 0; i <= segs; i++) {
+    for (let i = 0; i <= segs; i += 2) {
       const t = i / segs;
-      const y = Math.sin(t * Math.PI) * 1.1;
-      kit.box(0.12, 0.7, 0.12, x + side * 0.8, 0.75 + y, z - len / 2 + i * (len / segs), '#6a4630');
+      const y = Math.sin(t * Math.PI) * arcH;
+      kit.box(0.1, 0.62, 0.1, x + side * 0.82, 0.55 + y, z - len / 2 + i * stepD, '#6a4630');
+    }
+    for (let i = 0; i < segs; i++) {
+      const t = (i + 0.5) / segs;
+      const y = Math.sin(t * Math.PI) * arcH;
+      kit.box(0.09, 0.09, stepD + 0.12, x + side * 0.82, 0.92 + y, z - len / 2 + (i + 0.5) * stepD, '#7a5238');
     }
   }
   group.add(kit.toMesh(MATERIALS.lit));
   // Decorative only — sits in the park off the walkable route.
-  return { object: group, colliders: [{ x, z, spec: { w: 2, h: 2, d: len, x: 0, y: 1, z: 0 } }] };
+  return { object: group, colliders: [{ x, z, spec: { w: 2, h: 1.8, d: len, x: 0, y: 0.9, z: 0 } }] };
 }
 
-/** Plaza signpost with district arms. */
+/**
+ * Plaza signpost. Each arm is a solid board whose inner edge sits inside the
+ * pole and whose long axis points at its destination, with readable (and
+ * arrow-corrected) sign faces on both sides.
+ */
 export function createSignpost(x: number, z: number): LandmarkResult {
   const group = new THREE.Group();
   const kit = new VoxelKit();
   kit.boxOn(0.22, 3.4, 0.22, 0, 0, 0, P.hanokWood);
   kit.boxOn(0.5, 0.12, 0.5, 0, 0, 0, '#87817a');
-  group.add(kit.toMesh(MATERIALS.lit));
 
-  const arms: { text: string; ry: number; y: number }[] = [
-    { text: '홍대 HONGDAE →', ry: Math.PI / 2, y: 2.9 },
-    { text: '강남 GANGNAM →', ry: -Math.PI / 2, y: 2.5 },
-    { text: '한강 RIVER →', ry: 0, y: 2.1 },
-    { text: '남산 NAMSAN →', ry: Math.PI, y: 1.7 },
+  // Arm heading `a`: board long axis maps to (cos a, 0, -sin a).
+  // Opposite directions share a height so the boards never overlap visually.
+  const arms: { text: string; a: number; y: number }[] = [
+    { text: '한옥골목 HANOK →', a: 0, y: 2.85 }, // east
+    { text: '홍대 HONGDAE →', a: Math.PI, y: 2.85 }, // west
+    { text: '한강 · 강남 RIVER →', a: -Math.PI / 2, y: 2.25 }, // south, across the bridge
+    { text: '남산 NAMSAN →', a: Math.PI / 2, y: 2.25 }, // north
   ];
-  for (const a of arms) {
-    const sign = makeSign({
-      text: a.text,
-      bg: '#243247',
-      fg: '#ffe9c9',
-      width: 2.6,
-      height: 0.44,
-      glow: true,
-    });
-    sign.position.set(Math.sin(a.ry + Math.PI / 2) * 1.1, a.y, Math.cos(a.ry + Math.PI / 2) * 1.1);
-    sign.rotation.y = a.ry + Math.PI / 2;
-    group.add(sign);
+  const W = 2.4;
+  const H = 0.46;
+  const flipArrow = (t: string) =>
+    t.endsWith('→') ? `← ${t.slice(0, -1).trim()}` : t;
+
+  for (const arm of arms) {
+    const dirX = Math.cos(arm.a);
+    const dirZ = -Math.sin(arm.a);
+    const cx = dirX * (W / 2 - 0.08);
+    const cz = dirZ * (W / 2 - 0.08);
+    // Board core (gives the sign thickness and roots it in the pole)
+    kit.box(W, H, 0.14, cx, arm.y, cz, '#1a2536', arm.a);
+    for (const side of [1, -1] as const) {
+      const sign = makeSign({
+        text: side === 1 ? arm.text : flipArrow(arm.text),
+        bg: '#243247',
+        fg: '#ffe9c9',
+        width: W,
+        height: H,
+        glow: true,
+      });
+      const nx = Math.sin(arm.a) * 0.09 * side;
+      const nz = Math.cos(arm.a) * 0.09 * side;
+      sign.position.set(cx + nx, arm.y, cz + nz);
+      sign.rotation.y = arm.a + (side === 1 ? 0 : Math.PI);
+      group.add(sign);
+    }
   }
+
+  group.add(kit.toMesh(MATERIALS.lit));
   group.position.set(x, 0, z);
   return {
     object: group,

@@ -8,10 +8,13 @@ export class Input {
   throttle = 0;
   /** -1..1: left is positive (matches counter-clockwise yaw). */
   steer = 0;
+  /** True while Shift is held (or the touch joystick is pinned to the rim). */
+  sprint = false;
   enabled = true;
 
   private keys = new Set<string>();
   private interactCbs: (() => void)[] = [];
+  private jumpCbs: (() => void)[] = [];
   private escapeCbs: (() => void)[] = [];
   private resetCbs: (() => void)[] = [];
   private anyKeyCbs: (() => void)[] = [];
@@ -28,10 +31,12 @@ export class Input {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
 
-      // Keep the page from scrolling while playing.
+      // Keep the page from scrolling while playing. Only while gameplay input
+      // is live — otherwise Space must keep activating focused buttons
+      // (title card, modal close, directory rows).
       if (
-        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code) ||
-        (e.code === 'KeyE' && this.enabled)
+        this.enabled &&
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyE'].includes(e.code)
       ) {
         e.preventDefault();
       }
@@ -39,9 +44,8 @@ export class Input {
       if (!e.repeat) {
         for (const cb of this.anyKeyCbs) cb();
         if (e.code === 'Escape') for (const cb of this.escapeCbs) cb();
-        if ((e.code === 'KeyE' || e.code === 'Space') && this.enabled) {
-          for (const cb of this.interactCbs) cb();
-        }
+        if (e.code === 'KeyE' && this.enabled) for (const cb of this.interactCbs) cb();
+        if (e.code === 'Space' && this.enabled) for (const cb of this.jumpCbs) cb();
         if (e.code === 'KeyR' && this.enabled) for (const cb of this.resetCbs) cb();
       }
       this.keys.add(e.code);
@@ -68,16 +72,22 @@ export class Input {
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) s += 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) s -= 1;
 
+    let joySprint = false;
     if (this.joyActive) {
       t += -this.joyVec.y;
       s += -this.joyVec.x;
+      joySprint = Math.hypot(this.joyVec.x, this.joyVec.y) > 0.96;
     }
     this.throttle = Math.max(-1, Math.min(1, t));
     this.steer = Math.max(-1, Math.min(1, s));
+    this.sprint = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || joySprint;
   }
 
   onInteract(cb: () => void): void {
     this.interactCbs.push(cb);
+  }
+  onJump(cb: () => void): void {
+    this.jumpCbs.push(cb);
   }
   onEscape(cb: () => void): void {
     this.escapeCbs.push(cb);
@@ -111,6 +121,16 @@ export class Input {
     btn.setAttribute('aria-label', 'Interact');
     root.appendChild(btn);
     btn.addEventListener('click', () => this.triggerInteract());
+
+    const jumpBtn = document.createElement('button');
+    jumpBtn.className = 'touch-action touch-jump';
+    jumpBtn.type = 'button';
+    jumpBtn.textContent = '⤒';
+    jumpBtn.setAttribute('aria-label', 'Jump');
+    root.appendChild(jumpBtn);
+    jumpBtn.addEventListener('click', () => {
+      if (this.enabled) for (const cb of this.jumpCbs) cb();
+    });
 
     const RADIUS = 44;
     let pointerId: number | null = null;

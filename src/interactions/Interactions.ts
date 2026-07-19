@@ -35,6 +35,11 @@ export class Interactions {
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
+  /** True while the enter/exit camera cinematic is in flight. */
+  get busy(): boolean {
+    return this.transitioning;
+  }
+
   update(): void {
     if (this.presenting || this.transitioning) return;
 

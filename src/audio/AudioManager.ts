@@ -123,6 +123,14 @@ export class AudioManager {
     this.blip(880, 0.05);
   }
 
+  jump(): void {
+    this.pluck(320, 0.12, 0.06);
+  }
+
+  land(): void {
+    this.pluck(130, 0.1, 0.07);
+  }
+
   enterBuilding(): void {
     const ctx = this.ensureContext();
     if (!ctx) return;

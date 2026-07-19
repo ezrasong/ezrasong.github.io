@@ -10,9 +10,9 @@ export interface QualityPreset {
 }
 
 const PRESETS: Record<QualityLevel, QualityPreset> = {
-  low: { level: 'low', label: '낮음 LOW', pixelRatioCap: 1, shadows: false, shadowMapSize: 512, fogFar: 130 },
-  medium: { level: 'medium', label: '중간 MED', pixelRatioCap: 1.5, shadows: true, shadowMapSize: 1024, fogFar: 170 },
-  high: { level: 'high', label: '높음 HIGH', pixelRatioCap: 2, shadows: true, shadowMapSize: 2048, fogFar: 210 },
+  low: { level: 'low', label: '낮음 LOW', pixelRatioCap: 1, shadows: false, shadowMapSize: 512, fogFar: 150 },
+  medium: { level: 'medium', label: '중간 MED', pixelRatioCap: 1.5, shadows: true, shadowMapSize: 1024, fogFar: 200 },
+  high: { level: 'high', label: '높음 HIGH', pixelRatioCap: 2, shadows: true, shadowMapSize: 2048, fogFar: 260 },
 };
 
 const STORAGE_KEY = 'voxel-seoul-quality';

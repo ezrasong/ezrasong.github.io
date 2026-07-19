@@ -54,7 +54,7 @@ export function makeSign(opts: SignOptions): THREE.Mesh {
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 2;
+  texture.anisotropy = 8;
 
   const material = opts.glow
     ? new THREE.MeshBasicMaterial({ map: texture })
@@ -70,7 +70,8 @@ export function makeDecal(
   draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void,
   width: number,
   height: number,
-  resolution = 64
+  resolution = 64,
+  smooth = false
 ): THREE.Mesh {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(width * resolution);
@@ -78,7 +79,8 @@ export function makeDecal(
   const ctx = canvas.getContext('2d')!;
   draw(ctx, canvas.width, canvas.height);
   const texture = new THREE.CanvasTexture(canvas);
-  texture.magFilter = THREE.NearestFilter;
+  texture.magFilter = smooth ? THREE.LinearFilter : THREE.NearestFilter;
+  texture.anisotropy = 8;
   texture.colorSpace = THREE.SRGBColorSpace;
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(width, height),

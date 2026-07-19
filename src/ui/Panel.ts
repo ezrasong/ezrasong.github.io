@@ -1,5 +1,6 @@
 import type { InteractionTarget } from '../types';
 import { PROFILE } from '../config/profile';
+import { trapFocus } from './focusTrap';
 
 /**
  * The project/place presentation panel: a DOM dialog styled like a Seoul
@@ -39,7 +40,7 @@ export class Panel {
 
     this.keyHandler = (e: KeyboardEvent) => {
       if (this.root.classList.contains('hidden')) return;
-      if (e.key === 'Tab') this.trapFocus(e);
+      if (e.key === 'Tab') trapFocus(this.root, e);
     };
     window.addEventListener('keydown', this.keyHandler);
   }
@@ -72,22 +73,6 @@ export class Panel {
     this.root.classList.add('hidden');
     if (this.lastFocused instanceof HTMLElement) this.lastFocused.focus();
     this.onCloseCb();
-  }
-
-  private trapFocus(e: KeyboardEvent): void {
-    const focusables = this.root.querySelectorAll<HTMLElement>(
-      'button, a[href], [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusables.length === 0) return;
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
   }
 }
 
@@ -134,9 +119,10 @@ function renderProject(target: InteractionTarget): DocumentFragment {
   frag.appendChild(tech);
 
   const gallery = el('div', 'panel-gallery');
+  if (p.images.length === 1) gallery.classList.add('panel-gallery-single');
   p.images.forEach((img, i) => {
     const image = document.createElement('img');
-    image.src = placeholderImage(p.title, target.accent, i);
+    image.src = img.src ?? artCard(p.title, target.accent, i);
     image.alt = img.alt;
     image.loading = 'lazy';
     image.width = 640;
@@ -222,8 +208,8 @@ function renderPlace(target: InteractionTarget): DocumentFragment {
 
 const imageCache = new Map<string, string>();
 
-/** Honest placeholder art: a voxel skyline card in the project's accent. */
-function placeholderImage(title: string, accent: string, variant: number): string {
+/** Generated art card: a voxel skyline in the project's accent color. */
+function artCard(title: string, accent: string, variant: number): string {
   const key = `${title}-${variant}`;
   const cached = imageCache.get(key);
   if (cached) return cached;
@@ -258,12 +244,9 @@ function placeholderImage(title: string, accent: string, variant: number): strin
     x += w;
   }
   ctx.fillStyle = accent;
-  ctx.font = '700 28px "Silkscreen", monospace';
+  ctx.font = '700 30px "Silkscreen", monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('PLACEHOLDER', 320, 60);
-  ctx.fillStyle = '#f5ead2';
-  ctx.font = '500 22px "IBM Plex Sans KR", sans-serif';
-  ctx.fillText(`${title} — screenshot ${variant + 1}`, 320, 96);
+  ctx.fillText(title.toUpperCase(), 320, 64);
 
   const url = canvas.toDataURL('image/png');
   imageCache.set(key, url);

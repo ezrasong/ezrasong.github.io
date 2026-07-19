@@ -8,6 +8,29 @@
       name="description"
       content="Drive a poro through a miniature voxel Seoul and explore Ezra Song's projects, skills, and experience."
     />
+    <link rel="canonical" href="https://ezrasong.github.io/" />
+    <meta name="author" content="Ezra Song" />
+    <meta name="theme-color" content="#1d1f2a" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ezrasong.github.io/" />
+    <meta property="og:title" content="Ezra Song — Voxel Seoul Portfolio" />
+    <meta
+      property="og:description"
+      content="Drive a poro through a miniature voxel Seoul and explore Ezra Song's projects, skills, and experience."
+    />
+    <meta property="og:image" content="https://ezrasong.github.io/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Ezra Song — Voxel Seoul Portfolio" />
+    <meta
+      name="twitter:description"
+      content="A playable miniature Seoul: walk the city, enter buildings, meet the work."
+    />
+    <meta name="twitter:image" content="https://ezrasong.github.io/og.png" />
+
+    <link rel="preload" href="/models/poro.glb" as="fetch" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -33,6 +56,68 @@
         </p>
       </div>
     </noscript>
+
+    <!-- Text fallback: the same content the 3D city presents, readable by
+         crawlers and screen readers without entering the game. -->
+    <section class="sr-only" aria-label="Portfolio summary">
+      <h1>Ezra Song — Frontend Engineer &amp; Creative Developer</h1>
+      <p>
+        BMath student at the University of Waterloo (2025–2029), building frontend for research
+        tools at Unmodal Research. This site is a playable miniature Seoul; everything below is
+        also reachable through the in-game City Directory.
+      </p>
+      <h2>Projects</h2>
+      <ul>
+        <li>
+          <a href="https://github.com/ezrasong/UW-Course-Planner">UW Course Planner</a> —
+          interactive course planning for Waterloo students (React, TypeScript, Supabase).
+        </li>
+        <li>
+          <a href="https://github.com/ezrasong/ezrasong.github.io">Voxel Seoul</a> — this 3D
+          portfolio: a generated voxel city with a physics-driven character (Three.js,
+          TypeScript, cannon-es).
+        </li>
+        <li>
+          <a href="https://github.com/ezrasong/lowcord">Lowcord</a> — a lightweight,
+          keyboard-driven realtime chat client (TypeScript, Node.js, WebSockets).
+        </li>
+        <li>
+          LeReplacer — award-winning hackathon browser extension: real-time face swapping in any
+          page (JavaScript, TensorFlow.js). Best Pitch, Go On Hacks 2025.
+        </li>
+        <li>
+          <a href="https://github.com/ezrasong/Discord-Bot">Discord Bot</a> — a multi-purpose
+          Discord bot built for 24/7 uptime (Python, discord.py).
+        </li>
+      </ul>
+      <h2>Contact</h2>
+      <p>
+        <a href="mailto:e34song@uwaterloo.ca">e34song@uwaterloo.ca</a> ·
+        <a href="https://github.com/ezrasong">GitHub</a> ·
+        <a href="https://linkedin.com/in/e34song">LinkedIn</a> ·
+        <a href="Ezra_Song_Resume.pdf">Résumé (PDF)</a>
+      </p>
+    </section>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "name": "Ezra Song",
+        "jobTitle": "Frontend Engineer & Creative Developer",
+        "url": "https://ezrasong.github.io/",
+        "email": "mailto:e34song@uwaterloo.ca",
+        "alumniOf": {
+          "@type": "CollegeOrUniversity",
+          "name": "University of Waterloo"
+        },
+        "worksFor": {
+          "@type": "Organization",
+          "name": "Unmodal Research Inc."
+        },
+        "sameAs": ["https://github.com/ezrasong", "https://linkedin.com/in/e34song"]
+      }
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -6,7 +6,8 @@ export type DistrictId =
   | 'gangnam'
   | 'hanok'
   | 'riverside'
-  | 'namsan';
+  | 'namsan'
+  | 'yeouido';
 
 export type BuildingType =
   | 'arcade'
@@ -39,8 +40,8 @@ export interface ProjectData {
   year: string;
   challenge: string;
   outcome: string;
-  /** Placeholder images are generated at runtime; alt text comes from here. */
-  images: { alt: string }[];
+  /** Entries with `src` load real artwork; without one, an accent-colored art card is generated. */
+  images: { alt: string; src?: string }[];
   liveUrl?: string;
   repositoryUrl?: string;
   buildingType: BuildingType;

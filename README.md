@@ -51,14 +51,22 @@ npm run test:smoke # browser smoke test (needs a server running; uses local Chro
 | Input | Action |
 | --- | --- |
 | `W` / `↑` | move forward |
-| `S` / `↓` | reverse |
+| `S` / `↓` | brake, then turn around |
 | `A` `D` / `←` `→` | steer |
-| `E` / `Space` | enter a building (near its door) |
+| `Shift` | sprint |
+| `Space` | jump |
+| `E` | enter a building (near its door) |
+| mouse drag | orbit the camera (recenters as you move) |
 | `M` | city directory (keyboard-friendly navigation without walking) |
 | `R` | reset to the plaza |
 | `Esc` | close panel / directory |
 
-On touch devices a virtual joystick and an `E` button appear automatically.
+On touch devices a virtual joystick plus jump and `E` buttons appear
+automatically; pinning the joystick to its rim sprints.
+
+The city runs on a ~5-minute day/night cycle — a visible sun and moon arc
+overhead, and the sky, fog, and shadows follow. It starts in the golden
+late afternoon; at night the windows and neon carry the scene.
 
 ## Folder structure
 

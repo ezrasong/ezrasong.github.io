@@ -98,17 +98,36 @@ try {
   check('page does not scroll during gameplay', scroll.x === 0 && scroll.y === 0);
   await page.screenshot({ path: `${SHOT_DIR}/02-gameplay.png` });
 
-  // 4. Collision: drive into the gate pier and confirm we don't pass through
-  await page.evaluate(() => window.__voxelSeoul.teleport(-3.3, -8));
+  // 4. Collision: drive straight at the gate pier and confirm we don't pass through
+  await page.evaluate(() => window.__voxelSeoul.teleport(-3.3, -8, Math.PI));
   await page.waitForTimeout(200);
-  await page.keyboard.down('s'); // spawn yaw faces +z... drive backwards toward gate
+  await page.keyboard.down('w');
   await page.waitForTimeout(1500);
-  await page.keyboard.up('s');
+  await page.keyboard.up('w');
   const gatePos = await page.evaluate(() => {
     const p = window.__voxelSeoul.player.position;
     return { x: p.x, z: p.z };
   });
-  check('collision keeps poro out of solid geometry', gatePos.z > -16.5, `z=${gatePos.z.toFixed(2)}`);
+  check('collision keeps poro out of solid geometry', gatePos.z > -13.5, `z=${gatePos.z.toFixed(2)}`);
+
+  // 4b. Jump: Space lifts the poro off the ground
+  await page.evaluate(() => window.__voxelSeoul.teleport(0, 6, 0));
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(280);
+  const airY = await page.evaluate(() => window.__voxelSeoul.player.position.y);
+  check('Space makes the poro jump', airY > 0.7, `y=${airY.toFixed(2)}`);
+  await page.waitForTimeout(900);
+
+  // 4c. Sprint: Shift pushes speed past the base maximum
+  await page.keyboard.down('Shift');
+  await page.keyboard.down('w');
+  await page.waitForTimeout(1000);
+  const sprintRatio = await page.evaluate(() => window.__voxelSeoul.player.speedRatio);
+  await page.keyboard.up('w');
+  await page.keyboard.up('Shift');
+  check('Shift sprint exceeds base speed', sprintRatio > 1.05, `speedRatio=${sprintRatio.toFixed(2)}`);
+  await page.waitForTimeout(400);
 
   // 5. Reset control
   await page.evaluate(() => window.__voxelSeoul.teleport(30, 15));
@@ -205,6 +224,69 @@ try {
   check('external links use rel="noopener noreferrer"', unsafeLinks === 0);
   await page.screenshot({ path: `${SHOT_DIR}/04-menu.png` });
   await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+
+  // 9b. City Directory keyboard operability: M toggles, Tab is trapped,
+  // Space activates the focused button.
+  await page.keyboard.press('m');
+  await page.waitForTimeout(250);
+  const menuOpen = await page.evaluate(
+    () => !document.querySelector('.menu-panel').parentElement.classList.contains('hidden')
+  );
+  check('M opens the city directory', menuOpen);
+
+  let trapped = true;
+  for (let i = 0; i < 14; i++) {
+    await page.keyboard.press('Tab');
+    const inside = await page.evaluate(() =>
+      document.querySelector('.menu-panel').contains(document.activeElement)
+    );
+    if (!inside) {
+      trapped = false;
+      break;
+    }
+  }
+  check('directory traps Tab focus', trapped);
+  await page.keyboard.press('Shift+Tab');
+  const insideBack = await page.evaluate(() =>
+    document.querySelector('.menu-panel').contains(document.activeElement)
+  );
+  check('directory traps Shift+Tab focus', insideBack);
+
+  await page.evaluate(() => document.querySelector('.menu-panel .panel-close').focus());
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(250);
+  const menuClosedBySpace = await page.evaluate(() =>
+    document.querySelector('.menu-panel').parentElement.classList.contains('hidden')
+  );
+  check('Space activates the focused ✕ (directory closes)', menuClosedBySpace);
+
+  // 9c. Travel from the directory lands at the door, prompt shows, E enters.
+  await page.keyboard.press('m');
+  await page.waitForTimeout(250);
+  await page.evaluate(() => {
+    const first = document.querySelector('.menu-list li');
+    first.querySelectorAll('button')[1].click(); // 이동 Travel
+  });
+  await page.waitForTimeout(700);
+  const promptAfterTravel = await page.evaluate(
+    () => !document.querySelector('.prompt').classList.contains('hidden')
+  );
+  await page.keyboard.press('e');
+  let travelOpened = false;
+  try {
+    await page.waitForFunction(() => window.__voxelSeoul.isPanelOpen(), { timeout: 5000 });
+    travelOpened = true;
+  } catch {
+    travelOpened = false;
+  }
+  check(
+    'Travel → E-prompt → panel opens',
+    promptAfterTravel && travelOpened,
+    `prompt=${promptAfterTravel} opened=${travelOpened}`
+  );
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !window.__voxelSeoul.player.frozen, { timeout: 4000 });
 
   // 10. Resize does not crash and canvas follows
   await page.setViewportSize({ width: 700, height: 900 });

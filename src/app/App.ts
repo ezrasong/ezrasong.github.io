@@ -8,12 +8,16 @@ import { Input } from '../input/Input';
 import { Player } from '../player/Player';
 import { FollowCamera } from '../camera/FollowCamera';
 import { World } from '../world/World';
+import { Weather, WEATHER_LABEL } from '../world/Weather';
+import { getGroundCanvas } from '../world/GroundPainter';
 import { Interactions } from '../interactions/Interactions';
 import { AudioManager } from '../audio/AudioManager';
 import { UI } from '../ui/UI';
 import { Panel } from '../ui/Panel';
 import { MenuOverlay } from '../ui/MenuOverlay';
-import { DISTRICTS } from '../config/places';
+import { MapOverlay } from '../ui/MapOverlay';
+import { DISTRICTS, PLACES } from '../config/places';
+import { PROJECTS } from '../config/projects';
 import type { DistrictId, InteractionTarget } from '../types';
 
 /**
@@ -29,14 +33,20 @@ export class App {
   private input = new Input();
   private physics!: Physics;
   private world!: World;
+  private weather!: Weather;
   private player!: Player;
   private followCam!: FollowCamera;
   private interactions!: Interactions;
   private ui!: UI;
   private panel!: Panel;
   private menu!: MenuOverlay;
+  private mapOverlay!: MapOverlay;
   private currentDistrict: DistrictId | null = 'plaza';
   private started = false;
+  /** Seconds the player's body has spent inside a static collision volume. */
+  private insideTimer = 0;
+  /** Frames rendered since the scene last changed; lets tick() skip identical frames. */
+  private stillFrames = 0;
 
   async init(canvasHost: HTMLElement, uiHost: HTMLElement): Promise<void> {
     this.ui = new UI(uiHost);
@@ -56,7 +66,7 @@ export class App {
     this.renderer.shadowMap.enabled = this.quality.current.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.18;
+    this.renderer.toneMappingExposure = 1.32;
     this.renderer.setSize(this.sizes.width, this.sizes.height);
     this.renderer.setPixelRatio(Math.min(this.sizes.pixelRatio, this.quality.current.pixelRatioCap));
     canvasHost.appendChild(this.renderer.domElement);
@@ -87,6 +97,11 @@ export class App {
     this.world.scene.add(this.player.container);
     this.followCam = new FollowCamera(this.sizes.aspect, this.player);
     this.followCam.setOccluders(this.world.occluders);
+    this.followCam.attachOrbitControls(this.renderer.domElement);
+
+    this.weather = new Weather(this.world.scene);
+    this.weather.init((kind) => this.ui.setWeather(WEATHER_LABEL[kind]));
+    this.ui.initMinimap(getGroundCanvas(), this.world.targets);
 
     this.ui.setProgress(1);
 
@@ -130,6 +145,23 @@ export class App {
       true
     );
 
+    this.mapOverlay = new MapOverlay(uiHost, getGroundCanvas(), this.world.targets, DISTRICTS, {
+      onTravel: (t) => {
+        this.mapOverlay.close();
+        this.travelTo(t);
+        this.player.frozen = false;
+      },
+      onClose: () => {
+        if (this.started) this.player.frozen = false;
+      },
+    });
+    this.ui.bindMinimap(() => {
+      if (!this.started || this.interactions.busy || this.panel.isOpen || this.menu.isOpen) return;
+      this.player.frozen = true;
+      this.mapOverlay.open(this.player.position.x, this.player.position.z, this.player.yaw);
+      this.audio.uiBlip();
+    });
+
     this.wireInput();
     this.wireUi();
     this.wireResize();
@@ -147,8 +179,9 @@ export class App {
     (window as unknown as Record<string, unknown>).__voxelSeoul = {
       app: this,
       player: this.player,
+      weather: this.weather,
       targets: this.world.targets,
-      teleport: (x: number, z: number) => this.teleport(x, z),
+      teleport: (x: number, z: number, yaw?: number) => this.teleport(x, z, yaw),
       isPanelOpen: () => this.panel.isOpen,
       start: () => (document.querySelector('.title-start') as HTMLButtonElement | null)?.click(),
       pressInteract: () => this.input.triggerInteract(),
@@ -159,21 +192,37 @@ export class App {
 
   private tick(dt: number, elapsed: number): void {
     // Pause the heavy work while a panel hides the world
-    const presenting = this.panel?.isOpen || this.menu?.isOpen;
+    const presenting = this.panel?.isOpen || this.menu?.isOpen || this.mapOverlay?.isOpen;
+
+    // Gameplay keys (and their scroll-prevention) only while actually playing,
+    // so Space/E keep working as button keys in menus and on the title card.
+    this.input.enabled = this.started && !presenting;
 
     if (this.started && !presenting) {
       this.input.update();
       this.physics.step(dt);
       this.player.update(dt);
+      this.checkStuck(dt);
       this.interactions.update();
       this.followCam.update(dt);
+      this.weather.update(dt, this.player.position.x, this.player.position.z, this.world.daylight);
+      this.world.weatherDim = this.weather.dim;
       this.world.update(elapsed);
+      this.ui.updateMinimap(this.player.position.x, this.player.position.z, this.player.yaw);
       this.audio.updateMovement(this.player.speedRatio, dt, this.player.grounded);
+      if (this.player.justLanded) this.audio.land();
       this.trackDistrict();
       if (this.player.speedRatio > 0.2) this.ui.hideControlsHint();
     }
 
-    this.renderer.render(this.world.scene, this.followCam.camera);
+    // The scene is frozen while a modal covers it (and before Start) — after a
+    // couple of settle frames there is nothing new to draw, so skip the GPU work.
+    const sceneAnimating = (this.started && !presenting) || this.interactions.busy;
+    if (sceneAnimating) this.stillFrames = 0;
+    if (this.stillFrames < 3) {
+      this.renderer.render(this.world.scene, this.followCam.camera);
+      if (!sceneAnimating) this.stillFrames++;
+    }
   }
 
   private trackDistrict(): void {
@@ -189,22 +238,62 @@ export class App {
     }
   }
 
-  private teleport(x: number, z: number): void {
+  private teleport(x: number, z: number, yaw?: number): void {
     this.player.body.position.set(x, 1.2, z);
     this.player.body.velocity.setZero();
     this.player.speed = 0;
+    if (yaw !== undefined) this.player.face(yaw);
+    // Sync the visual container before snapping, or the camera reads the
+    // pre-teleport position and swims across the whole map to catch up.
+    this.player.syncVisual();
     this.followCam.snap();
+    this.stillFrames = 0;
   }
 
   private travelTo(t: InteractionTarget): void {
-    // Land just outside the entrance, facing the door.
-    const dist = 2.5;
+    // Land on the interaction ring (it is centered on the entrance point),
+    // facing the door, so the E prompt is live immediately.
+    const dist = 1.0;
     const x = t.entrance.x + t.approach.x * dist;
     const z = t.entrance.z + t.approach.z * dist;
-    this.player.yaw = Math.atan2(-t.approach.x, -t.approach.z);
+    this.player.face(Math.atan2(-t.approach.x, -t.approach.z));
     this.teleport(x, z);
     this.player.frozen = false;
     this.ui.showToast(t.koreanTitle, `${t.title} 앞 · at the door`);
+  }
+
+  /**
+   * Safety net: a visitor must never stay stuck. If the body sits inside a
+   * static collision volume for over a second (wedged, a state contact
+   * resolution can't fix), or falls below the ground plane, respawn at the
+   * nearest travel point. Ordinary wall presses never trigger this — the
+   * body's center stays outside the volume when contacts are resolving.
+   */
+  private checkStuck(dt: number): void {
+    const p = this.player.body.position;
+    this.insideTimer = this.physics.isInsideStatic(p) ? this.insideTimer + dt : 0;
+    const fell = p.y < -1;
+    // In the Han without a bridge or pier underfoot: standing on the riverbed
+    // puts the body center at y ≈ 0.52, while the lowest walkable deck puts it
+    // at ≈ 0.81 — fish the poro out rather than leaving it stranded behind
+    // the bank rails.
+    const swimming = p.z > 20.5 && p.z < 47.5 && p.y < 0.7;
+    if (this.insideTimer < 1 && !fell && !swimming) return;
+    this.insideTimer = 0;
+    let best: InteractionTarget | null = null;
+    let bestDist = Infinity;
+    for (const t of this.world.targets) {
+      const d = Math.hypot(t.entrance.x - p.x, t.entrance.z - p.z);
+      if (d < bestDist) {
+        best = t;
+        bestDist = d;
+      }
+    }
+    if (best) this.travelTo(best);
+    else {
+      this.player.reset();
+      this.followCam.snap();
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -219,16 +308,22 @@ export class App {
       else if (this.menu.isOpen) {
         this.menu.close();
         this.player.frozen = false;
+      } else if (this.mapOverlay.isOpen) {
+        this.mapOverlay.close();
+        this.player.frozen = false;
       }
     });
+    this.input.onJump(() => {
+      if (this.started && this.player.grounded && !this.player.frozen) this.audio.jump();
+    });
     this.input.onReset(() => {
-      if (!this.started || this.panel.isOpen || this.menu.isOpen) return;
+      if (!this.started || this.panel.isOpen || this.menu.isOpen || this.interactions.busy) return;
       this.player.reset();
       this.followCam.snap();
       this.ui.showToast('광장', 'back at the plaza');
     });
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyM' && this.started && !this.panel.isOpen) {
+      if (e.code === 'KeyM' && this.started && !this.panel.isOpen && !this.interactions.busy) {
         if (this.menu.isOpen) {
           this.menu.close();
           this.player.frozen = false;
@@ -257,13 +352,13 @@ export class App {
         this.audio.uiBlip();
       },
       onMenu: () => {
-        if (!this.started) return;
+        if (!this.started || this.interactions.busy) return;
         this.player.frozen = true;
         this.menu.open();
         this.audio.uiBlip();
       },
       onReset: () => {
-        if (!this.started) return;
+        if (!this.started || this.interactions.busy) return;
         this.player.reset();
         this.followCam.snap();
         this.audio.uiBlip();
@@ -275,6 +370,7 @@ export class App {
   }
 
   private applyQuality(): void {
+    this.stillFrames = 0;
     const preset = this.quality.current;
     this.renderer.shadowMap.enabled = preset.shadows;
     this.renderer.setPixelRatio(Math.min(this.sizes.pixelRatio, preset.pixelRatioCap));
@@ -291,6 +387,7 @@ export class App {
 
   private wireResize(): void {
     this.sizes.onResize((s) => {
+      this.stillFrames = 0;
       this.renderer.setSize(s.width, s.height);
       this.renderer.setPixelRatio(Math.min(s.pixelRatio, this.quality.current.pixelRatioCap));
       this.followCam.resize(s.aspect);
@@ -303,47 +400,43 @@ export class App {
     // The 3D city can't run, but the portfolio must remain readable:
     // build the same panel + menu against a static backdrop.
     this.panel = new Panel(uiHost, () => {});
-    // Targets straight from config (no world needed).
-    void import('../config/projects').then(async ({ PROJECTS }) => {
-      const { PLACES } = await import('../config/places');
-      const targets: InteractionTarget[] = [
-        ...PROJECTS.map((p) => ({
-          id: p.id,
-          kind: 'project' as const,
-          title: p.title,
-          koreanTitle: p.koreanTitle,
-          accent: p.accent,
-          entrance: { x: 0, y: 0, z: 0 },
-          approach: { x: 1, z: 0 },
-          radius: 0,
-          project: p,
-        })),
-        ...PLACES.map((p) => ({
-          id: p.id,
-          kind: 'place' as const,
-          title: p.title,
-          koreanTitle: p.koreanTitle,
-          accent: p.accent,
-          entrance: { x: 0, y: 0, z: 0 },
-          approach: { x: 1, z: 0 },
-          radius: 0,
-          place: p,
-        })),
-      ];
-      this.menu = new MenuOverlay(
-        uiHost,
-        targets,
-        {
-          onOpen: (t) => {
-            this.menu.close();
-            this.panel.open(t);
-          },
-          onTravel: () => {},
-          onClose: () => {},
+    const targets: InteractionTarget[] = [
+      ...PROJECTS.map((p) => ({
+        id: p.id,
+        kind: 'project' as const,
+        title: p.title,
+        koreanTitle: p.koreanTitle,
+        accent: p.accent,
+        entrance: { x: 0, y: 0, z: 0 },
+        approach: { x: 1, z: 0 },
+        radius: 0,
+        project: p,
+      })),
+      ...PLACES.map((p) => ({
+        id: p.id,
+        kind: 'place' as const,
+        title: p.title,
+        koreanTitle: p.koreanTitle,
+        accent: p.accent,
+        entrance: { x: 0, y: 0, z: 0 },
+        approach: { x: 1, z: 0 },
+        radius: 0,
+        place: p,
+      })),
+    ];
+    this.menu = new MenuOverlay(
+      uiHost,
+      targets,
+      {
+        onOpen: (t) => {
+          this.menu.close();
+          this.panel.open(t);
         },
-        false
-      );
-      this.ui.showFallback(() => this.menu.open());
-    });
+        onTravel: () => {},
+        onClose: () => {},
+      },
+      false
+    );
+    this.ui.showFallback(() => this.menu.open());
   }
 }

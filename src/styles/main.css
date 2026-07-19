@@ -148,6 +148,38 @@ button {
   z-index: 50;
 }
 
+/* Staggered reveal: the card rises, then each line follows. */
+@keyframes title-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.title-card > * {
+  animation: title-rise 460ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+
+.title-card > *:nth-child(2) {
+  animation-delay: 90ms;
+}
+
+.title-card > *:nth-child(3) {
+  animation-delay: 180ms;
+}
+
+.title-card > *:nth-child(4) {
+  animation-delay: 280ms;
+}
+
+.title-card > *:nth-child(5) {
+  animation-delay: 380ms;
+}
+
 .title-card {
   text-align: center;
   background: var(--night);
@@ -177,9 +209,30 @@ button {
 }
 
 .title-hint {
-  margin-top: 1.1rem;
+  margin-top: 0.45rem;
   font-size: 0.8rem;
   color: var(--ink-dim);
+}
+
+.howto-title {
+  margin-top: 1.2rem;
+  font-family: var(--font-px);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.title-hint kbd {
+  display: inline-block;
+  background: #2c3140;
+  color: #f5ead2;
+  border: 1px solid #4a5163;
+  border-radius: 4px;
+  padding: 0.02rem 0.38rem;
+  margin: 0 0.1rem;
+  font-family: var(--font-px);
+  font-size: 0.72rem;
 }
 
 /* ---- HUD ---- */
@@ -192,6 +245,136 @@ button {
   justify-content: space-between;
   align-items: flex-start;
   padding: 0.9rem 1rem;
+}
+
+.hud-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.minimap-wrap {
+  position: relative;
+}
+
+.minimap {
+  display: block;
+  width: 148px;
+  height: 148px;
+  border-radius: 10px;
+  border: 2px solid rgba(245, 234, 210, 0.16);
+  background: #151823;
+  opacity: 0.94;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+
+.minimap:hover,
+.minimap:focus-visible {
+  border-color: var(--accent);
+  opacity: 1;
+}
+
+.minimap-expand {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  font-size: 0.8rem;
+  color: rgba(245, 234, 210, 0.75);
+  background: rgba(24, 26, 36, 0.72);
+  border-radius: 5px;
+  padding: 0 0.28rem;
+  pointer-events: none;
+}
+
+/* ---- expanded city map ---- */
+.map-panel {
+  width: min(92vw, 680px);
+}
+
+.map-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(245, 234, 210, 0.15);
+  background: #151823;
+}
+
+.map-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.map-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.map-marker .dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid rgba(12, 14, 20, 0.85);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.45);
+  transition: transform 0.12s;
+}
+
+.map-marker:hover .dot,
+.map-marker:focus-visible .dot {
+  transform: scale(1.45);
+}
+
+.map-marker .mlabel {
+  font-size: 0.58rem;
+  color: #f5ead2;
+  background: rgba(20, 22, 32, 0.78);
+  padding: 0.05rem 0.32rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.map-player {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 18px solid #ffd447;
+  transform: translate(-50%, -50%) rotate(var(--rot, 0rad));
+  filter: drop-shadow(0 0 3px rgba(12, 14, 20, 0.9));
+  pointer-events: none;
+}
+
+.hud-weather {
+  font-size: 0.72rem;
+  color: #f5ead2;
+  background: rgba(24, 26, 36, 0.72);
+  padding: 0.2rem 0.55rem;
+  border-radius: 8px;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 640px) {
+  .minimap {
+    width: 104px;
+    height: 104px;
+  }
 }
 
 .hud-name {
@@ -236,6 +419,22 @@ button {
 
 .hud-quality {
   font-size: 0.72rem;
+}
+
+/* The directory button carries a text label so the conventional way into the
+   content is discoverable without knowing the M key. */
+.hud-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-color: var(--accent);
+}
+
+.hud-btn-label {
+  font-family: var(--font-px);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--accent);
 }
 
 /* ---- prompt / toast / hint ---- */
@@ -441,6 +640,10 @@ button {
   gap: 0.6rem;
 }
 
+.panel-gallery-single {
+  grid-template-columns: 1fr;
+}
+
 .panel-gallery img {
   width: 100%;
   height: auto;
@@ -574,6 +777,16 @@ button {
   touch-action: manipulation;
 }
 
+.touch-jump {
+  right: 7.6rem;
+  bottom: 6.6rem;
+  width: 60px;
+  height: 60px;
+  background: var(--night-2);
+  color: var(--ink);
+  font-size: 1.2rem;
+}
+
 /* ---- fallback / noscript ---- */
 .fallback,
 .noscript-msg {
@@ -630,10 +843,27 @@ button {
   }
 }
 
+/* ---- visually hidden (crawlable/screen-reader text fallback) ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ---- reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   .btn,
   .loading-bar {
     transition: none;
+  }
+
+  .title-card > * {
+    animation: none;
   }
 }

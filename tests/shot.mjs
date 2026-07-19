@@ -15,12 +15,21 @@ await page.goto(URL, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('.title-start', { state: 'visible', timeout: 30000 });
 await page.click('.title-start');
 await page.waitForFunction(() => !!window.__voxelSeoul);
-// optional teleport + tiny forward press for a "runing" pose
-if (process.argv[4] === 'run') {
+// modes: default idle at spawn · "run" while moving · "at x z yaw" teleport
+const mode = process.argv[4];
+if (mode === 'run') {
   await page.keyboard.down('w');
   await page.waitForTimeout(700);
   await page.screenshot({ path: out });
   await page.keyboard.up('w');
+} else if (mode === 'at') {
+  const [x, z, yaw] = process.argv.slice(5).map(Number);
+  await page.evaluate(
+    ({ x, z, yaw }) => window.__voxelSeoul.teleport(x, z, yaw),
+    { x, z, yaw }
+  );
+  await page.waitForTimeout(1800);
+  await page.screenshot({ path: out });
 } else {
   await page.waitForTimeout(2500);
   await page.screenshot({ path: out });

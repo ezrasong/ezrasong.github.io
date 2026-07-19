@@ -14,8 +14,8 @@ export const PALETTE = {
   // Ground
   grass: '#5a8a58',
   grassDark: '#4c774b',
-  asphalt: '#3d4048',
-  asphaltLight: '#4a4d56',
+  asphalt: '#585d68',
+  asphaltLight: '#666b77',
   sidewalk: '#8f8a80',
   plaza: '#b3a389',
   plazaDark: '#a08f74',

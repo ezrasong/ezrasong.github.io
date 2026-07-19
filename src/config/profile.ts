@@ -1,7 +1,4 @@
-/**
- * All personal portfolio content in one place.
- * Replace the placeholder strings marked with TODO before publishing.
- */
+/** All personal portfolio content in one place. */
 export const PROFILE = {
   name: 'Ezra Song',
   koreanName: '송에즈라',
