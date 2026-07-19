@@ -29,6 +29,7 @@ import {
   createSignpost,
   createBridge,
   createMountains,
+  createForestBelts,
   NAMSAN_BASE_RADIUS,
 } from './Landmarks';
 import { makeDecal, KOREAN_FONT } from './SignTexture';
@@ -52,6 +53,7 @@ export class World {
   private sun!: THREE.DirectionalLight;
   private hemi!: THREE.HemisphereLight;
   private grassDensity!: (d: number) => void;
+  private waterMaterial?: THREE.ShaderMaterial;
   private sunMesh!: THREE.Mesh;
   private moonMesh!: THREE.Mesh;
   private skyColor = new THREE.Color();
@@ -206,6 +208,7 @@ export class World {
     }
     (this.scene.fog as THREE.Fog).far = preset.fogFar;
     this.grassDensity(preset.grassDensity);
+    if (this.waterMaterial) this.waterMaterial.uniforms.uReflect.value = preset.waterReflections ? 1 : 0;
   }
 
   /* ---------------------------------------------------------------- */
@@ -313,6 +316,7 @@ export class World {
 
     const water = createWater();
     this.scene.add(water.object);
+    this.waterMaterial = water.material;
 
     // Two road bridges cross the Han: the main cable-stayed Hangang bridge
     // on the spine and the girder Yanghwa bridge linking Hongdae to Yeouido.
@@ -334,6 +338,9 @@ export class World {
 
     const mountains = createMountains();
     this.scene.add(mountains.object);
+
+    const forestBelts = createForestBelts();
+    this.scene.add(forestBelts.object);
   }
 
   private registerColliders(result: {

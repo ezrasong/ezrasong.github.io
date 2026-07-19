@@ -100,6 +100,9 @@ export class Physics {
   }
 
   step(dt: number): void {
-    this.world.step(1 / 60, dt, 3);
+    // Generous substep budget so slow machines (or software rendering)
+    // simulate the full wall-clock time instead of moving in slow motion.
+    // With one dynamic body the extra substeps are effectively free.
+    this.world.step(1 / 60, dt, 20);
   }
 }

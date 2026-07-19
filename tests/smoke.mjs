@@ -67,6 +67,12 @@ try {
   await page.waitForTimeout(600);
   check('game handle exposed after start', true);
 
+  // Functional run: low quality keeps the software rasterizer (CI) fast
+  // enough that timing-based movement checks measure logic, not fill rate.
+  // The switch recompiles every shader — give it a moment to settle.
+  await page.evaluate(() => window.__voxelSeoul.setQuality('low'));
+  await page.waitForTimeout(2000);
+
   // 3. WASD movement moves the player, arrows too, page does not scroll
   const posBefore = await page.evaluate(() => {
     const p = window.__voxelSeoul.player.position;
@@ -98,8 +104,9 @@ try {
   check('page does not scroll during gameplay', scroll.x === 0 && scroll.y === 0);
   await page.screenshot({ path: `${SHOT_DIR}/02-gameplay.png` });
 
-  // 4. Collision: drive straight at the gate pier and confirm we don't pass through
-  await page.evaluate(() => window.__voxelSeoul.teleport(-3.3, -8, Math.PI));
+  // 4. Collision: drive straight at the gate pier and confirm we don't pass
+  // through (the pier front face sits at z ≈ -36.8).
+  await page.evaluate(() => window.__voxelSeoul.teleport(-3.9, -31, Math.PI));
   await page.waitForTimeout(200);
   await page.keyboard.down('w');
   await page.waitForTimeout(1500);
@@ -108,21 +115,35 @@ try {
     const p = window.__voxelSeoul.player.position;
     return { x: p.x, z: p.z };
   });
-  check('collision keeps poro out of solid geometry', gatePos.z > -13.5, `z=${gatePos.z.toFixed(2)}`);
+  check('collision keeps poro out of solid geometry', gatePos.z > -37.2, `z=${gatePos.z.toFixed(2)}`);
 
   // 4b. Jump: Space lifts the poro off the ground
   await page.evaluate(() => window.__voxelSeoul.teleport(0, 6, 0));
-  await page.waitForTimeout(300);
+  // Teleport drops in from y=1.2 — wait for touchdown before jumping.
+  await page.waitForFunction(() => window.__voxelSeoul.player.grounded, { timeout: 4000 });
+  await page.waitForTimeout(150);
   await page.keyboard.press('Space');
-  await page.waitForTimeout(280);
-  const airY = await page.evaluate(() => window.__voxelSeoul.player.position.y);
+  // Track the apex inside the page (rAF), immune to slow-frame poll timing.
+  const airY = await page.evaluate(
+    () =>
+      new Promise((res) => {
+        let apex = 0;
+        const t0 = performance.now();
+        const loop = () => {
+          apex = Math.max(apex, window.__voxelSeoul.player.position.y);
+          if (performance.now() - t0 < 1100) requestAnimationFrame(loop);
+          else res(apex);
+        };
+        requestAnimationFrame(loop);
+      })
+  );
   check('Space makes the poro jump', airY > 0.7, `y=${airY.toFixed(2)}`);
-  await page.waitForTimeout(900);
+  await page.waitForTimeout(400);
 
   // 4c. Sprint: Shift pushes speed past the base maximum
   await page.keyboard.down('Shift');
   await page.keyboard.down('w');
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(1600);
   const sprintRatio = await page.evaluate(() => window.__voxelSeoul.player.speedRatio);
   await page.keyboard.up('w');
   await page.keyboard.up('Shift');
@@ -137,7 +158,8 @@ try {
     const p = window.__voxelSeoul.player.position;
     return { x: p.x, z: p.z };
   });
-  const nearSpawn = Math.hypot(resetPos.x - 0, resetPos.z - 6) < 2;
+  // Spawn is (0, -8) per PLAYER_CONFIG.spawn.
+  const nearSpawn = Math.hypot(resetPos.x - 0, resetPos.z - -8) < 2;
   check('R resets to the plaza spawn', nearSpawn, `at (${resetPos.x.toFixed(1)}, ${resetPos.z.toFixed(1)})`);
 
   // 6. Prompt appears only near an entrance

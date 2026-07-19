@@ -188,6 +188,16 @@ export class App {
         setTimeOverride(frac);
         this.stillFrames = 0;
       },
+      stats: () => ({
+        calls: this.renderer.info.render.calls,
+        triangles: this.renderer.info.render.triangles,
+        geometries: this.renderer.info.memory.geometries,
+        textures: this.renderer.info.memory.textures,
+      }),
+      setQuality: (level: 'low' | 'medium' | 'high') => {
+        while (this.quality.current.level !== level) this.quality.cycle();
+        this.applyQuality();
+      },
       isPanelOpen: () => this.panel.isOpen,
       start: () => (document.querySelector('.title-start') as HTMLButtonElement | null)?.click(),
       pressInteract: () => this.input.triggerInteract(),

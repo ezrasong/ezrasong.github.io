@@ -65,6 +65,7 @@ export class Player {
   private bouncePhase = 0;
   private lean = 0;
   private wantJump = false;
+  private jumpBuffer = 0;
   private landSquash = 0;
   /** True on the frame the poro touches down; consumed by App for audio. */
   justLanded = false;
@@ -241,12 +242,19 @@ export class Player {
     this.yaw = dampAngle(this.yaw, this.headingTarget, CFG.facingLambda, dt);
     this.speedRatio = clamp(this.speed / CFG.maxSpeed, 0, 1.6);
 
-    // --- Jump
+    // --- Jump (buffered: a press just before landing still jumps)
     if (this.wantJump) {
-      this.wantJump = false;
       if (this.grounded && !this.frozen) {
         this.body.velocity.y = CFG.jumpSpeed;
         this.grounded = false;
+        this.wantJump = false;
+        this.jumpBuffer = 0;
+      } else {
+        this.jumpBuffer += dt;
+        if (this.jumpBuffer > 0.22) {
+          this.wantJump = false;
+          this.jumpBuffer = 0;
+        }
       }
     }
 

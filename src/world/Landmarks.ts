@@ -291,19 +291,22 @@ export function createBridge(
     lampSide *= -1;
   }
 
+  // Pylons live in their own mesh so the follow camera can treat them as
+  // view blockers without the thin cables hijacking the occlusion ray.
+  const pylonKit = new VoxelKit();
   if (style === 'cable') {
     // --- Twin A-pylons with fanned stay cables.
     for (const pz of [z0 + 9, z1 - 9.5]) {
       for (const side of [-1, 1]) {
         const px = x + side * (width / 2 + 0.35);
         // Legs lean together toward the top.
-        kit.bar(px + side * 0.5, -1.6, pz, px - side * 0.35, 9.2, pz, 0.55, '#c8555a');
+        pylonKit.bar(px + side * 0.5, -1.6, pz, px - side * 0.35, 9.2, pz, 0.55, '#c8555a');
         // Foot pier into the water
-        kit.rbox(1.6, 2.2, 2.4, px + side * 0.3, -1.0, pz, CONCRETE_DARK, 0.15);
+        pylonKit.rbox(1.6, 2.2, 2.4, px + side * 0.3, -1.0, pz, CONCRETE_DARK, 0.15);
       }
       // Crossbeams
-      kit.box(width + 1.4, 0.5, 0.5, x, 8.6, pz, '#c8555a');
-      kit.box(width + 2.2, 0.45, 0.55, x, 3.7, pz, '#b04b50');
+      pylonKit.box(width + 1.4, 0.5, 0.5, x, 8.6, pz, '#c8555a');
+      pylonKit.box(width + 2.2, 0.45, 0.55, x, 3.7, pz, '#b04b50');
       // Beacon on top
       glow.box(0.22, 0.22, 0.22, x, 9.1, pz, '#ff5d5d');
       // Stay cables fanning both directions along the deck
@@ -334,6 +337,12 @@ export function createBridge(
   }
 
   group.add(kit.toMesh(MATERIALS.lit));
+  const occluders: THREE.Mesh[] = [];
+  if (!pylonKit.isEmpty) {
+    const pylons = pylonKit.toMesh(MATERIALS.lit);
+    group.add(pylons);
+    occluders.push(pylons);
+  }
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
 
   // Name plaques over the sidewalk at both entries, like the real Han
@@ -368,6 +377,7 @@ export function createBridge(
 
   return {
     object: group,
+    occluders,
     colliders: [
       // Walkable deck + ramps (tops at 0.29 / 0.145)
       { x, z: cz, spec: { w: width, h: 0.58, d: len, x: 0, y: 0, z: 0 } },
@@ -376,6 +386,13 @@ export function createBridge(
       // Side railings keep the player out of the water
       { x: x - (width / 2 - 0.12), z: cz, spec: { w: 0.3, h: 2.6, d: len, x: 0, y: 1.15, z: 0 } },
       { x: x + (width / 2 - 0.12), z: cz, spec: { w: 0.3, h: 2.6, d: len, x: 0, y: 1.15, z: 0 } },
+      // Pylon legs (cable style) so the poro can't walk through them
+      ...(style === 'cable'
+        ? [z0 + 9, z1 - 9.5].flatMap((pz) => [
+            { x: x - (width / 2 + 0.35), z: pz, spec: { w: 0.9, h: 8, d: 0.9, x: 0, y: 2.5, z: 0 } },
+            { x: x + (width / 2 + 0.35), z: pz, spec: { w: 0.9, h: 8, d: 0.9, x: 0, y: 2.5, z: 0 } },
+          ])
+        : []),
     ],
   };
 }
@@ -420,6 +437,41 @@ export function createMountains(): LandmarkResult {
     group.add(cone);
   }
   return { object: group, colliders: [] };
+}
+
+/**
+ * Dense tree belts just past the playable perimeter (west, east, south),
+ * filling the gap between the streets and the backdrop building rows so
+ * the map edge reads as parkland thinning into the city, not empty lawn.
+ * One merged mesh; entirely decorative (behind the boundary walls).
+ */
+export function createForestBelts(): LandmarkResult {
+  const kit = new VoxelKit();
+  const rng = mulberry32(431);
+  const cluster = (x: number, z: number, scale: number) => {
+    const r = (0.9 + rng() * 0.9) * scale;
+    kit.cylinder(0.09 * scale, 0.16 * scale, 1.3 * scale, x, 0.6 * scale, z, '#6d4c33', 5);
+    kit.blob(r, x, 1.5 * scale + r * 0.4, z, rng() < 0.6 ? P.leafDark : P.leaf, 0.85);
+    if (rng() < 0.5) {
+      kit.blob(r * 0.62, x + r * 0.6, 1.3 * scale + r * 0.5, z + (rng() - 0.5) * r, '#4a7a45', 0.8);
+    }
+  };
+  // West and east belts (skip the river band where the water runs out)
+  for (const sx of [-1, 1]) {
+    for (let z = -82; z < 94; z += 4.5) {
+      if (z > 16 && z < 52) continue;
+      const jitterX = sx * (91.5 + rng() * 5);
+      cluster(jitterX, z + (rng() - 0.5) * 3, 0.9 + rng() * 0.7);
+      if (rng() < 0.5) cluster(sx * (97 + rng() * 5), z + (rng() - 0.5) * 3, 1.0 + rng() * 0.8);
+    }
+  }
+  // South belt behind the last Gangnam row, between the backdrop towers
+  for (let x = -84; x < 86; x += 5) {
+    if (rng() < 0.35) continue;
+    cluster(x + (rng() - 0.5) * 3, 106 + rng() * 5, 1.0 + rng() * 0.9);
+  }
+  const mesh = kit.toMesh(MATERIALS.foliage, false, false);
+  return { object: mesh, colliders: [] };
 }
 
 /**

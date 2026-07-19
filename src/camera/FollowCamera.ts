@@ -160,9 +160,10 @@ export class FollowCamera {
   }
 
   /**
-   * Occlusion: if a building sits between the look target and the camera,
-   * pull the camera in front of the hit so the view never fills with the
-   * inside of a mesh.
+   * Occlusion: if a building (or bridge pylon) sits between the look target
+   * and the camera, pull the camera in front of the hit so the view never
+   * fills with the inside of a mesh. Three rays — center plus two lateral
+   * offsets — so near-misses that would still fill the frame get caught.
    */
   private applyOcclusion(pos: THREE.Vector3): THREE.Vector3 {
     if (this.occluders.length === 0) return pos;
@@ -170,11 +171,18 @@ export class FollowCamera {
     const len = dir.length();
     if (len < 1e-4) return pos;
     dir.normalize();
-    this.ray.set(this.currentLook, dir);
-    this.ray.far = len;
-    const hits = this.ray.intersectObjects(this.occluders, false);
-    if (hits.length === 0) return pos;
-    return this.currentLook.clone().addScaledVector(dir, Math.max(1.6, hits[0].distance - 0.4));
+    const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize().multiplyScalar(0.55);
+    let nearest = Infinity;
+    const origin = new THREE.Vector3();
+    for (const off of [0, 1, -1]) {
+      origin.copy(this.currentLook).addScaledVector(side, off);
+      this.ray.set(origin, dir);
+      this.ray.far = len;
+      const hits = this.ray.intersectObjects(this.occluders, false);
+      if (hits.length > 0) nearest = Math.min(nearest, hits[0].distance);
+    }
+    if (!isFinite(nearest)) return pos;
+    return this.currentLook.clone().addScaledVector(dir, Math.max(1.6, nearest - 0.4));
   }
 
   resize(aspect: number): void {

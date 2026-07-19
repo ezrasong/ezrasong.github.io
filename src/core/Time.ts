@@ -17,7 +17,10 @@ export class Time {
     this.last = performance.now();
     const loop = () => {
       const now = performance.now();
-      this.delta = Math.min((now - this.last) / 1000, 1 / 20);
+      // Clamp so tab-switches never explode physics, but keep the ceiling
+      // high enough (125ms) that slow machines run in real time, not slow
+      // motion — the physics substep budget absorbs the larger deltas.
+      this.delta = Math.min((now - this.last) / 1000, 1 / 8);
       this.last = now;
       this.elapsed += this.delta;
       for (const cb of this.callbacks) cb(this);

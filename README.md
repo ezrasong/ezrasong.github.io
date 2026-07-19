@@ -1,22 +1,35 @@
-# Voxel Seoul — Ezra Song's Interactive 3D Portfolio
+# Mini Seoul — Ezra Song's Interactive 3D Portfolio
 
-Drive a poro through a handcrafted miniature voxel Seoul. Each building in
-the city is a portfolio project — walk up to its entrance and press **E** to
-step inside. Built with Three.js, TypeScript, and cannon-es.
+Drive a poro through a handcrafted, cel-shaded miniature Seoul. Each
+building in the city is a portfolio project — walk up to its entrance and
+press **E** to step inside. Built with Three.js, TypeScript, and cannon-es.
 
 **Live site:** https://ezrasong.github.io
+
+## Visual direction
+
+The world is a stylized low-poly diorama, not a voxel grid: quantized
+cel lighting with tinted shadows, chamfered building masses with layered
+facades, a curving shoreline on a displaced terrain, an analytic shader
+river, wind-blown instanced grass, blob-cluster clouds, and a horizon of
+hazy ridges and backdrop city rows that carries the city past the playable
+edge. Lighting follows the real Seoul clock (sun by day, warm windows and
+neon by night), and the live Seoul weather drives clouds, rain, and snow.
 
 ## Inspiration & attribution
 
 The *interaction model* — a physics-driven character exploring a diorama
 world where locations open portfolio content — is inspired by
 [Bruno Simon's Folio 2019](https://github.com/brunosimon/folio-2019)
-(MIT License, © 2019 Bruno Simon). No code, models, textures, audio,
-branding, or personal content from that project is included here; the
-reference was studied for architectural ideas (application orchestration,
-fixed-step physics, action-map input, interaction zones), and everything in
-this repository — the voxel Seoul environment, the building generator, the
-UI, and all systems code — was written from scratch for this portfolio.
+(MIT License, © 2019 Bruno Simon), and the environmental ambition of the
+overhaul (shared shader uniforms, stylized water/grass/wind/clouds, day
+cycles, quality tiers) takes its *technical bar* from
+[Folio 2025](https://github.com/brunosimon/folio-2025). No code, models,
+textures, audio, branding, environments, or personal content from either
+project is included here; every system in this repository — the cel-shading
+materials, terrain, water shader, vegetation, clouds, building generator,
+UI — was written from scratch for this portfolio, targeting an original
+Seoul-inspired world rather than a copy of those projects' worlds.
 
 The player character (`public/models/poro.glb`) is a fan-made Poro model
 supplied by the site owner; the Poro character originates from League of
@@ -64,9 +77,81 @@ npm run test:smoke # browser smoke test (needs a server running; uses local Chro
 On touch devices a virtual joystick plus jump and `E` buttons appear
 automatically; pinning the joystick to its rim sprints.
 
-The city runs on a ~5-minute day/night cycle — a visible sun and moon arc
-overhead, and the sky, fog, and shadows follow. It starts in the golden
-late afternoon; at night the windows and neon carry the scene.
+The city keeps Seoul time — the in-world sun sits where the real one does
+over Seoul, and the sky, fog, cel shadow tint, and water follow its arc.
+Visit during Seoul's night and the windows, lamps, and neon carry the
+scene. Live Seoul weather (Open-Meteo) drives the clouds, rain, and snow.
+For development there's a console override:
+`__voxelSeoul.setTime(0.5)` forces noon, `setTime(null)` returns to live.
+
+## Rendering architecture
+
+All world shading flows through two shared modules:
+
+- **`world/Env.ts`** — one set of live uniform objects (time, wind
+  direction/strength, sun direction/color, ambient, fog, sky zenith/horizon,
+  daylight, weather gloom, shadow tint). `World.updateDayNight()` writes
+  them once per frame; the sky, water, grass, trees, clouds, and every cel
+  material read the same objects, so nothing can drift out of sync.
+- **`world/CelShading.ts`** — the cel material system. Materials are
+  `MeshToonMaterial` driven by generated gradient ramps (bands, softness,
+  shadow floor per profile), patched with a shared fragment block adding
+  tinted shadows (dark bands pull toward the atmosphere tint — never black),
+  optional sun-side rim light, and fresnel lift. Profiles: `concrete`,
+  `ground`, `foliage`, `metal`, `character` (the poro), `glass`.
+  `addWindSway()` patches any material's vertex stage with instancing-aware
+  wind displacement. Outlines are handled with modelled dark trims (window
+  frames, roof edges, curbs) plus rim light — inverted hulls gap on merged
+  hard-normal geometry, and screen-space edges would cost a full post pass.
+
+Environment systems built on top:
+
+- **Terrain** (`world/Terrain.ts`): the painted 208×208 canvas wraps a
+  displaced grid. The walkable urban core stays physically flat (collision
+  is authored against y=0), while fenced-off regions get real shape —
+  riverbanks slope to a riverbed, the Namsan base swells, and a vertex-
+  colored apron of rolling hills runs to the fog. The shoreline is
+  *analytic* (`shoreNorth/shoreSouth`), shared by the terrain mesh, the
+  ground painter, and the water shader (in GLSL), so all three always agree.
+- **Ground** (`world/GroundPainter.ts`): one canvas — mottled meadow tones,
+  curbed roads with rounded intersection fillets, lane dashes/edge lines/
+  arrows/crosswalks/stop lines, a bus lane, manholes and storm drains, the
+  stone hanok alley, curved park paths, and the plaza. It doubles as the
+  minimap texture.
+- **Water** (`world/Water.ts`): a single-draw-call `ShaderMaterial` river —
+  three wave trains in the vertex stage, depth-graded color, breathing foam
+  along both analytic shorelines and around bridge piers, cel-banded sun
+  glints, fresnel sky reflection, scene fog, and a plane that runs ~240
+  units past the map so the river dissolves into the fog instead of ending.
+- **Vegetation** (`world/Grass.ts`, trees in `world/Props.ts`): grass is an
+  `InstancedMesh` of crossed tapered blades (up-normals, base→tip gradient,
+  dry tufts and tiny flowers) placed in authored patches with per-patch
+  road/path/lot exclusions; reeds cluster along both waterlines. Trees come
+  in three instanced families (street, riverside, blossom) with two-tone
+  blob canopies that sway in the wind.
+- **Sky & clouds** (`world/Sky.ts`, `world/Weather.ts`): a gradient dome
+  with sun glow and fog haze; clouds are four blob-cluster silhouettes with
+  bright caps and shaded bellies, instanced at varied altitude/scale,
+  drifting with the wind and tinting with daylight and weather.
+- **Continuity**: hazy mountain ridges on three horizons, perimeter forest
+  belts, low-detail backdrop building rows, and the apron hills hide the
+  map edge; fog and the horizon dome finish the job.
+
+## Quality presets
+
+| | low | medium | high |
+| --- | --- | --- | --- |
+| pixel ratio cap | 1 | 1.5 | 2 |
+| shadows | off | 1024 | 2048 |
+| fog far | 150 | 200 | 260 |
+| grass density | 30% | 65% | 100% |
+| cloud clusters | 5 | 8 | 11 |
+| water sky reflection | off | on | on |
+
+Presets persist in `localStorage` and default to low on coarse-pointer
+(touch) devices. Draw calls stay in the 40–58 range and triangles at
+155–184k across presets — the whole city renders in a handful of merged
+meshes plus instanced vegetation.
 
 ## Folder structure
 
@@ -85,9 +170,21 @@ src/
     palette.ts           the diorama's color system
   physics/Physics.ts     cannon-es wrapper (fixed step, static box/cylinder helpers)
   input/Input.ts         keyboard + virtual joystick → analog axes
-  player/Player.ts       GLB normalization, animation, arcade movement, recovery
-  camera/FollowCamera.ts third-person follow + occlusion + district reveal
-  world/                 ground painter, voxel building factory, props, landmarks
+  player/Player.ts       GLB normalization, cel conversion, arcade movement, recovery
+  camera/FollowCamera.ts third-person follow + multi-ray occlusion + district reveal
+  world/
+    Env.ts               shared shader uniforms (the world's single clock)
+    CelShading.ts        cel material system + wind-sway vertex hook
+    Terrain.ts           displaced terrain, analytic shoreline, apron hills
+    GroundPainter.ts     the painted ground canvas (also the minimap)
+    Water.ts             the Han River shader
+    Grass.ts             instanced grass + reeds (authored patches)
+    Sky.ts               gradient sky dome
+    Weather.ts           live Seoul weather, rain/snow, blob clouds
+    voxel.ts             VoxelKit (boxes, chamfered boxes, prisms, blobs, bars)
+    VoxelBuilding.ts     the building factory (facades, roofs, signs, doors)
+    Props.ts             trees, streetlights, cars, furniture, filler city
+    Landmarks.ts         gate, Namsan, bridges, pier, mountains, forest belts
   interactions/          entrance triggers + enter/exit camera cinematic
   audio/AudioManager.ts  synthesized ambience/steps/jingles, persisted mute
   ui/                    loading, title, HUD, prompt, panel, directory
@@ -126,14 +223,41 @@ Drop any GLB at `public/models/poro.glb`. The loader normalizes scale
   models without animations still work — procedural lean/bounce/squash
   covers movement.
 
+## Editing the environment
+
+- **Colors:** everything picks from `src/config/palette.ts` — ground tones,
+  architecture, water (`waterDeep`/`waterShallow`/`foam`), neon, nature.
+  Day-cycle color stops (sky/fog/sun/shadow-tint) live at the bottom of
+  `src/world/World.ts`.
+- **Cel shading:** band counts, softness, shadow floors, and rim strengths
+  are the `PROFILES` table in `src/world/CelShading.ts`.
+- **Shoreline / terrain:** the river's curves are `shoreNorth`/`shoreSouth`
+  in `src/world/Terrain.ts` — note the same formulas exist in GLSL inside
+  `Water.ts`; change both together. Terrain shape is `terrainHeight()`.
+- **Grass:** add or edit authored patches in `PATCHES`
+  (`src/world/Grass.ts`); each patch carries its own exclusion test.
+- **Adding a project entrance:** add an entry in `src/config/projects.ts`
+  (or `places.ts`); the trigger, highlight ring, camera approach, collision,
+  and directory/minimap entries derive automatically from `position`,
+  `facing`, and `size`. Keep the door face clear of props and roads.
+
 ## Performance notes
 
-- Every structure is merged into at most two draw calls (lit + emissive).
-- Trees, streetlights are `InstancedMesh`; background city blocks merge
-  into a single mesh per batch; the whole ground is one painted canvas.
-- Quality presets (low/medium/high) cap device pixel ratio and shadow-map
-  size; the setting persists and defaults to low on coarse-pointer devices.
-- Physics and world updates pause while a panel is open.
+- Whole-city cost: 40–58 draw calls and 155–184k triangles depending on
+  preset (the pre-overhaul scene was 30 calls / 29k triangles — the visual
+  overhaul is ~6× geometry for ~2× draw calls, still far below what
+  integrated GPUs handle at 60 FPS).
+- Every structure is merged into at most three draw calls (lit + emissive
+  + signs); vegetation and streetlights are `InstancedMesh`; the whole
+  ground is one painted canvas on one displaced grid; the river is one
+  shader plane; clouds share four geometries and one material.
+- Grass density scales by truncating instance count (instances are
+  pre-shuffled so thinning stays even).
+- Physics and world updates pause while a panel is open; static matrices
+  are frozen after construction; the frame loop skips rendering entirely
+  when nothing animates.
+- Physics steps at a fixed 60 Hz with a deep substep budget, so slow
+  machines simulate real time instead of slow motion.
 
 ## Accessibility
 
