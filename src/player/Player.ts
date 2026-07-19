@@ -5,6 +5,35 @@ import { PLAYER_CONFIG as CFG } from '../config/player';
 import type { Physics } from '../physics/Physics';
 import type { Input } from '../input/Input';
 import { clamp, damp, dampAngle, moveToward } from '../utils/math';
+import { celMaterial } from '../world/CelShading';
+
+function unwrap<T>(arr: T[]): T | T[] {
+  return arr.length === 1 ? arr[0] : arr;
+}
+
+/** Radial-gradient blob shadow plane, hovering just above the ground. */
+function makeBlobShadow(): THREE.Mesh {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const g = ctx.createRadialGradient(size / 2, size / 2, 6, size / 2, size / 2, size / 2);
+  g.addColorStop(0, 'rgba(20,24,40,0.42)');
+  g.addColorStop(0.7, 'rgba(20,24,40,0.22)');
+  g.addColorStop(1, 'rgba(20,24,40,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.5, 1.5),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = 0.04;
+  mesh.renderOrder = 1;
+  return mesh;
+}
 
 /**
  * The Poro. A dynamic sphere in the physics world drives a normalized,
@@ -26,6 +55,7 @@ export class Player {
   grounded = true;
   frozen = false;
 
+  private blobShadow!: THREE.Mesh;
   private mixer?: THREE.AnimationMixer;
   private actions: Record<string, THREE.AnimationAction> = {};
   private activeLocomotion?: THREE.AnimationAction;
@@ -66,12 +96,38 @@ export class Player {
         child.receiveShadow = false;
         // Skinned mesh can wander outside its bind-pose bounds while animating.
         child.frustumCulled = false;
+        // Cel-shade the poro while preserving its textures: soft character
+        // bands + a warm rim so it sits in the stylized world instead of
+        // reading as a PBR import.
+        const mesh = child as THREE.Mesh;
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        mesh.material = unwrap(
+          mats.map((m) => {
+            const std = m as THREE.MeshStandardMaterial;
+            if (!std.isMaterial) return m;
+            const toon = celMaterial({
+              profile: 'character',
+              map: (std as THREE.MeshStandardMaterial).map ?? null,
+              color: std.color ?? '#ffffff',
+              transparent: std.transparent,
+              opacity: std.opacity,
+            });
+            toon.normalMap = std.normalMap ?? null;
+            toon.side = std.side;
+            return toon;
+          })
+        );
       }
     });
 
     this.rig.add(model);
     this.rig.position.y = CFG.groundOffset;
     this.container.add(this.rig);
+
+    // Soft blob contact shadow: grounds the poro on any surface, fading as
+    // it jumps. Cheap and always coherent with the cel look.
+    this.blobShadow = makeBlobShadow();
+    this.container.add(this.blobShadow);
 
     // --- Animations
     if (gltf.animations.length > 0) {
@@ -221,6 +277,12 @@ export class Player {
     this.lean = damp(this.lean, -steer * this.speedRatio * CFG.leanAmount, 8, dt);
     this.rig.rotation.z = this.lean * motionScale;
     this.rig.rotation.x = -this.speedRatio * 0.05 * motionScale;
+
+    // Contact shadow: fade and shrink while airborne.
+    const blobMat = this.blobShadow.material as THREE.MeshBasicMaterial;
+    blobMat.opacity = damp(blobMat.opacity, this.grounded ? 1 : 0.35, 10, dt);
+    const blobScale = this.grounded ? 1 : 0.7;
+    this.blobShadow.scale.setScalar(damp(this.blobShadow.scale.x, blobScale, 10, dt));
 
     this.bouncePhase += dt * CFG.bounceFrequency * (0.5 + this.speedRatio);
     const bounce = this.grounded

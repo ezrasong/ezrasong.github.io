@@ -17,12 +17,16 @@ export const PALETTE = {
   asphalt: '#585d68',
   asphaltLight: '#666b77',
   sidewalk: '#8f8a80',
+  curb: '#6e7076',
+  stone: '#9a948a',
   plaza: '#b3a389',
   plazaDark: '#a08f74',
   laneMark: '#d8d2c0',
   sand: '#c2b18c',
   water: '#3f6f8e',
   waterDeep: '#35607c',
+  waterShallow: '#4f86a6',
+  foam: '#dcebf2',
 
   // Architecture
   concrete: '#a8a29a',

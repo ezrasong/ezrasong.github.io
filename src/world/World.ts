@@ -5,7 +5,12 @@ import { PLACES, DISTRICTS } from '../config/places';
 import type { InteractionTarget, DistrictId } from '../types';
 import type { Physics } from '../physics/Physics';
 import type { QualityPreset } from '../core/Quality';
-import { createGround } from './GroundPainter';
+import { paintGroundCanvas } from './GroundPainter';
+import { createTerrain } from './Terrain';
+import { createSky } from './Sky';
+import { createWater } from './Water';
+import { ENV, timeOverride } from './Env';
+import { celMaterial } from './CelShading';
 import { buildStructure, facingToYaw, type BuiltStructure } from './VoxelBuilding';
 import {
   createTrees,
@@ -19,7 +24,6 @@ import {
 import {
   createGate,
   createNamsan,
-  createRiver,
   createPier,
   createSignpost,
   createBridge,
@@ -50,8 +54,6 @@ export class World {
   private moonMesh!: THREE.Mesh;
   private skyColor = new THREE.Color();
   private fogColor = new THREE.Color();
-  private riverUpdate?: (t: number) => void;
-  private riverObject?: THREE.Object3D;
 
   constructor(private physics: Physics) {
     this.scene.background = new THREE.Color(P.sky);
@@ -62,7 +64,9 @@ export class World {
     // Start, and until then both spheres would sit at the origin — the sun
     // disc filling the whole intro camera view as a featureless blob.
     this.updateDayNight();
-    this.scene.add(createGround());
+    this.scene.add(createSky());
+    const terrain = createTerrain(paintGroundCanvas());
+    this.scene.add(terrain.inner, terrain.apron);
     this.addLandmarks();
     this.addStructures();
     this.addFiller();
@@ -80,7 +84,6 @@ export class World {
    */
   private freezeStaticMatrices(): void {
     const animatedRoots = new Set<THREE.Object3D>(this.highlights.values());
-    if (this.riverObject) animatedRoots.add(this.riverObject);
     animatedRoots.add(this.sunMesh);
     animatedRoots.add(this.moonMesh);
     this.scene.traverse((obj) => {
@@ -133,7 +136,7 @@ export class World {
    * windows and neon.
    */
   private updateDayNight(): void {
-    const dayFrac = seoulDayFraction();
+    const dayFrac = timeOverride ?? seoulDayFraction();
     // 06:00 → sunrise (e=0 rising), 12:00 → noon (e=1), 18:00 → sunset.
     const angle = (dayFrac - 0.25) * Math.PI * 2;
     const e = Math.sin(angle); // sun elevation, -1..1
@@ -172,6 +175,21 @@ export class World {
     (this.scene.background as THREE.Color).copy(this.skyColor);
     (this.scene.fog as THREE.Fog).color.copy(this.fogColor);
     this.hemi.intensity = (0.68 + smoothstep(-0.12, 0.45, e) * 0.85) * (1 - gloom * 0.28);
+
+    // --- Feed the shared shader uniforms (sky dome, water, grass, cel rims)
+    ENV.sunDir.value.copy(this.sun.position).normalize();
+    ENV.sunColor.value.copy(this.sun.color);
+    ENV.daylight.value = daylight;
+    ENV.gloom.value = gloom;
+    ENV.fogColor.value.copy(this.fogColor);
+    ENV.skyZenith.value.copy(this.skyColor);
+    // Horizon: sky pulled toward fog, blushing toward the sun at dusk.
+    ENV.skyHorizon.value
+      .copy(this.skyColor)
+      .lerp(this.fogColor, 0.7)
+      .lerp(SUN_HORIZON, Math.max(0, dusk - day) * 0.28 * (1 - gloom));
+    ENV.shadowTint.value.lerpColors(SHADOW_NIGHT, SHADOW_DAY, daylight);
+    ENV.windStrength.value = 1 + gloom * 1.4;
   }
 
   applyQuality(preset: QualityPreset): void {
@@ -287,10 +305,8 @@ export class World {
     // never wade into the mesh.
     this.physics.addStaticCylinder(0, 6, -58, NAMSAN_BASE_RADIUS + 0.3, 12);
 
-    const river = createRiver();
-    this.scene.add(river.object);
-    this.riverUpdate = river.update;
-    this.riverObject = river.object;
+    const water = createWater();
+    this.scene.add(water.object);
 
     // Two road bridges cross the Han: the main Hangang bridge on the spine
     // and the Yanghwa bridge linking Hongdae to Yeouido.
@@ -573,8 +589,8 @@ export class World {
     ];
     // Low parapet walls sitting on the ground (a floating rail bar reads as
     // a glitch at night), in a muted tone that blends with the banks.
-    const railMat = new THREE.MeshLambertMaterial({ color: '#46545e' });
-    const capMat = new THREE.MeshLambertMaterial({ color: '#55646f' });
+    const railMat = celMaterial({ profile: 'concrete', color: '#46545e' });
+    const capMat = celMaterial({ profile: 'concrete', color: '#55646f' });
     const addBank = (segs: [number, number][], z: number) => {
       for (const [a, b] of segs) {
         const len = b - a;
@@ -591,16 +607,7 @@ export class World {
     };
     addBank(northSegs, 19.4);
     addBank(southSegs, 48.6);
-
-    // The river flows off both edges of the map: carry the water color to
-    // the fog horizon east and west so the banks never read as a table edge.
-    const horizonMat = new THREE.MeshLambertMaterial({ color: P.waterDeep });
-    for (const sx of [-1, 1]) {
-      const strip = new THREE.Mesh(new THREE.PlaneGeometry(140, 30), horizonMat);
-      strip.rotation.x = -Math.PI / 2;
-      strip.position.set(sx * 170, -0.04, 34);
-      this.scene.add(strip);
-    }
+    // (The water plane itself now runs to the fog horizon east and west.)
   }
 
   /* ---------------------------------------------------------------- */
@@ -723,8 +730,8 @@ export class World {
   }
 
   update(elapsed: number): void {
+    ENV.time.value = elapsed;
     this.updateDayNight();
-    this.riverUpdate?.(elapsed);
     // Pulse whichever highlight is visible
     for (const h of this.highlights.values()) {
       if (!h.visible) continue;
@@ -745,6 +752,8 @@ const DUSK_FOG = new THREE.Color('#54507a');
 const DAY_FOG = new THREE.Color('#8299bd');
 const SUN_HORIZON = new THREE.Color('#ff9a5c');
 const SUN_NOON = new THREE.Color('#fff2dc');
+const SHADOW_NIGHT = new THREE.Color('#454b78');
+const SHADOW_DAY = new THREE.Color('#6b70a0');
 
 // Seoul wall-clock as a fraction of the day, recomputed at most once per
 // second (Intl formatting is too costly to run every frame).

@@ -10,6 +10,7 @@ import { FollowCamera } from '../camera/FollowCamera';
 import { World } from '../world/World';
 import { Weather, WEATHER_LABEL } from '../world/Weather';
 import { getGroundCanvas } from '../world/GroundPainter';
+import { setTimeOverride } from '../world/Env';
 import { Interactions } from '../interactions/Interactions';
 import { AudioManager } from '../audio/AudioManager';
 import { UI } from '../ui/UI';
@@ -182,6 +183,10 @@ export class App {
       weather: this.weather,
       targets: this.world.targets,
       teleport: (x: number, z: number, yaw?: number) => this.teleport(x, z, yaw),
+      setTime: (frac: number | null) => {
+        setTimeOverride(frac);
+        this.stillFrames = 0;
+      },
       isPanelOpen: () => this.panel.isOpen,
       start: () => (document.querySelector('.title-start') as HTMLButtonElement | null)?.click(),
       pressInteract: () => this.input.triggerInteract(),
