@@ -93,6 +93,33 @@ export class VoxelKit {
     this.parts.push(geo);
   }
 
+  /**
+   * Straight square-section member between two points — stay cables,
+   * struts, diagonal braces.
+   */
+  bar(
+    x1: number, y1: number, z1: number,
+    x2: number, y2: number, z2: number,
+    thickness: number,
+    color: string
+  ): void {
+    const from = new THREE.Vector3(x1, y1, z1);
+    const to = new THREE.Vector3(x2, y2, z2);
+    const dir = to.clone().sub(from);
+    const len = dir.length();
+    if (len < 1e-5) return;
+    const geo = new THREE.BoxGeometry(thickness, len, thickness);
+    const quat = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      dir.clone().normalize()
+    );
+    geo.applyQuaternion(quat);
+    const mid = from.clone().add(to).multiplyScalar(0.5);
+    geo.translate(mid.x, mid.y, mid.z);
+    paint(geo, color);
+    this.parts.push(geo);
+  }
+
   /** Cylinder for trunks, poles, towers. Center at (x,y,z). */
   cylinder(rTop: number, rBottom: number, h: number, x: number, y: number, z: number, color: string, segments = 8): void {
     const geo = new THREE.CylinderGeometry(rTop, rBottom, h, segments);
@@ -123,8 +150,16 @@ export class VoxelKit {
 
   /** Merge everything into one geometry. The kit is spent afterwards. */
   merge(): THREE.BufferGeometry {
-    const merged = mergeGeometries(this.parts, false);
-    for (const p of this.parts) p.dispose();
+    // Primitives are a mix of indexed (Box/Cylinder) and non-indexed
+    // (RoundedBox/Extrude/Icosahedron) geometries; normalize before merging.
+    const parts = this.parts.map((p) => {
+      if (!p.index) return p;
+      const ni = p.toNonIndexed();
+      p.dispose();
+      return ni;
+    });
+    const merged = mergeGeometries(parts, false);
+    for (const p of parts) p.dispose();
     this.parts = [];
     return merged;
   }

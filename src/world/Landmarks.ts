@@ -215,17 +215,25 @@ export function createRiver(): { object: THREE.Object3D; update: (t: number) => 
 }
 
 /**
- * A drivable Han River road bridge: low deck with sidewalks, railings,
- * lane dashes, lamps, and piers standing in the water. The deck top sits
- * 22cm up, reached over a 10cm ramp slab — two shallow steps the player
- * sphere rolls over without noticing.
+ * A drivable Han River road bridge. Two coherent structural styles:
+ *
+ *  - 'cable': a compact cable-stayed bridge — twin A-pylons rising from the
+ *    water with stay cables fanning to the deck edge (the main Hangang
+ *    crossing, silhouette inspired by Seoul's Olympic Bridge)
+ *  - 'girder': a modern concrete girder bridge on tapered twin-column
+ *    piers with cap beams (the quieter Yanghwa crossing)
+ *
+ * Both keep the same walkable layout: deck top 29cm reached over a shallow
+ * ramp slab, chamfered deck fascia, sidewalks, railings, lamps, and piers
+ * that reach the riverbed.
  */
 export function createBridge(
   x: number,
   width: number,
   name?: string,
   z0 = 15,
-  z1 = 49.5
+  z1 = 49.5,
+  style: 'cable' | 'girder' = 'girder'
 ): LandmarkResult {
   const kit = new VoxelKit();
   const glow = new VoxelKit();
@@ -233,40 +241,92 @@ export function createBridge(
   const len = z1 - z0;
   const cz = (z0 + z1) / 2;
 
+  const STEEL = '#4a6e84';
+  const STEEL_DARK = '#39586e';
+  const CONCRETE = '#8b9099';
+  const CONCRETE_DARK = '#6e747d';
+
   // Deck (top 0.29, above the tallest wave) + approach ramps that finish on
   // the banks — never on top of a road junction. Surface colors match the
   // painted roads so bridge and street read as one network.
   kit.box(width, 0.34, len, x, 0.12, cz, P.asphalt);
+  // Chamfered fascia girders along both deck edges, hanging below the slab.
+  for (const side of [-1, 1]) {
+    kit.rbox(0.5, 0.62, len, x + side * (width / 2 - 0.05), -0.2, cz, CONCRETE_DARK, 0.12);
+  }
   kit.box(width, 0.145, 3, x, 0.0725, z0 - 1.5, P.asphalt);
   kit.box(width, 0.145, 3, x, 0.0725, z1 + 1.5, P.asphalt);
   // Sidewalk strips along both edges
   for (const side of [-1, 1]) {
     kit.box(1.0, 0.42, len, x + side * (width / 2 - 0.5), 0.14, cz, P.sidewalk);
   }
-  // Center lane dashes
+  // Center lane dashes + edge lines
   for (let z = z0 + 2; z < z1 - 1; z += 4) {
     kit.box(0.24, 0.04, 1.4, x, 0.31, z, P.laneMark);
   }
-  // Railings: posts + continuous beam
+  for (const side of [-1, 1]) {
+    kit.box(0.12, 0.03, len - 2, x + side * (width / 2 - 1.15), 0.31, cz, '#9aa0a8');
+  }
+  // Railings: posts, twin rails, and a mid mesh band
   for (const side of [-1, 1]) {
     const rx = x + side * (width / 2 - 0.12);
-    for (let z = z0; z <= z1; z += 5) {
-      kit.box(0.14, 1.05, 0.14, rx, 0.85, z, '#39586e');
+    for (let z = z0; z <= z1; z += 2.5) {
+      kit.box(0.12, 1.05, 0.12, rx, 0.85, z, STEEL_DARK);
     }
-    kit.box(0.1, 0.14, len, rx, 1.42, cz, '#4a7085');
+    kit.box(0.09, 0.12, len, rx, 1.42, cz, STEEL);
+    kit.box(0.06, 0.07, len, rx, 1.05, cz, STEEL);
+    kit.box(0.06, 0.07, len, rx, 0.68, cz, STEEL);
   }
   // Lamps every 10m, alternating sides
   let lampSide = 1;
   for (let z = z0 + 5; z < z1; z += 10) {
     const lx = x + lampSide * (width / 2 - 0.12);
-    kit.box(0.12, 1.6, 0.12, lx, 2.15, z, '#4d5560');
-    glow.box(0.3, 0.18, 0.3, lx, 3.0, z, P.lampGlow);
+    kit.cylinder(0.05, 0.07, 1.6, lx, 2.15, z, '#4d5560', 6);
+    kit.box(0.34, 0.1, 0.16, lx - lampSide * 0.12, 2.98, z, '#4d5560');
+    glow.box(0.26, 0.12, 0.2, lx - lampSide * 0.2, 2.9, z, P.lampGlow);
     lampSide *= -1;
   }
-  // Piers standing in the water
-  for (let z = z0 + 7; z < z1 - 4; z += 10) {
-    kit.box(width - 1.6, 1.7, 1.3, x, -0.75, z, '#6e747d');
-    kit.box(width - 0.8, 0.35, 1.7, x, 0.02, z, '#787e88');
+
+  if (style === 'cable') {
+    // --- Twin A-pylons with fanned stay cables.
+    for (const pz of [z0 + 9, z1 - 9.5]) {
+      for (const side of [-1, 1]) {
+        const px = x + side * (width / 2 + 0.35);
+        // Legs lean together toward the top.
+        kit.bar(px + side * 0.5, -1.6, pz, px - side * 0.35, 9.2, pz, 0.55, '#c8555a');
+        // Foot pier into the water
+        kit.rbox(1.6, 2.2, 2.4, px + side * 0.3, -1.0, pz, CONCRETE_DARK, 0.15);
+      }
+      // Crossbeams
+      kit.box(width + 1.4, 0.5, 0.5, x, 8.6, pz, '#c8555a');
+      kit.box(width + 2.2, 0.45, 0.55, x, 3.7, pz, '#b04b50');
+      // Beacon on top
+      glow.box(0.22, 0.22, 0.22, x, 9.1, pz, '#ff5d5d');
+      // Stay cables fanning both directions along the deck
+      for (const dir of [-1, 1]) {
+        for (let i = 1; i <= 4; i++) {
+          const dz = pz + dir * (2.5 + i * 2.6);
+          if (dz < z0 + 0.5 || dz > z1 - 0.5) continue;
+          for (const side of [-1, 1]) {
+            const rx2 = x + side * (width / 2 - 0.15);
+            kit.bar(x + side * 0.28, 8.35, pz, rx2, 0.5, dz, 0.05, '#dfe4ea');
+          }
+        }
+      }
+    }
+    // Mid-span pier
+    kit.rbox(width - 2.4, 1.7, 1.2, x, -0.75, cz, CONCRETE_DARK, 0.2);
+    kit.box(width - 1.6, 0.35, 1.6, x, 0.02, cz, CONCRETE);
+  } else {
+    // --- Girder piers: twin tapered columns + cap beam, reaching the bed.
+    for (let z = z0 + 7; z < z1 - 4; z += 10) {
+      for (const side of [-1, 1]) {
+        kit.cylinder(0.5, 0.72, 2.4, x + side * (width / 2 - 1.3), -0.9, z, CONCRETE_DARK, 10);
+      }
+      kit.rbox(width - 0.8, 0.5, 1.5, x, 0.0, z, CONCRETE, 0.14);
+      // Waterline footing
+      kit.box(width - 0.6, 0.3, 1.8, x, -1.35, z, '#5f656e');
+    }
   }
 
   group.add(kit.toMesh(MATERIALS.lit));

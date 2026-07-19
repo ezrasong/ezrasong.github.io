@@ -308,13 +308,13 @@ export class World {
     const water = createWater();
     this.scene.add(water.object);
 
-    // Two road bridges cross the Han: the main Hangang bridge on the spine
-    // and the Yanghwa bridge linking Hongdae to Yeouido.
-    const hangangBridge = createBridge(0, 7, '한강대교 HANGANG BR.');
+    // Two road bridges cross the Han: the main cable-stayed Hangang bridge
+    // on the spine and the girder Yanghwa bridge linking Hongdae to Yeouido.
+    const hangangBridge = createBridge(0, 7, '한강대교 HANGANG BR.', 15, 49.5, 'cable');
     this.scene.add(hangangBridge.object);
     this.registerColliders(hangangBridge);
 
-    const yanghwaBridge = createBridge(-48, 6, '양화대교 YANGHWA BR.');
+    const yanghwaBridge = createBridge(-48, 6, '양화대교 YANGHWA BR.', 15, 49.5, 'girder');
     this.scene.add(yanghwaBridge.object);
     this.registerColliders(yanghwaBridge);
 
