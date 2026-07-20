@@ -28,7 +28,7 @@ export class Panel {
         </header>
         <div class="panel-body"></div>
         <footer class="panel-footer">
-          <span class="panel-hint">ESC — 닫기 close</span>
+          <span class="panel-hint">ESC · 닫기 close</span>
         </footer>
       </section>`;
     container.appendChild(this.root);
@@ -88,8 +88,12 @@ function el(tag: string, className: string, text?: string): HTMLElement {
 function externalLink(href: string, label: string, primary = false): HTMLAnchorElement {
   const a = document.createElement('a');
   a.href = href;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
+  // mailto: hands off to the mail client — a _blank target just leaves an
+  // empty tab behind.
+  if (!href.startsWith('mailto:')) {
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+  }
   a.className = primary ? 'btn btn-primary' : 'btn';
   a.textContent = label;
   return a;
@@ -151,7 +155,7 @@ function renderPlace(target: InteractionTarget): DocumentFragment {
       const div = el('div', 'panel-meta-row');
       div.appendChild(el('dt', '', '학력 Education'));
       div.appendChild(
-        el('dd', '', `${PROFILE.education.school} — ${PROFILE.education.program} (${PROFILE.education.range})`)
+        el('dd', '', `${PROFILE.education.school}: ${PROFILE.education.program} (${PROFILE.education.range})`)
       );
       edu.appendChild(div);
       frag.appendChild(edu);
@@ -179,24 +183,21 @@ function renderPlace(target: InteractionTarget): DocumentFragment {
       break;
     }
     case 'contact': {
-      frag.appendChild(el('p', 'panel-para', '가장 빠른 연결은 이메일입니다 — email is the fastest line.'));
+      frag.appendChild(el('p', 'panel-para', '가장 빠른 연결은 이메일입니다 · email is the fastest line.'));
       const actions = el('div', 'panel-actions panel-actions-column');
-      actions.appendChild(externalLink(`mailto:${PROFILE.links.email}`, `✉ ${PROFILE.links.email}`, true));
-      actions.appendChild(externalLink(PROFILE.links.linkedin, 'in · LinkedIn'));
+      actions.appendChild(externalLink(`mailto:${PROFILE.links.email}`, PROFILE.links.email, true));
+      actions.appendChild(externalLink(PROFILE.links.github, 'GitHub · github.com/ezrasong'));
+      actions.appendChild(externalLink(PROFILE.links.linkedin, 'LinkedIn'));
+      actions.appendChild(externalLink(PROFILE.links.resume, '이력서 · Résumé (PDF)'));
       frag.appendChild(actions);
       break;
     }
     case 'links': {
-      frag.appendChild(el('p', 'panel-para', '이번 열차의 행선지 — departures from this station:'));
+      frag.appendChild(el('p', 'panel-para', '이번 열차의 행선지 · departures from this station:'));
       const actions = el('div', 'panel-actions panel-actions-column');
-      actions.appendChild(externalLink(PROFILE.links.github, '🐙 GitHub — github.com/ezrasong', true));
-      actions.appendChild(externalLink(PROFILE.links.linkedin, 'in · LinkedIn'));
-      const resume = document.createElement('a');
-      resume.href = PROFILE.links.resume;
-      resume.className = 'btn';
-      resume.textContent = '📄 이력서 · Résumé (PDF)';
-      resume.setAttribute('download', '');
-      actions.appendChild(resume);
+      actions.appendChild(externalLink(PROFILE.links.github, 'GitHub · github.com/ezrasong', true));
+      actions.appendChild(externalLink(PROFILE.links.linkedin, 'LinkedIn'));
+      actions.appendChild(externalLink(PROFILE.links.resume, '이력서 · Résumé (PDF)'));
       frag.appendChild(actions);
       break;
     }

@@ -48,7 +48,7 @@ export class UI {
           <span class="hud-name">${PROFILE.name}<small>${PROFILE.title}</small></span>
           <div class="minimap-wrap">
             <canvas class="minimap" width="320" height="320" role="button" tabindex="0"
-              aria-label="City minimap — scroll to zoom, click to expand"></canvas>
+              aria-label="City minimap, scroll to zoom, click to expand"></canvas>
             <span class="minimap-expand" aria-hidden="true">⤢</span>
           </div>
           <span class="hud-weather" aria-live="polite"></span>

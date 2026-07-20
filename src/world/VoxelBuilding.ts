@@ -134,8 +134,10 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
       for (let c = 0; c < cols; c++) {
         const along = startOffset + c * 1.7;
         const isFront = axis === 'x' && sign === 1;
-        // Ground floor: door column clear; shops get a storefront instead.
-        if (f === 0 && (isShop || (isFront && Math.abs(along) < 1.5))) continue;
+        // Ground floor: door column clear; shops get a storefront instead,
+        // office towers a glass lobby.
+        const clearsGroundFront = spec.type === 'office-tower' || Math.abs(along) < 1.5;
+        if (f === 0 && (isShop || (isFront && clearsGroundFront))) continue;
         // Floor 1: keep the sign band clear on the front face.
         if (f === 1 && isFront && Math.abs(along) < signW / 2 + winW / 2 + 0.2) continue;
         const y = f * FLOOR_H + FLOOR_H * 0.58;
@@ -208,7 +210,8 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
       // Neon frame stripes up the front corners + marquee
       glow.box(0.18, h * 0.9, 0.18, w / 2 + 0.05, h * 0.45, d / 2 - 0.3, P.neonPink);
       glow.box(0.18, h * 0.9, 0.18, w / 2 + 0.05, h * 0.45, -d / 2 + 0.3, P.neonCyan);
-      glow.box(0.15, 0.15, d, w / 2 + 0.08, h - 0.4, 0, P.neonYellow);
+      // Marquee rides between the top window frames and the parapet
+      glow.box(0.15, 0.15, d, w / 2 + 0.08, h - 0.34, 0, P.neonYellow);
       // Checkered entry tiles
       for (let i = 0; i < 4; i++) {
         for (let j = 0; j < 2; j++) {
@@ -222,9 +225,9 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
       break;
     }
     case 'creative-studio': {
-      // Cream band + awning over the door (rooted into the wall face)
+      // Cream band above the storefront (the shop awning already covers
+      // the door, so no second awning here)
       kit.box(w + 0.1, 0.5, d + 0.1, 0, FLOOR_H, 0, '#e5d9bd');
-      kit.box(0.9, 0.12, 3.4, w / 2 + 0.42, FLOOR_H * 0.85, 0, spec.accent);
       // Paper stack by the door
       kit.boxOn(0.7, 0.5, 0.9, w / 2 + 0.9, 0, 2.3, '#efe9da');
       kit.boxOn(0.6, 0.35, 0.8, w / 2 + 0.9, 0.5, 2.3, '#e2dbc8');
@@ -252,9 +255,10 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
       break;
     }
     case 'server-facility': {
-      // AC units + vent rows + status LEDs
+      // AC units + vent rows + status LEDs (vents flank the door column so
+      // they never float over the doorway or hide the door lamp)
       for (const zz of [-d / 4, d / 4]) kit.boxOn(1.6, 1.0, 1.6, -w / 4, h, zz, '#9aa0a5');
-      for (let i = 0; i < 3; i++) kit.box(0.1, 1.6, 1.2, w / 2 + 0.04, h * 0.5, -d / 3 + i * (d / 3), '#5f6569');
+      for (const zz of [-d / 4, d / 4]) kit.box(0.1, 1.6, 1.2, w / 2 + 0.04, h * 0.5, zz, '#5f6569');
       for (let i = 0; i < 5; i++) glow.box(0.08, 0.12, 0.12, w / 2 + 0.06, 1.9, -1.6 + i * 0.8, i % 2 ? P.neonGreen : '#3f8f46');
       // Pipes
       kit.cylinder(0.16, 0.16, h, 0.16, h / 2, d / 2 + 0.2, '#8f959a', 6);
@@ -266,8 +270,15 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
       kit.boxOn(w * 0.62, 0.25, d * 0.62, 0, h + FLOOR_H, 0, style.roof);
       kit.boxOn(0.18, 2.8, 0.18, 0, h + FLOOR_H + 0.2, 0, '#4d565f');
       glow.box(0.26, 0.26, 0.26, 0, h + FLOOR_H + 3.1, 0, '#ff5d5d');
-      // Glass lobby
-      glow.box(0.1, FLOOR_H * 0.7, d * 0.7, w / 2 + 0.02, FLOOR_H * 0.4, 0, P.windowCool);
+      // Glass lobby: framed panes flanking the doorway on the ground band,
+      // mounted like the window grid so the door stays visible.
+      const bx = (w - 0.24) / 2;
+      const paneD = d * 0.35 - 1.3;
+      for (const s of [-1, 1] as const) {
+        const zc = s * (1.3 + paneD / 2);
+        kit.box(0.1, FLOOR_H * 0.62 + 0.18, paneD + 0.18, bx + 0.02, FLOOR_H * 0.42, zc, FRAME);
+        glow.box(0.08, FLOOR_H * 0.62, paneD, bx + 0.06, FLOOR_H * 0.42, zc, P.windowCool);
+      }
       break;
     }
     case 'workshop': {
@@ -376,16 +387,19 @@ function buildHanok(spec: BuildingSpec): BuiltStructure {
   group.add(kit.toMesh(MATERIALS.lit));
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
 
+  // Name plaque under the eave: kept below the roof slab (bottom at 2.9)
+  // and in front of the door header (x up to w/2 + 0.12) so neither the
+  // eave nor the lintel ever cuts across the board.
   const sign = makeSign({
     text: spec.signText,
     subtext: spec.signSubtext,
     bg: '#2b2118',
     fg: '#ffd9a0',
-    width: 3.4,
-    height: 1.0,
+    width: 3.2,
+    height: 0.62,
     glow: true,
   });
-  sign.position.set(w / 2 + 0.1, bodyH + 0.4, 0);
+  sign.position.set(w / 2 + 0.18, 2.55, 0);
   sign.rotation.y = Math.PI / 2;
   group.add(sign);
 
@@ -502,7 +516,9 @@ function buildSubwayStation(spec: BuildingSpec): BuiltStructure {
       height: 1.1,
       glow: true,
     });
-    sign.position.set(0, signY, side * 0.06);
+    // 0.08: proud of both the board core (±0.04) and the post faces (±0.06)
+    // so neither surface z-fights the lettering.
+    sign.position.set(0, signY, side * 0.08);
     if (side === -1) sign.rotation.y = Math.PI;
     group.add(sign);
   }

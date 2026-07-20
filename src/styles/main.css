@@ -369,6 +369,10 @@ button {
   border-radius: 8px;
   letter-spacing: 0.04em;
 }
+/* Weather is disabled on the low preset — no chip when there's nothing to show. */
+.hud-weather:empty {
+  display: none;
+}
 
 @media (max-width: 640px) {
   .minimap {

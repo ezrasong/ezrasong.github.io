@@ -45,7 +45,7 @@ export class MapOverlay {
           <div class="map-player" aria-hidden="true"></div>
         </div>
       </div>
-      <footer class="panel-footer"><span class="panel-hint">표시를 누르면 이동 · click a marker to travel · ESC — 닫기 close</span></footer>`;
+      <footer class="panel-footer"><span class="panel-hint">표시를 누르면 이동 · click a marker to travel · ESC · 닫기 close</span></footer>`;
     this.root.appendChild(section);
     container.appendChild(this.root);
 

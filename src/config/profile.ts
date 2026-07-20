@@ -15,9 +15,9 @@ export const PROFILE = {
 
   about: {
     paragraphs: [
-      'I study mathematics at the University of Waterloo and build software that people actually use — course planners, chat clients, and research tooling.',
+      'I study mathematics at the University of Waterloo and build software that people actually use: course planners, chat clients, and research tooling.',
       'Right now I build frontend for research tools at Unmodal Research. Before that I shipped React Native prototypes, ran QA pipelines, and built production React UI.',
-      'This little Seoul is a love letter to the city — explore it, bump into things, and go knock on some doors.',
+      'This little Seoul is a love letter to the city. Explore it, bump into things, and go knock on some doors.',
     ],
   },
 
@@ -42,28 +42,28 @@ export const PROFILE = {
     {
       role: 'Frontend Engineer',
       company: 'Unmodal Research Inc.',
-      range: 'Jan 2026 — present',
+      range: 'Jan 2026 to present',
       summary:
         'Building frontend features and reusable UI components for internal and client-facing research tools.',
     },
     {
       role: 'Web Developer',
       company: 'DoBetter.love',
-      range: 'Sep — Nov 2025',
+      range: 'Sep to Nov 2025',
       summary:
         'Structured QA workflows for mobile app features: UI/UX consistency, edge-case validation, regression verification.',
     },
     {
       role: 'Mobile App Developer',
       company: 'AIXFF',
-      range: 'Jul — Aug 2025',
+      range: 'Jul to Aug 2025',
       summary:
         'Storefront prototype in React Native and Expo with modular API service layers and Context-based state.',
     },
     {
       role: 'Junior Software Engineer',
       company: 'North P&D',
-      range: 'Feb — Nov 2023',
+      range: 'Feb to Nov 2023',
       summary:
         'React UI components, responsiveness and accessibility improvements, cross-browser QA.',
     },
@@ -72,6 +72,6 @@ export const PROFILE = {
   education: {
     school: 'University of Waterloo',
     program: 'BMath, Honours Mathematics',
-    range: '2025 — 2029',
+    range: '2025 to 2029',
   },
 } as const;

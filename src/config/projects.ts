@@ -14,11 +14,11 @@ export const PROJECTS: ProjectData[] = [
     shortDescription: 'Interactive course planning for Waterloo students.',
     longDescription:
       'An interactive course-planning tool for University of Waterloo students: drag-and-drop term organization, real-time filtering across the course catalogue, Supabase OAuth for sign-in, persistent schedules, and full dark mode.',
-    role: 'Solo project — design, frontend, and Supabase backend.',
+    role: 'Solo project: design, frontend, and Supabase backend.',
     technologies: ['React', 'TypeScript', 'Supabase'],
     year: '2025',
     challenge:
-      'Keeping drag-and-drop term planning instant while every change syncs to Supabase — optimistic updates with reconciliation on the round trip.',
+      'Keeping drag-and-drop term planning instant while every change syncs to Supabase, with optimistic updates reconciled on the round trip.',
     outcome:
       'A planner with sign-in, persistent schedules, and real-time filtering that survives a full degree map without slowing down.',
     images: [
@@ -42,8 +42,8 @@ export const PROJECTS: ProjectData[] = [
     koreanTitle: '복셀 서울',
     shortDescription: 'The 3D portfolio you are standing in right now.',
     longDescription:
-      'This site: a playable miniature Seoul where a poro explores districts and buildings open portfolio content. The city, buildings, signs, and ground are all generated in code — merged voxel geometry, canvas-painted textures, and a physics-driven character controller.',
-    role: 'Everything — world design, engine architecture, and UI.',
+      'This site: a playable miniature Seoul where a poro explores districts and buildings open portfolio content. The city, buildings, signs, and ground are all generated in code, using merged voxel geometry, canvas-painted textures, and a physics-driven character controller.',
+    role: 'Everything: world design, engine architecture, and UI.',
     technologies: ['Three.js', 'TypeScript', 'cannon-es', 'Vite', 'GSAP'],
     year: '2026',
     challenge:
@@ -72,13 +72,13 @@ export const PROJECTS: ProjectData[] = [
     shortDescription: 'A lightweight, keyboard-driven realtime chat client.',
     longDescription:
       'A Discord-style chat client focused on speed: real-time messaging, channels, and presence indicators over WebSockets, wrapped in a minimal low-latency UI built for keyboard-driven navigation.',
-    role: 'Solo project — protocol, server, and client.',
+    role: 'Solo project: protocol, server, and client.',
     technologies: ['TypeScript', 'Node.js', 'WebSockets'],
     year: '2025',
     challenge:
-      'Fanning out messages and presence changes to every connected client without letting the UI thread hitch — small frames, patch-style updates, and aggressive batching.',
+      'Fanning out messages and presence changes to every connected client without letting the UI thread hitch, using small frames, patch-style updates, and aggressive batching.',
     outcome:
-      'A chat client where everything — switching channels, sending, searching — happens from the keyboard with no perceptible latency.',
+      'A chat client where everything, from switching channels to sending and searching, happens from the keyboard with no perceptible latency.',
     images: [
       {
         alt: 'Lowcord repository card',
@@ -123,7 +123,7 @@ export const PROJECTS: ProjectData[] = [
     shortDescription: 'A multi-purpose Discord bot built for 24/7 uptime.',
     longDescription:
       'A multi-purpose Discord bot supporting moderation, custom commands, and server utilities, with persistent configuration storage and defensive error handling so one misbehaving command never takes the whole bot down.',
-    role: 'Solo project — commands, persistence, and hosting.',
+    role: 'Solo project: commands, persistence, and hosting.',
     technologies: ['Python', 'discord.py'],
     year: '2024',
     challenge:

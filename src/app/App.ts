@@ -48,6 +48,22 @@ export class App {
   private insideTimer = 0;
   /** Frames rendered since the scene last changed; lets tick() skip identical frames. */
   private stillFrames = 0;
+  // Adaptive-quality sampling: seconds/frames in the current measurement
+  // window, consecutive slow windows, and seconds of actual play elapsed
+  // (a warm-up grace so first-frame JIT/decode jank never triggers a downgrade).
+  private perfAccum = 0;
+  private perfFrames = 0;
+  private perfSlowWindows = 0;
+  private playSeconds = 0;
+  // Dynamic resolution: a last-resort fill-rate valve once the lowest preset
+  // still can't hold framerate. 1 = native (capped by the preset); the monitor
+  // walks it down toward the floor, and the browser upscales the result.
+  private renderScale = 1;
+  private static readonly RENDER_SCALE_FLOOR = 0.5;
+  private perfModeAnnounced = false;
+  // The minimap is a per-frame CPU canvas redraw; 30 Hz is imperceptible on a
+  // navi map but frees main-thread time on weak machines.
+  private minimapAccum = 0;
 
   async init(canvasHost: HTMLElement, uiHost: HTMLElement): Promise<void> {
     this.ui = new UI(uiHost);
@@ -64,12 +80,16 @@ export class App {
       return;
     }
 
+    // Refine the auto quality default from GPU hints before the first frame,
+    // so software renderers never open on the high preset.
+    this.quality.applyDeviceHints(this.renderer);
+
     this.renderer.shadowMap.enabled = this.quality.current.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.32;
     this.renderer.setSize(this.sizes.width, this.sizes.height);
-    this.renderer.setPixelRatio(Math.min(this.sizes.pixelRatio, this.quality.current.pixelRatioCap));
+    this.applyPixelRatio();
     canvasHost.appendChild(this.renderer.domElement);
 
     this.ui.setProgress(0.05);
@@ -103,8 +123,10 @@ export class App {
     this.renderer.domElement.addEventListener('wheel', () => (this.stillFrames = 0), { passive: true });
 
     this.weather = new Weather(this.world.scene);
-    this.weather.init((kind) => this.ui.setWeather(WEATHER_LABEL[kind]));
-    this.weather.applyCloudCount(this.quality.current.clouds);
+    this.weather.init((kind) => {
+      if (this.quality.current.weather) this.ui.setWeather(WEATHER_LABEL[kind]);
+    });
+    this.applyWeatherQuality();
     this.ui.initMinimap(getGroundCanvas(), this.world.targets);
 
     this.ui.setProgress(1);
@@ -195,6 +217,9 @@ export class App {
         triangles: this.renderer.info.render.triangles,
         geometries: this.renderer.info.memory.geometries,
         textures: this.renderer.info.memory.textures,
+        pixelRatio: this.renderer.getPixelRatio(),
+        renderScale: this.renderScale,
+        drawingBufferWidth: this.renderer.domElement.width,
       }),
       setQuality: (level: 'low' | 'medium' | 'high') => {
         while (this.quality.current.level !== level) this.quality.cycle();
@@ -226,12 +251,16 @@ export class App {
       this.weather.update(dt, this.player.position.x, this.player.position.z, this.world.daylight);
       this.world.weatherDim = this.weather.dim;
       this.world.update(elapsed);
-      this.ui.updateMinimap(
-        this.player.position.x,
-        this.player.position.z,
-        this.player.yaw,
-        this.followCam.yaw
-      );
+      this.minimapAccum += dt;
+      if (this.minimapAccum >= 1 / 30) {
+        this.minimapAccum = 0;
+        this.ui.updateMinimap(
+          this.player.position.x,
+          this.player.position.z,
+          this.player.yaw,
+          this.followCam.yaw
+        );
+      }
       this.audio.updateMovement(this.player.speedRatio, dt, this.player.grounded);
       if (this.player.justLanded) this.audio.land();
       this.trackDistrict();
@@ -246,6 +275,70 @@ export class App {
       this.renderer.render(this.world.scene, this.followCam.camera);
       if (!sceneAnimating) this.stillFrames++;
     }
+
+    if (this.started && !presenting) this.monitorPerformance(dt, sceneAnimating);
+  }
+
+  /**
+   * Keep the frame rate playable on any hardware. While the scene is actually
+   * animating (not paused behind a modal) we average FPS over ~2s windows; two
+   * consecutive slow windows tune quality down. The preset only steps down on
+   * its own until the visitor picks a level by hand, but dynamic resolution —
+   * the last-resort fill-rate valve below the lowest preset — always engages,
+   * because a sub-30fps frame rate is unusable regardless of preference.
+   */
+  private monitorPerformance(dt: number, animating: boolean): void {
+    this.playSeconds += dt;
+    if (!animating || !this.started) return;
+    const canStepPreset = !this.quality.userSet && this.quality.current.level !== 'low';
+    const canScaleDown = this.renderScale > App.RENDER_SCALE_FLOOR;
+    if (!canStepPreset && !canScaleDown) return; // fully tuned out already
+    // Skip the first few seconds: startup shader compiles and asset decoding
+    // spike frame times in a way steady-state play never will.
+    if (this.playSeconds < 4) return;
+
+    this.perfAccum += dt;
+    this.perfFrames++;
+    if (this.perfAccum < 2) return;
+
+    const fps = this.perfFrames / this.perfAccum;
+    this.perfAccum = 0;
+    this.perfFrames = 0;
+
+    if (fps >= 45) {
+      this.perfSlowWindows = 0;
+      return;
+    }
+    if (++this.perfSlowWindows < 2) return;
+    this.perfSlowWindows = 0;
+
+    if (canStepPreset && this.quality.stepDown()) {
+      this.applyQuality();
+      this.ui.setQualityLabel(this.quality.current.label);
+      this.ui.showToast('그래픽 자동 조정', `Lowered to ${this.quality.current.label} for smoother play`);
+    } else if (this.reduceRenderScale()) {
+      if (!this.perfModeAnnounced) {
+        this.perfModeAnnounced = true;
+        this.ui.showToast('성능 모드', 'Performance mode on for smoother play');
+      }
+    }
+  }
+
+  /** Render at native resolution (capped by the preset) times renderScale. */
+  private applyPixelRatio(): void {
+    const base = Math.min(this.sizes.pixelRatio, this.quality.current.pixelRatioCap);
+    this.renderer.setPixelRatio(base * this.renderScale);
+  }
+
+  /** Step the internal resolution down toward the floor. Returns true if it
+   *  moved (false once already at the floor). */
+  private reduceRenderScale(): boolean {
+    const next = Math.max(App.RENDER_SCALE_FLOOR, Math.round((this.renderScale - 0.15) * 100) / 100);
+    if (next >= this.renderScale) return false;
+    this.renderScale = next;
+    this.applyPixelRatio();
+    this.stillFrames = 0;
+    return true;
   }
 
   private trackDistrict(): void {
@@ -369,6 +462,10 @@ export class App {
         this.ui.setSoundState(on);
       },
       onQuality: () => {
+        // A manual pick is an explicit judgment call: restore full internal
+        // resolution and let the visitor see the preset they chose.
+        this.renderScale = 1;
+        this.perfModeAnnounced = false;
         const preset = this.quality.cycle();
         this.applyQuality();
         this.ui.setQualityLabel(preset.label);
@@ -396,9 +493,9 @@ export class App {
     this.stillFrames = 0;
     const preset = this.quality.current;
     this.renderer.shadowMap.enabled = preset.shadows;
-    this.renderer.setPixelRatio(Math.min(this.sizes.pixelRatio, preset.pixelRatioCap));
+    this.applyPixelRatio();
     this.world.applyQuality(preset);
-    this.weather.applyCloudCount(preset.clouds);
+    this.applyWeatherQuality();
     // Force material recompile for shadow toggle
     this.world.scene.traverse((o) => {
       const mesh = o as THREE.Mesh;
@@ -409,11 +506,20 @@ export class App {
     });
   }
 
+  /** Toggle the weather system, cloud count, and HUD chip to match the preset
+   *  (weather is off on the low preset). */
+  private applyWeatherQuality(): void {
+    const preset = this.quality.current;
+    this.weather.setEnabled(preset.weather);
+    if (preset.weather) this.weather.applyCloudCount(preset.clouds);
+    this.ui.setWeather(preset.weather ? WEATHER_LABEL[this.weather.kind] : '');
+  }
+
   private wireResize(): void {
     this.sizes.onResize((s) => {
       this.stillFrames = 0;
       this.renderer.setSize(s.width, s.height);
-      this.renderer.setPixelRatio(Math.min(s.pixelRatio, this.quality.current.pixelRatioCap));
+      this.applyPixelRatio();
       this.followCam.resize(s.aspect);
     });
   }

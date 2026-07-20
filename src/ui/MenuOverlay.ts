@@ -42,14 +42,14 @@ export class MenuOverlay {
       </header>
       <div class="panel-body">
         <p class="panel-para menu-note">
-          걷기 싫을 때 — prefer not to walk? Open anything from here.
+          걷기 싫을 때 · prefer not to walk? Open anything from here.
         </p>
         <h3 class="panel-subhead">프로젝트 · Projects</h3>
         <ul class="menu-list" data-group="projects"></ul>
         <h3 class="panel-subhead">둘러보기 · Around town</h3>
         <ul class="menu-list" data-group="places"></ul>
       </div>
-      <footer class="panel-footer"><span class="panel-hint">ESC — 닫기 close</span></footer>`;
+      <footer class="panel-footer"><span class="panel-hint">ESC · 닫기 close</span></footer>`;
     this.root.appendChild(section);
     container.appendChild(this.root);
 

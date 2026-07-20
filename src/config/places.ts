@@ -10,7 +10,7 @@ export const PLACES: PlaceData[] = [
     kind: 'about',
     title: 'About Ezra',
     koreanTitle: '에즈라의 집',
-    tagline: 'A quiet hanok in the alley — come in for tea.',
+    tagline: 'A quiet hanok in the alley. Come in for tea.',
     buildingType: 'hanok-house',
     district: 'hanok',
     position: { x: 40, z: -51 },

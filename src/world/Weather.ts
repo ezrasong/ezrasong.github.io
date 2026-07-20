@@ -44,6 +44,7 @@ export class Weather {
   private dummy = new THREE.Object3D();
   private cycleTimer = 0;
   private usingFallback = false;
+  private enabled = true;
   private onChange?: (kind: WeatherKind) => void;
 
   constructor(scene: THREE.Scene) {
@@ -123,8 +124,31 @@ export class Weather {
   /** Quality presets cap how many clusters are visible. */
   applyCloudCount(count: number): void {
     this.clouds.forEach((c, i) => {
-      c.group.visible = i < count;
+      c.group.visible = this.enabled && i < count;
     });
+  }
+
+  /**
+   * Turn the whole weather system on/off. Off (the low preset) hides every
+   * particle and cloud, pins the sky to clear, and short-circuits the
+   * per-frame particle/cloud work — weather is pure overdraw with no gameplay
+   * value, so it is the first thing to go on weak hardware.
+   */
+  setEnabled(on: boolean): void {
+    if (this.enabled === on) return;
+    this.enabled = on;
+    if (!on) {
+      this.rain.visible = false;
+      this.snow.visible = false;
+      for (const c of this.clouds) c.group.visible = false;
+      this.targetDim = 0;
+      this.dim = 0;
+    } else {
+      this.rain.visible = this.kind === 'rain';
+      this.snow.visible = this.kind === 'snow';
+      this.targetDim = DIM_TARGET[this.kind];
+      // Cloud visibility is restored by the caller via applyCloudCount().
+    }
   }
 
   /** Start following the real Seoul sky, with a procedural fallback. */
@@ -154,13 +178,19 @@ export class Weather {
   setKind(kind: WeatherKind): void {
     if (kind === this.kind) return;
     this.kind = kind;
-    this.targetDim = DIM_TARGET[kind];
-    this.rain.visible = kind === 'rain';
-    this.snow.visible = kind === 'snow';
+    this.targetDim = this.enabled ? DIM_TARGET[kind] : 0;
+    this.rain.visible = this.enabled && kind === 'rain';
+    this.snow.visible = this.enabled && kind === 'snow';
     this.onChange?.(kind);
   }
 
   update(dt: number, px: number, pz: number, daylight = 1): void {
+    // Disabled (low preset): clear sky, nothing to animate.
+    if (!this.enabled) {
+      this.dim = 0;
+      return;
+    }
+
     // Ease the gloom in/out
     this.dim += (this.targetDim - this.dim) * Math.min(1, dt * 0.8);
 
