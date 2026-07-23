@@ -38,8 +38,8 @@ export const PROJECTS: ProjectData[] = [
   },
   {
     id: 'voxel-seoul',
-    title: 'Voxel Seoul',
-    koreanTitle: '복셀 서울',
+    title: 'Mini Seoul',
+    koreanTitle: '미니 서울',
     shortDescription: 'The 3D portfolio you are standing in right now.',
     longDescription:
       'This site: a playable miniature Seoul where a poro explores districts and buildings open portfolio content. The city, buildings, signs, and ground are all generated in code, using merged voxel geometry, canvas-painted textures, and a physics-driven character controller.',

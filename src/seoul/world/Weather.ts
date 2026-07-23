@@ -13,10 +13,10 @@ import { celMaterial } from './CelShading';
 export type WeatherKind = 'clear' | 'cloudy' | 'rain' | 'snow';
 
 export const WEATHER_LABEL: Record<WeatherKind, string> = {
-  clear: '☀️ 맑음 CLEAR',
-  cloudy: '☁️ 흐림 CLOUDY',
-  rain: '🌧️ 비 RAIN',
-  snow: '❄️ 눈 SNOW',
+  clear: '맑음 CLEAR',
+  cloudy: '흐림 CLOUDY',
+  rain: '비 RAIN',
+  snow: '눈 SNOW',
 };
 
 const DIM_TARGET: Record<WeatherKind, number> = {

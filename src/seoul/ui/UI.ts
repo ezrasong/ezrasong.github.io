@@ -30,7 +30,7 @@ export class UI {
 
       <div class="title-screen hidden">
         <div class="title-card">
-          <p class="title-kr">${PROFILE.koreanName} · 복셀 서울</p>
+          <p class="title-kr">${PROFILE.koreanName} · 미니 서울</p>
           <h1>${PROFILE.name}</h1>
           <p class="title-sub">${PROFILE.title}</p>
           <button type="button" class="btn btn-primary title-start">Press Start · 입장</button>
@@ -45,7 +45,10 @@ export class UI {
 
       <div class="hud hidden">
         <div class="hud-left">
-          <span class="hud-name">${PROFILE.name}<small>${PROFILE.title}</small></span>
+          <div class="hud-topline">
+            <a class="hud-btn hud-home" href="./" aria-label="Back to menu" title="Back to menu"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H7"/><path d="m12 6-6 6 6 6"/></svg><span class="hud-btn-label">MENU</span></a>
+            <span class="hud-name">${PROFILE.name}<small>${PROFILE.title}</small></span>
+          </div>
           <div class="minimap-wrap">
             <canvas class="minimap" width="320" height="320" role="button" tabindex="0"
               aria-label="City minimap, scroll to zoom, click to expand"></canvas>
@@ -54,9 +57,9 @@ export class UI {
           <span class="hud-weather" aria-live="polite"></span>
         </div>
         <div class="hud-right" role="toolbar" aria-label="Settings">
-          <button type="button" class="hud-btn hud-sound" aria-pressed="false" aria-label="Sound (muted)" title="Sound (muted)">🔇</button>
+          <button type="button" class="hud-btn hud-sound" aria-pressed="false" aria-label="Sound (muted)" title="Sound (muted)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="m17 9 4 6"/><path d="m21 9-4 6"/></svg></button>
           <button type="button" class="hud-btn hud-quality" title="Graphics quality"></button>
-          <button type="button" class="hud-btn hud-menu" aria-label="City directory (M)" title="City directory (M)">🗺<span class="hud-btn-label">지도 MAP</span></button>
+          <button type="button" class="hud-btn hud-menu" aria-label="City directory (M)" title="City directory (M)"><span class="hud-btn-label">지도 MAP</span></button>
           <button type="button" class="hud-btn hud-reset" aria-label="Reset position (R)" title="Reset position (R)">↺</button>
         </div>
       </div>
@@ -131,7 +134,9 @@ export class UI {
   }
 
   setSoundState(on: boolean): void {
-    this.soundBtn.textContent = on ? '🔊' : '🔇';
+    this.soundBtn.innerHTML = on
+      ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16 8a5 5 0 0 1 0 8"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="m17 9 4 6"/><path d="m21 9-4 6"/></svg>';
     this.soundBtn.setAttribute('aria-pressed', String(on));
     const label = on ? 'Sound (on)' : 'Sound (muted)';
     this.soundBtn.title = label;

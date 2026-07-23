@@ -3,121 +3,84 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Ezra Song · Voxel Seoul Portfolio</title>
+    <script>
+      document.documentElement.classList.add("js");
+      try {
+        var t = localStorage.getItem("theme");
+        document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    </script>
+    <title>Ezra Song</title>
     <meta
       name="description"
-      content="Drive a poro through a stylized low-poly Seoul and explore Ezra Song's projects, skills, and experience."
+      content="Ezra Song, software engineer. Two ways in: a straightforward portfolio, or a playable 3D Seoul."
     />
     <link rel="canonical" href="https://ezrasong.github.io/" />
     <meta name="author" content="Ezra Song" />
-    <meta name="theme-color" content="#1d1f2a" />
+    <meta name="theme-color" content="#efe6d4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#12151f" media="(prefers-color-scheme: dark)" />
 
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://ezrasong.github.io/" />
-    <meta property="og:title" content="Ezra Song · Voxel Seoul Portfolio" />
-    <meta
-      property="og:description"
-      content="Drive a poro through a stylized low-poly Seoul and explore Ezra Song's projects, skills, and experience."
-    />
-    <meta property="og:image" content="https://ezrasong.github.io/og.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Ezra Song · Voxel Seoul Portfolio" />
-    <meta
-      name="twitter:description"
-      content="A playable miniature Seoul: walk the city, enter buildings, meet the work."
-    />
-    <meta name="twitter:image" content="https://ezrasong.github.io/og.png" />
+    <meta property="og:title" content="Ezra Song" />
+    <meta property="og:description" content="Two ways in: a straightforward portfolio, or a playable 3D Seoul." />
 
-    <link rel="preload" href="/models/poro.glb" as="fetch" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=Silkscreen:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/src/style.css" />
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏙️</text></svg>"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='5' width='24' height='23' rx='5' fill='%23232838'/%3E%3Crect x='6' y='6' width='20' height='17' rx='4' fill='%23c96f4a'/%3E%3C/svg%3E"
     />
   </head>
-  <body>
-    <div id="canvas-host"></div>
-    <div id="ui-host"></div>
-    <noscript>
-      <div class="noscript-msg">
-        <h1>Ezra Song, Software Engineer</h1>
-        <p>This portfolio is an interactive 3D city and needs JavaScript.</p>
-        <p>
-          Meanwhile: <a href="https://github.com/ezrasong">GitHub</a> ·
-          <a href="https://linkedin.com/in/e34song">LinkedIn</a> ·
-          <a href="Ezra_Song_Resume.pdf">Résumé (PDF)</a>
+  <body class="chooser-page">
+    <main class="chooser">
+      <header class="chooser__head">
+        <p class="eyebrow chooser__eyebrow"><span class="eyebrow__prompt" aria-hidden="true">&gt;</span> ezra song</p>
+        <h1 class="chooser__title">Two ways in.</h1>
+        <p class="chooser__sub">
+          Same work, two builds. Pick one; there's a switch on the other side to come back.
         </p>
+      </header>
+
+      <div class="chooser__grid">
+        <a class="choice" href="./portfolio.html" data-choice="1">
+          <span class="choice__key key" aria-hidden="true">1</span>
+          <span class="choice__body">
+            <span class="choice__name">Portfolio</span>
+            <span class="choice__desc">
+              Clean and fast, with a real working terminal. The straightforward tour of the work.
+            </span>
+            <span class="choice__meta">pixel · terminal · keyboard</span>
+          </span>
+          <span class="choice__go" aria-hidden="true">→</span>
+        </a>
+
+        <a class="choice" href="./seoul.html" data-choice="2">
+          <span class="choice__key key" aria-hidden="true">2</span>
+          <span class="choice__body">
+            <span class="choice__name">Mini Seoul</span>
+            <span class="choice__desc">
+              Drive a poro through a stylized low-poly Seoul and knock on doors to open the work.
+            </span>
+            <span class="choice__meta">three.js · physics · webgl</span>
+          </span>
+          <span class="choice__go" aria-hidden="true">→</span>
+        </a>
       </div>
-    </noscript>
 
-    <!-- Text fallback: the same content the 3D city presents, readable by
-         crawlers and screen readers without entering the game. -->
-    <section class="sr-only" aria-label="Portfolio summary">
-      <h1>Ezra Song, Software Engineer</h1>
-      <p>
-        BMath student at the University of Waterloo (2025–2029), building frontend for research
-        tools at Unmodal Research. This site is a playable miniature Seoul; everything below is
-        also reachable through the in-game City Directory.
+      <p class="chooser__hint">
+        <span class="eyebrow__prompt" aria-hidden="true">&gt;</span>
+        press <b>1</b> or <b>2</b>, or click
       </p>
-      <h2>Projects</h2>
-      <ul>
-        <li>
-          <a href="https://github.com/ezrasong/UW-Course-Planner">UW Course Planner</a>:
-          interactive course planning for Waterloo students (React, TypeScript, Supabase).
-        </li>
-        <li>
-          <a href="https://github.com/ezrasong/ezrasong.github.io">Voxel Seoul</a>: this 3D
-          portfolio, a stylized low-poly Seoul with a physics-driven character (Three.js,
-          TypeScript, cannon-es).
-        </li>
-        <li>
-          <a href="https://github.com/ezrasong/lowcord">Lowcord</a>: a lightweight,
-          keyboard-driven realtime chat client (TypeScript, Node.js, WebSockets).
-        </li>
-        <li>
-          LeReplacer: award-winning hackathon browser extension for real-time face swapping in any
-          page (JavaScript, TensorFlow.js). Best Pitch, Go On Hacks 2025.
-        </li>
-        <li>
-          <a href="https://github.com/ezrasong/Discord-Bot">Discord Bot</a>: a multi-purpose
-          Discord bot built for 24/7 uptime (Python, discord.py).
-        </li>
-      </ul>
-      <h2>Contact</h2>
-      <p>
-        <a href="mailto:e34song@uwaterloo.ca">e34song@uwaterloo.ca</a> ·
-        <a href="https://github.com/ezrasong">GitHub</a> ·
-        <a href="https://linkedin.com/in/e34song">LinkedIn</a> ·
-        <a href="Ezra_Song_Resume.pdf">Résumé (PDF)</a>
-      </p>
-    </section>
+    </main>
 
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "Person",
-        "name": "Ezra Song",
-        "jobTitle": "Software Engineer",
-        "url": "https://ezrasong.github.io/",
-        "email": "mailto:e34song@uwaterloo.ca",
-        "alumniOf": {
-          "@type": "CollegeOrUniversity",
-          "name": "University of Waterloo"
-        },
-        "worksFor": {
-          "@type": "Organization",
-          "name": "Unmodal Research Inc."
-        },
-        "sameAs": ["https://github.com/ezrasong", "https://linkedin.com/in/e34song"]
-      }
-    </script>
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/chooser.ts"></script>
   </body>
 </html>

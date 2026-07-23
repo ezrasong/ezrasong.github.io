@@ -441,6 +441,23 @@ button {
   color: var(--accent);
 }
 
+/* Back-to-menu button sits in a row with the name plate, top-left. */
+.hud-topline {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.hud-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto;
+  min-width: 0;
+  padding: 0 0.7rem;
+  text-decoration: none;
+  border-color: var(--accent);
+}
+
 /* ---- prompt / toast / hint ---- */
 .prompt {
   position: absolute;
