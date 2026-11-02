@@ -74,14 +74,16 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
   let h = 0;
   let raf = 0;
   let last = 0;
-  let acc = 0;
+  let lastStep = 0;
+  let nextStep = 0;
   let clock = 0;
   let running = false;
   const snow: Snow[] = [];
   const food: Food[] = [];
   const prey = new PreyField();
 
-  // Low-power devices get 30 fps; the grid quantizes motion anyway.
+  // Keep simulation/rasterization light on low-power devices. The final
+  // glyph transitions still composite at the display's refresh rate.
   const lowPower = coarse || (navigator.hardwareConcurrency ?? 8) <= 4;
   const frameDt = lowPower ? 1 / 30 : 1 / 60;
 
@@ -128,7 +130,7 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
   };
 
   const snowView: Array<{ x: number; y: number; k: number }> = [];
-  const render = (): void => {
+  const render = (dt = 0): void => {
     if (!tpl || !motion) return;
     snowView.length = 0;
     for (const s of snow) snowView.push({ x: s.x, y: s.y, k: s.k });
@@ -138,7 +140,7 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
       snowView.push({ x: p.x, y: p.y, k: K_PREY + g });
     }
     updateMask();
-    renderer.draw(pod.map((o) => ({ tpl: o.tpl, pose: o.motion.pose })), yToScreen, snowView, clock);
+    renderer.draw(pod.map((o) => ({ tpl: o.tpl, pose: o.motion.pose })), yToScreen, snowView, clock, dt);
   };
 
   const step = (dt: number): void => {
@@ -240,18 +242,26 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     raf = requestAnimationFrame(loop);
     const dt = last ? Math.min(0.1, (now - last) / 1000) : frameDt;
     last = now;
-    acc += dt;
-    if (acc < frameDt * 0.92) return;
-    const d = Math.min(acc, 0.1);
-    acc = 0;
-    step(d);
-    render();
+    if (lowPower && now < nextStep) {
+      renderer.present(dt);
+      return;
+    }
+    const elapsed = lastStep ? Math.min(0.1, (now - lastStep) / 1000) : dt;
+    lastStep = now;
+    // Retain the cadence's phase instead of dropping the fractional frame
+    // on 90/144 Hz displays. Fine-pointer devices draw every animation frame.
+    const interval = frameDt * 1000;
+    nextStep = now + interval - ((now - nextStep) % interval);
+    step(elapsed);
+    render(dt);
   };
 
   const start = (): void => {
     if (running || reduce.matches) return;
     running = true;
     last = 0;
+    lastStep = 0;
+    nextStep = 0;
     raf = requestAnimationFrame(loop);
   };
   const stop = (): void => {

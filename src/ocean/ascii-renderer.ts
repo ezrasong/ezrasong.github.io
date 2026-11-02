@@ -67,7 +67,10 @@ const hz = HZ0 / HN;
 
 export class AsciiRenderer {
   readonly canvas: HTMLCanvasElement;
+  /** Sharp target frame; the visible canvas eases toward it between updates. */
+  private readonly surface: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
+  private readonly output: CanvasRenderingContext2D;
   private atlas: HTMLCanvasElement | null = null;
   private palette: Palette;
 
@@ -100,9 +103,12 @@ export class AsciiRenderer {
 
   constructor(canvas: HTMLCanvasElement, palette: Palette) {
     this.canvas = canvas;
-    const ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) throw new Error("2d context unavailable");
+    this.surface = document.createElement('canvas');
+    const ctx = this.surface.getContext('2d', { alpha: false });
+    const output = canvas.getContext('2d', { alpha: false });
+    if (!ctx || !output) throw new Error("2d context unavailable");
     this.ctx = ctx;
+    this.output = output;
     this.palette = palette;
   }
 
@@ -124,6 +130,8 @@ export class AsciiRenderer {
     this.cssCh = this.ch / dpr;
     this.canvas.width = Math.round(cssW * dpr);
     this.canvas.height = Math.round(cssH * dpr);
+    this.surface.width = this.canvas.width;
+    this.surface.height = this.canvas.height;
     this.cols = Math.ceil(this.canvas.width / this.cw);
     this.rows = Math.ceil(this.canvas.height / this.ch);
     const n = this.cols * this.rows;
@@ -202,7 +210,21 @@ export class AsciiRenderer {
   private clearAll(): void {
     this.ctx.fillStyle = this.palette.bg;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.output.fillStyle = this.palette.bg;
+    this.output.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.drawnCount = 0;
+  }
+
+  /**
+   * Temporal antialiasing on the fixed character grid. Native compositing
+   * crossfades changing glyphs and silhouette cells without blurring their
+   * edges. A short, frame-rate-independent response avoids lingering trails.
+   * Zero dt presents immediately for layout and reduced-motion snapshots.
+   */
+  present(dt = 0): void {
+    this.output.globalAlpha = dt > 0 ? -Math.expm1(-dt * 36) : 1;
+    this.output.drawImage(this.surface, 0, 0);
+    this.output.globalAlpha = 1;
   }
 
   /** CSS px → cell index, or -1. */
@@ -222,6 +244,7 @@ export class AsciiRenderer {
     yToScreen: (y: number) => number,
     snow: ReadonlyArray<{ x: number; y: number; k: number }>,
     t: number,
+    dt = 0,
   ): void {
     if (!this.atlas) return;
     const f = ++this.frame;
@@ -401,6 +424,7 @@ export class AsciiRenderer {
       this.drawn[n++] = c;
     }
     this.drawnCount = n;
+    this.present(dt);
   }
 
   get width(): number {
