@@ -8,6 +8,8 @@ export default defineConfig({
   reporter: [["list"]],
   use: { baseURL: "http://127.0.0.1:4173" },
   projects: widths.map((w) => ({
+    // The 3D city runs at 390 and 1440 only; it is too slow under software GL for all six.
+    testIgnore: w === 390 || w === 1440 ? undefined : /seoul\.spec/,
     name: `chromium-${w}`,
     use: {
       browserName: "chromium",

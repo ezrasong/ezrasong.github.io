@@ -1,5 +1,6 @@
 import type { InteractionTarget } from '../types';
 import { trapFocus } from './focusTrap';
+import { ICON } from './icons';
 
 /**
  * The conventional navigation fallback: a keyboard-first list of every
@@ -34,22 +35,16 @@ export class MenuOverlay {
     section.tabIndex = -1;
     section.innerHTML = `
       <header class="panel-header">
-        <div>
-          <p class="panel-kr" aria-hidden="true">안내도</p>
-          <h2>City Directory</h2>
-        </div>
-        <button type="button" class="panel-close" aria-label="Close directory">✕</button>
+        <h2>Directory</h2>
+        <p class="panel-kr" lang="ko">안내도</p>
+        <button type="button" class="panel-close" aria-label="Close directory">${ICON.close}</button>
       </header>
       <div class="panel-body">
-        <p class="panel-para menu-note">
-          걷기 싫을 때 · prefer not to walk? Open anything from here.
-        </p>
-        <h3 class="panel-subhead">프로젝트 · Projects</h3>
+        <h3 class="menu-head">projects</h3>
         <ul class="menu-list" data-group="projects"></ul>
-        <h3 class="panel-subhead">둘러보기 · Around town</h3>
+        <h3 class="menu-head">around town</h3>
         <ul class="menu-list" data-group="places"></ul>
-      </div>
-      <footer class="panel-footer"><span class="panel-hint">ESC · 닫기 close</span></footer>`;
+      </div>`;
     this.root.appendChild(section);
     container.appendChild(this.root);
 
@@ -58,23 +53,23 @@ export class MenuOverlay {
       for (const t of list) {
         const li = document.createElement('li');
         li.style.setProperty('--accent', t.accent);
-        const label = document.createElement('span');
-        label.className = 'menu-label';
-        label.innerHTML = `<span class="menu-kr">${t.koreanTitle}</span>${t.title}`;
-        li.appendChild(label);
-        const buttons = document.createElement('span');
-        buttons.className = 'menu-buttons';
+        // The row itself opens the panel; "go" walks you there instead.
         const open = document.createElement('button');
         open.type = 'button';
-        open.className = 'btn btn-small';
-        open.textContent = '열기 Open';
+        open.className = 'menu-open';
+        open.innerHTML = `<span class="menu-swatch"></span><span class="menu-title"></span><span class="menu-kr" lang="ko"></span>`;
+        (open.querySelector('.menu-title') as HTMLElement).textContent = t.title;
+        (open.querySelector('.menu-kr') as HTMLElement).textContent = t.koreanTitle;
         open.addEventListener('click', () => actions.onOpen(t));
-        buttons.appendChild(open);
+        li.appendChild(open);
+        const buttons = document.createElement('span');
+        buttons.className = 'menu-buttons';
         if (this.travelEnabled) {
           const travel = document.createElement('button');
           travel.type = 'button';
-          travel.className = 'btn btn-small';
-          travel.textContent = '이동 Travel';
+          travel.className = 'menu-go';
+          travel.setAttribute('aria-label', `Go to ${t.title}`);
+          travel.innerHTML = `go ${ICON.arrow}`;
           travel.addEventListener('click', () => actions.onTravel(t));
           buttons.appendChild(travel);
         }

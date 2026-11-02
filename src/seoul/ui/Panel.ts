@@ -1,6 +1,7 @@
 import type { InteractionTarget } from '../types';
 import { PROFILE } from '../config/profile';
 import { trapFocus } from './focusTrap';
+import { ICON } from './icons';
 
 /**
  * The project/place presentation panel: a DOM dialog styled like a Seoul
@@ -20,16 +21,11 @@ export class Panel {
     this.root.innerHTML = `
       <section class="panel" role="dialog" aria-modal="true" aria-labelledby="panel-title" tabindex="-1">
         <header class="panel-header">
-          <div>
-            <p class="panel-kr" aria-hidden="true"></p>
-            <h2 id="panel-title"></h2>
-          </div>
-          <button type="button" class="panel-close" aria-label="Close panel">✕</button>
+          <h2 id="panel-title"></h2>
+          <p class="panel-kr" lang="ko"></p>
+          <button type="button" class="panel-close" aria-label="Close">${ICON.close}</button>
         </header>
         <div class="panel-body"></div>
-        <footer class="panel-footer">
-          <span class="panel-hint">ESC · 닫기 close</span>
-        </footer>
       </section>`;
     container.appendChild(this.root);
 
@@ -95,7 +91,8 @@ function externalLink(href: string, label: string, primary = false): HTMLAnchorE
     a.rel = 'noopener noreferrer';
   }
   a.className = primary ? 'btn btn-primary' : 'btn';
-  a.textContent = label;
+  a.innerHTML = `<span></span>${href.startsWith('mailto:') ? ICON.arrow : ICON.external}`;
+  (a.firstChild as HTMLElement).textContent = label;
   return a;
 }
 
@@ -112,33 +109,38 @@ function renderProject(target: InteractionTarget): DocumentFragment {
     div.appendChild(el('dd', '', value));
     meta.appendChild(div);
   };
-  row('역할 Role', p.role);
-  row('연도 Year', p.year);
-  row('과제 Challenge', p.challenge);
-  row('결과 Outcome', p.outcome);
+  row('year', p.year);
+  row('role', p.role);
+  row('problem', p.challenge);
+  row('result', p.outcome);
   frag.appendChild(meta);
 
   const tech = el('ul', 'panel-tech');
   for (const t of p.technologies) tech.appendChild(el('li', '', t));
   frag.appendChild(tech);
 
-  const gallery = el('div', 'panel-gallery');
-  if (p.images.length === 1) gallery.classList.add('panel-gallery-single');
-  p.images.forEach((img, i) => {
-    const image = document.createElement('img');
-    image.src = img.src ?? artCard(p.title, target.accent, i);
-    image.alt = img.alt;
-    image.loading = 'lazy';
-    image.width = 640;
-    image.height = 360;
-    gallery.appendChild(image);
-  });
-  frag.appendChild(gallery);
+  // Only real artwork; no stand-in illustrations.
+  const real = p.images.filter((img) => img.src);
+  if (real.length) {
+    const gallery = el('div', 'panel-gallery');
+    for (const img of real) {
+      const image = document.createElement('img');
+      // A rate-limited or offline card shouldn't leave a broken image behind.
+      image.addEventListener('error', () => image.remove(), { once: true });
+      image.src = img.src!;
+      image.alt = img.alt;
+      image.loading = 'lazy';
+      image.width = 1200;
+      image.height = 600;
+      gallery.appendChild(image);
+    }
+    frag.appendChild(gallery);
+  }
 
   const actions = el('div', 'panel-actions');
-  if (p.liveUrl) actions.appendChild(externalLink(p.liveUrl, '라이브 · Live site', true));
-  if (p.repositoryUrl) actions.appendChild(externalLink(p.repositoryUrl, '소스 · Source'));
-  frag.appendChild(actions);
+  if (p.liveUrl) actions.appendChild(externalLink(p.liveUrl, 'live site', true));
+  if (p.repositoryUrl) actions.appendChild(externalLink(p.repositoryUrl, 'source', !p.liveUrl));
+  if (actions.childElementCount) frag.appendChild(actions);
 
   return frag;
 }
@@ -153,7 +155,7 @@ function renderPlace(target: InteractionTarget): DocumentFragment {
       for (const para of PROFILE.about.paragraphs) frag.appendChild(el('p', 'panel-para', para));
       const edu = el('dl', 'panel-meta');
       const div = el('div', 'panel-meta-row');
-      div.appendChild(el('dt', '', '학력 Education'));
+      div.appendChild(el('dt', '', 'study'));
       div.appendChild(
         el('dd', '', `${PROFILE.education.school}: ${PROFILE.education.program} (${PROFILE.education.range})`)
       );
@@ -174,7 +176,9 @@ function renderPlace(target: InteractionTarget): DocumentFragment {
       for (const job of PROFILE.experience) {
         const article = el('article', 'panel-job');
         const head = el('div', 'panel-job-head');
-        head.appendChild(el('h3', 'panel-subhead', `${job.role} · ${job.company}`));
+        const h = el('h3', 'panel-subhead', job.role);
+        h.appendChild(el('span', 'panel-at', job.company));
+        head.appendChild(h);
         head.appendChild(el('span', 'panel-job-range', job.range));
         article.appendChild(head);
         article.appendChild(el('p', 'panel-para', job.summary));
@@ -183,73 +187,23 @@ function renderPlace(target: InteractionTarget): DocumentFragment {
       break;
     }
     case 'contact': {
-      frag.appendChild(el('p', 'panel-para', '가장 빠른 연결은 이메일입니다 · email is the fastest line.'));
+      frag.appendChild(el('p', 'panel-para', 'Email is the fastest way to reach me.'));
       const actions = el('div', 'panel-actions panel-actions-column');
       actions.appendChild(externalLink(`mailto:${PROFILE.links.email}`, PROFILE.links.email, true));
-      actions.appendChild(externalLink(PROFILE.links.github, 'GitHub · github.com/ezrasong'));
-      actions.appendChild(externalLink(PROFILE.links.linkedin, 'LinkedIn'));
-      actions.appendChild(externalLink(PROFILE.links.resume, '이력서 · Résumé (PDF)'));
+      actions.appendChild(externalLink(PROFILE.links.github, 'github.com/ezrasong'));
+      actions.appendChild(externalLink(PROFILE.links.linkedin, 'linkedin'));
+      actions.appendChild(externalLink(PROFILE.links.resume, 'résumé (pdf)'));
       frag.appendChild(actions);
       break;
     }
     case 'links': {
-      frag.appendChild(el('p', 'panel-para', '이번 열차의 행선지 · departures from this station:'));
       const actions = el('div', 'panel-actions panel-actions-column');
-      actions.appendChild(externalLink(PROFILE.links.github, 'GitHub · github.com/ezrasong', true));
-      actions.appendChild(externalLink(PROFILE.links.linkedin, 'LinkedIn'));
-      actions.appendChild(externalLink(PROFILE.links.resume, '이력서 · Résumé (PDF)'));
+      actions.appendChild(externalLink(PROFILE.links.github, 'github.com/ezrasong', true));
+      actions.appendChild(externalLink(PROFILE.links.linkedin, 'linkedin'));
+      actions.appendChild(externalLink(PROFILE.links.resume, 'résumé (pdf)'));
       frag.appendChild(actions);
       break;
     }
   }
   return frag;
-}
-
-/* ------------------------------------------------------------------ */
-
-const imageCache = new Map<string, string>();
-
-/** Generated art card: a voxel skyline in the project's accent color. */
-function artCard(title: string, accent: string, variant: number): string {
-  const key = `${title}-${variant}`;
-  const cached = imageCache.get(key);
-  if (cached) return cached;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = 640;
-  canvas.height = 360;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#1d1f2a';
-  ctx.fillRect(0, 0, 640, 360);
-  // voxel skyline
-  let x = 0;
-  let seed = title.length * 7 + variant * 13;
-  const rand = () => {
-    seed = (seed * 9301 + 49297) % 233280;
-    return seed / 233280;
-  };
-  while (x < 640) {
-    const w = 40 + rand() * 60;
-    const h = 60 + rand() * 160;
-    ctx.fillStyle = rand() < 0.5 ? '#2a2d3d' : '#343850';
-    ctx.fillRect(x, 360 - h, w - 6, h);
-    ctx.fillStyle = accent;
-    for (let wy = 360 - h + 12; wy < 340; wy += 24) {
-      for (let wx = x + 8; wx < x + w - 18; wx += 20) {
-        if (rand() < 0.4) ctx.globalAlpha = 0.9;
-        else ctx.globalAlpha = 0.15;
-        ctx.fillRect(wx, wy, 8, 10);
-      }
-    }
-    ctx.globalAlpha = 1;
-    x += w;
-  }
-  ctx.fillStyle = accent;
-  ctx.font = '700 30px "Silkscreen", monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(title.toUpperCase(), 320, 64);
-
-  const url = canvas.toDataURL('image/png');
-  imageCache.set(key, url);
-  return url;
 }

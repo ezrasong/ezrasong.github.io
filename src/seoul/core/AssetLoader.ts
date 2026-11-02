@@ -45,7 +45,7 @@ export class AssetLoader {
       await Promise.race([
         Promise.all([
           document.fonts.load('700 64px "IBM Plex Sans KR"'),
-          document.fonts.load('400 16px "Silkscreen"'),
+          document.fonts.load('500 13px "Geist Mono Variable"'),
         ]),
         new Promise((r) => setTimeout(r, 3500)),
       ]);

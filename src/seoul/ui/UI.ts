@@ -1,5 +1,12 @@
 import type { InteractionTarget } from '../types';
 import { PROFILE } from '../config/profile';
+import { ICON } from './icons';
+
+/** Touch devices get on-screen controls instead of key hints. */
+const TOUCH = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+
+/** Labels arrive as "높음 HIGH"; the HUD sets the English half in lowercase. */
+const bilingual = (label: string): string => label.replace(/[A-Z][A-Z ]*$/, (en) => en.toLowerCase());
 
 /**
  * Everything DOM that isn't the panel or menu: loading screen, title card,
@@ -21,58 +28,65 @@ export class UI {
   constructor(container: HTMLElement) {
     this.root = document.createElement('div');
     this.root.id = 'ui';
+    this.root.classList.toggle('is-touch', TOUCH);
+
+    const controls = TOUCH
+      ? `<div><dt>move</dt><dd>drag the pad, bottom left</dd></div>
+         <div><dt>enter</dt><dd>tap <b>E</b> at a door</dd></div>
+         <div><dt>look</dt><dd>drag anywhere else</dd></div>
+         <div><dt>shortcut</dt><dd>the directory opens anything</dd></div>`
+      : `<div><dt>move</dt><dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, <kbd>shift</kbd> to run, <kbd>space</kbd> to jump</dd></div>
+         <div><dt>enter</dt><dd><kbd>E</kbd> at a door</dd></div>
+         <div><dt>look</dt><dd>drag, scroll to zoom</dd></div>
+         <div><dt>shortcut</dt><dd><kbd>M</kbd> directory, <kbd>R</kbd> back to the plaza</dd></div>`;
+
     this.root.innerHTML = `
       <div class="loading-screen" role="status" aria-live="polite">
-        <p class="loading-kr">서울 굽는 중…</p>
-        <p class="loading-en">baking a tiny seoul</p>
+        <p class="loading-label"><span lang="ko">서울을 짓는 중</span> building seoul</p>
         <div class="loading-track"><div class="loading-bar"></div></div>
       </div>
 
       <div class="title-screen hidden">
         <div class="title-card">
-          <p class="title-kr">${PROFILE.koreanName} · 미니 서울</p>
           <h1>${PROFILE.name}</h1>
-          <p class="title-sub">${PROFILE.title}</p>
-          <button type="button" class="btn btn-primary title-start">Press Start · 입장</button>
-          <div class="title-howto">
-            <p class="howto-title">How to play · 조작법</p>
-            <p class="title-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>SHIFT</kbd> sprint · <kbd>SPACE</kbd> jump</p>
-            <p class="title-hint"><kbd>E</kbd> enter buildings · <kbd>M</kbd> city directory · <kbd>R</kbd> back to plaza</p>
-            <p class="title-hint">Drag to look around. Walk across the Han River bridges to explore Gangnam.</p>
+          <p class="title-sub"><span lang="ko">미니 서울</span> A small Seoul, built in code. Every building opens a piece of my work.</p>
+          <dl class="title-controls">${controls}</dl>
+          <div class="title-actions">
+            <button type="button" class="btn btn-primary title-start">enter the city ${ICON.arrow}</button>
+            <a class="btn" href="./portfolio.html">read the portfolio instead</a>
           </div>
         </div>
       </div>
 
       <div class="hud hidden">
         <div class="hud-left">
-          <div class="hud-topline">
-            <a class="hud-btn hud-home" href="./" aria-label="Back to menu" title="Back to menu"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H7"/><path d="m12 6-6 6 6 6"/></svg><span class="hud-btn-label">MENU</span></a>
-            <span class="hud-name">${PROFILE.name}<small>${PROFILE.title}</small></span>
-          </div>
+          <a class="hud-back" href="./" aria-label="${PROFILE.name}, back to the start">${ICON.back}<span>${PROFILE.name.toLowerCase()}</span></a>
           <div class="minimap-wrap">
             <canvas class="minimap" width="320" height="320" role="button" tabindex="0"
-              aria-label="City minimap, scroll to zoom, click to expand"></canvas>
-            <span class="minimap-expand" aria-hidden="true">⤢</span>
+              aria-label="City minimap. Click to open the full map; scroll to zoom."></canvas>
+            <span class="minimap-expand" aria-hidden="true">${ICON.expand}</span>
           </div>
           <span class="hud-weather" aria-live="polite"></span>
         </div>
         <div class="hud-right" role="toolbar" aria-label="Settings">
-          <button type="button" class="hud-btn hud-sound" aria-pressed="false" aria-label="Sound (muted)" title="Sound (muted)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="m17 9 4 6"/><path d="m21 9-4 6"/></svg></button>
+          <button type="button" class="hud-btn hud-sound" aria-pressed="false" aria-label="Sound off" title="Sound off">${ICON.soundOff}</button>
           <button type="button" class="hud-btn hud-quality" title="Graphics quality"></button>
-          <button type="button" class="hud-btn hud-menu" aria-label="City directory (M)" title="City directory (M)"><span class="hud-btn-label">지도 MAP</span></button>
-          <button type="button" class="hud-btn hud-reset" aria-label="Reset position (R)" title="Reset position (R)">↺</button>
+          <button type="button" class="hud-btn hud-reset" aria-label="Back to the plaza (R)" title="Back to the plaza (R)">${ICON.home}</button>
+          <button type="button" class="hud-btn hud-menu" aria-label="Directory (M)" title="Directory (M)">${ICON.directory}<span>directory</span></button>
         </div>
       </div>
 
-      <div class="controls-hint hidden">WASD walk · SHIFT sprint · SPACE jump · E enter</div>
+      <p class="controls-hint hidden">${TOUCH ? 'drag the pad to walk' : '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to walk'}</p>
       <div class="prompt hidden" aria-live="polite"></div>
       <div class="toast hidden" aria-live="polite"></div>
 
       <div class="fallback hidden" role="alert">
-        <h2>3D를 불러올 수 없어요</h2>
-        <p>This device can't run the WebGL city, but every project is still
-        readable through the directory below.</p>
-        <button type="button" class="btn btn-primary fallback-menu">Open directory</button>
+        <h2>This device can't draw the 3D city.</h2>
+        <p>Every project is still here, in the directory.</p>
+        <div class="title-actions">
+          <button type="button" class="btn btn-primary fallback-menu">open the directory</button>
+          <a class="btn" href="./portfolio.html">read the portfolio</a>
+        </div>
       </div>`;
     container.appendChild(this.root);
 
@@ -110,7 +124,7 @@ export class UI {
   }
 
   showLoadError(message: string): void {
-    this.loadingScreen.innerHTML = `<p class="loading-kr">문제가 생겼어요</p><p class="loading-en">${message}</p>`;
+    this.loadingScreen.innerHTML = `<p class="loading-label">${message}</p><p class="loading-label"><a href="./portfolio.html">read the portfolio instead</a></p>`;
   }
 
   showFallback(onOpenMenu: () => void): void {
@@ -134,25 +148,22 @@ export class UI {
   }
 
   setSoundState(on: boolean): void {
-    this.soundBtn.innerHTML = on
-      ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16 8a5 5 0 0 1 0 8"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>'
-      : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="m17 9 4 6"/><path d="m21 9-4 6"/></svg>';
+    this.soundBtn.innerHTML = on ? ICON.soundOn : ICON.soundOff;
     this.soundBtn.setAttribute('aria-pressed', String(on));
-    const label = on ? 'Sound (on)' : 'Sound (muted)';
+    const label = on ? 'Sound on' : 'Sound off';
     this.soundBtn.title = label;
     this.soundBtn.setAttribute('aria-label', label);
   }
 
   setQualityLabel(label: string): void {
-    this.qualityBtn.textContent = label;
-    this.qualityBtn.setAttribute('aria-label', `Graphics quality: ${label}`);
+    this.qualityBtn.textContent = bilingual(label);
+    this.qualityBtn.setAttribute('aria-label', `Graphics quality: ${label}. Click to change.`);
   }
 
   hideControlsHint(): void {
     this.hint.classList.add('hidden');
   }
 
-  /* ---- prompt & toast ---- */
   /* ---- Minimap + weather ---- */
   private minimapBase: HTMLCanvasElement | null = null;
   private minimapTargets: { x: number; z: number; accent: string }[] = [];
@@ -165,14 +176,15 @@ export class UI {
   /** Pre-scales the painted ground once; per-frame work is one clipped blit. */
   initMinimap(ground: HTMLCanvasElement | null, targets: InteractionTarget[]): void {
     if (!ground) return;
-    // Mid-res copy: sharp up to max zoom without blitting the full 3120².
+    // Mid-res copy: sharp up to max zoom without blitting the full ground.
     const base = document.createElement('canvas');
     base.width = 1280;
     base.height = 1280;
     const b = base.getContext('2d')!;
+    // Desaturate and darken so the map reads as a map, not a second scene.
+    b.filter = 'grayscale(0.55) brightness(0.62) contrast(1.08)';
     b.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, 1280, 1280);
-    b.fillStyle = 'rgba(16,18,26,0.24)'; // mute so the live markers pop
-    b.fillRect(0, 0, 1280, 1280);
+    b.filter = 'none';
     this.minimapBase = base;
     this.minimapTargets = targets.map((t) => ({ x: t.entrance.x, z: t.entrance.z, accent: t.accent }));
 
@@ -208,36 +220,32 @@ export class UI {
     ctx.beginPath();
     ctx.arc(c, c, R, 0, Math.PI * 2);
     ctx.clip();
-    ctx.fillStyle = '#12141d';
+    ctx.fillStyle = '#171615';
     ctx.fillRect(0, 0, MM, MM);
-    // Ground: one blit of the pre-scaled base, rotated about the player.
     ctx.translate(c, c);
     ctx.rotate(rot);
-    const scale = 208 * k; // full world size in screen px at this zoom
+    const scale = 208 * k;
     ctx.drawImage(this.minimapBase, (-104 - x) * k, (-104 - z) * k, scale, scale);
     ctx.restore();
 
-    // Pins: camera-rotated, clipped to the disc, decluttered — a pin that
-    // would overlap an earlier one is skipped instead of stacking.
+    // Destinations as small squares, decluttered: a pin that would overlap
+    // an earlier one is skipped instead of stacking.
     const cosR = Math.cos(rot);
     const sinR = Math.sin(rot);
     const placed: [number, number][] = [];
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#171615';
     for (const t of this.minimapTargets) {
       const dx = (t.x - x) * k;
       const dz = (t.z - z) * k;
       const sx = c + dx * cosR - dz * sinR;
       const sy = c + dx * sinR + dz * cosR;
-      const dr = Math.hypot(sx - c, sy - c);
-      if (dr > R - 9) continue;
-      if (placed.some(([px, py]) => Math.hypot(px - sx, py - sy) < 11)) continue;
+      if (Math.hypot(sx - c, sy - c) > R - 10) continue;
+      if (placed.some(([px, py]) => Math.hypot(px - sx, py - sy) < 12)) continue;
       placed.push([sx, sy]);
       ctx.fillStyle = t.accent;
-      ctx.strokeStyle = 'rgba(12,14,20,0.85)';
-      ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.arc(sx, sy, 4.2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      ctx.strokeRect(sx - 5, sy - 5, 10, 10);
+      ctx.fillRect(sx - 5, sy - 5, 10, 10);
     }
 
     // Player arrow at the center; camera-relative so it only tilts when
@@ -245,35 +253,32 @@ export class UI {
     ctx.save();
     ctx.translate(c, c);
     ctx.rotate(Math.PI - playerYaw + rot);
-    ctx.fillStyle = '#ffd447';
-    ctx.strokeStyle = 'rgba(12,14,20,0.9)';
-    ctx.lineWidth = 1.7;
+    ctx.fillStyle = '#e9e5dc';
+    ctx.strokeStyle = '#171615';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo(0, -9);
-    ctx.lineTo(6.6, 6.9);
-    ctx.lineTo(0, 3.6);
-    ctx.lineTo(-6.6, 6.9);
+    ctx.moveTo(0, -11);
+    ctx.lineTo(8, 8);
+    ctx.lineTo(0, 4);
+    ctx.lineTo(-8, 8);
     ctx.closePath();
-    ctx.fill();
     ctx.stroke();
+    ctx.fill();
     ctx.restore();
 
-    // North compass riding the rim.
-    const nx = c + Math.sin(rot) * (R - 13);
-    const ny = c - Math.cos(rot) * (R - 13);
-    ctx.fillStyle = 'rgba(24,26,36,0.8)';
-    ctx.beginPath();
-    ctx.arc(nx, ny, 10, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#f0e6d0';
-    ctx.font = '700 13px sans-serif';
+    // North marker riding the rim.
+    const nx = c + Math.sin(rot) * (R - 16);
+    const ny = c - Math.cos(rot) * (R - 16);
+    ctx.fillStyle = '#e9e5dc';
+    ctx.font = '600 20px "Geist Mono Variable", ui-monospace, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('N', nx, ny + 0.5);
+    ctx.fillText('N', nx, ny + 1);
   }
 
   setWeather(label: string): void {
-    (this.q('.hud-weather') as HTMLElement).textContent = label;
+    (this.q('.hud-weather') as HTMLElement).textContent = bilingual(label);
   }
 
   /** Click (or Enter/Space) on the minimap expands it to the full map. */
@@ -288,8 +293,10 @@ export class UI {
     });
   }
 
+  /* ---- prompt & toast ---- */
   showPrompt(target: InteractionTarget): void {
-    this.prompt.innerHTML = `<kbd>E</kbd> Enter <strong>${target.title}</strong> · ${target.koreanTitle}`;
+    const how = TOUCH ? 'tap <b>E</b> to enter' : '<kbd>E</kbd> to enter';
+    this.prompt.innerHTML = `<span class="prompt-dot"></span><strong>${target.title}</strong><span class="prompt-kr" lang="ko">${target.koreanTitle}</span><span class="prompt-how">${how}</span>`;
     this.prompt.style.setProperty('--accent', target.accent);
     this.prompt.classList.remove('hidden');
   }
@@ -299,7 +306,10 @@ export class UI {
   }
 
   showToast(kr: string, en: string): void {
-    this.toast.innerHTML = `<span class="toast-kr">${kr}</span><span class="toast-en">${en}</span>`;
+    this.toast.innerHTML = `<span class="toast-kr" lang="ko">${kr}</span><span class="toast-en">${en}</span>`;
+    // Restart the entrance even when a toast replaces one still showing.
+    this.toast.classList.add('hidden');
+    void this.toast.offsetWidth;
     this.toast.classList.remove('hidden');
     window.clearTimeout(this.toastTimer);
     this.toastTimer = window.setTimeout(() => this.toast.classList.add('hidden'), 2600);

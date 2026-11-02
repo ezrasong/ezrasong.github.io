@@ -1,5 +1,6 @@
 import type { DistrictInfo, InteractionTarget } from '../types';
 import { trapFocus } from './focusTrap';
+import { ICON } from './icons';
 
 /**
  * The expanded city map: opened by clicking the HUD minimap. Shows the
@@ -32,11 +33,9 @@ export class MapOverlay {
     section.tabIndex = -1;
     section.innerHTML = `
       <header class="panel-header">
-        <div>
-          <p class="panel-kr" aria-hidden="true">서울 지도</p>
-          <h2>City Map</h2>
-        </div>
-        <button type="button" class="panel-close" aria-label="Close map">✕</button>
+        <h2>Map</h2>
+        <p class="panel-kr" lang="ko">서울 지도</p>
+        <button type="button" class="panel-close" aria-label="Close map">${ICON.close}</button>
       </header>
       <div class="panel-body">
         <div class="map-frame">
@@ -45,7 +44,7 @@ export class MapOverlay {
           <div class="map-player" aria-hidden="true"></div>
         </div>
       </div>
-      <footer class="panel-footer"><span class="panel-hint">표시를 누르면 이동 · click a marker to travel · ESC · 닫기 close</span></footer>`;
+      <footer class="panel-footer">pick a place to go there</footer>`;
     this.root.appendChild(section);
     container.appendChild(this.root);
 
@@ -53,26 +52,25 @@ export class MapOverlay {
     const canvas = section.querySelector('.map-canvas') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d')!;
     if (ground) {
+      ctx.filter = 'grayscale(0.55) brightness(0.66) contrast(1.08)';
       ctx.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, 760, 760);
-      ctx.fillStyle = 'rgba(16,18,26,0.18)';
-      ctx.fillRect(0, 0, 760, 760);
+      ctx.filter = 'none';
+      // District names set like a printed map: small caps under the hangul.
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       for (const d of districts) {
         const cx = (((d.bounds.minX + d.bounds.maxX) / 2 + 104) / 208) * 760;
         const cz = (((d.bounds.minZ + d.bounds.maxZ) / 2 + 104) / 208) * 760;
-        ctx.fillStyle = 'rgba(12,14,20,0.55)';
-        ctx.font = '700 21px "IBM Plex Sans KR", sans-serif';
-        ctx.fillText(d.koreanName, cx + 1, cz - 7 + 1);
-        ctx.fillStyle = 'rgba(245,234,210,0.92)';
-        ctx.fillText(d.koreanName, cx, cz - 7);
-        ctx.fillStyle = 'rgba(245,234,210,0.6)';
-        ctx.font = '600 10px "IBM Plex Sans KR", sans-serif';
-        ctx.fillText(d.name.toUpperCase(), cx, cz + 10);
+        ctx.fillStyle = 'rgba(233,229,220,0.9)';
+        ctx.font = '600 19px "IBM Plex Sans KR", sans-serif';
+        ctx.fillText(d.koreanName, cx, cz - 9);
+        ctx.fillStyle = 'rgba(233,229,220,0.62)';
+        ctx.font = '500 11px "Geist Mono Variable", ui-monospace, monospace';
+        ctx.fillText(d.name.toLowerCase(), cx, cz + 10);
       }
-      ctx.fillStyle = 'rgba(245,234,210,0.8)';
-      ctx.font = '700 15px sans-serif';
-      ctx.fillText('N', 380, 16);
+      ctx.fillStyle = 'rgba(233,229,220,0.85)';
+      ctx.font = '600 15px "Geist Mono Variable", ui-monospace, monospace';
+      ctx.fillText('N', 380, 18);
     }
 
     // --- Destination markers (real buttons: clickable + tabbable)
@@ -85,7 +83,9 @@ export class MapOverlay {
       btn.style.left = `${((t.entrance.x + 104) / 208) * 100}%`;
       btn.style.top = `${((t.entrance.z + 104) / 208) * 100}%`;
       btn.setAttribute('aria-label', `Travel to ${t.title}`);
-      btn.innerHTML = `<span class="dot"></span><span class="mlabel">${t.koreanTitle} · ${t.title}</span>`;
+      btn.innerHTML = `<span class="dot"></span><span class="mlabel"></span>`;
+      (btn.querySelector('.mlabel') as HTMLElement).textContent = t.title;
+      btn.title = t.title;
       btn.addEventListener('click', () => actions.onTravel(t));
       markers.appendChild(btn);
     }
