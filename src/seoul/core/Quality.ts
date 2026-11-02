@@ -39,9 +39,9 @@ const ORDER: QualityLevel[] = ['low', 'medium', 'high'];
 
 /**
  * Quality presets. On first visit the level is auto-chosen from the device
- * (coarse pointer -> low) and refined by GPU hints; the frame loop can then
- * step it down further if real FPS stays low. Once the visitor picks a level
- * by hand it is persisted and never auto-adjusted again.
+ * (coarse pointer -> low) and refined by GPU hints; one startup calibration
+ * may lower it once after Start, and it never changes on its own after that.
+ * A level picked by hand is persisted and skips calibration entirely.
  */
 export class Quality {
   current: QualityPreset;

@@ -3,6 +3,7 @@ import { PALETTE as P } from '../config/palette';
 import { MATERIALS, VoxelKit, shade } from './voxel';
 import { addWindSway, celMaterial } from './CelShading';
 import type { ColliderSpec } from './VoxelBuilding';
+import { ROADS } from './GroundPainter';
 
 const dummy = new THREE.Object3D();
 
@@ -28,51 +29,70 @@ export function createTrees(
 ): PropResult {
   const group = new THREE.Group();
 
+  // Seoul's real street-tree mix: ginkgo lines the arterials (narrow,
+  // upright, layered tiers), zelkova shades parks and squares (short trunk,
+  // vase of limbs, broad crown), pine stands on Namsan and in the hanok
+  // quarter, and cherry blooms along the river. Crowns are built from
+  // several small low-poly clumps on visible limbs, never one ball on a stick.
   const families = {
     street: {
+      // Ginkgo (은행나무)
       trunk: (k: VoxelKit) => {
-        k.cylinder(0.1, 0.19, 1.5, 0, 0.75, 0, P.treeTrunk, 7);
-        k.bar(0, 1.1, 0, 0.5, 1.8, 0.25, 0.09, P.treeTrunk);
-        k.bar(0, 1.3, 0, -0.45, 1.9, -0.2, 0.08, P.treeTrunk);
+        k.cylinder(0.08, 0.15, 3.0, 0, 1.5, 0, '#5e4a3a', 6);
+        for (const [y, a, l] of [[1.4, 0.4, 0.55], [1.9, 2.5, 0.5], [2.4, 4.4, 0.45], [2.8, 1.3, 0.35]] as const) {
+          k.bar(0, y, 0, Math.cos(a) * l, y + 0.45, Math.sin(a) * l, 0.06, '#5e4a3a');
+        }
       },
       canopy: (k: VoxelKit) => {
-        k.blob(0.95, 0, 2.0, 0, P.leaf, 0.85);
-        k.blob(0.62, 0.6, 1.7, 0.25, P.leafDark, 0.85);
-        k.blob(0.6, -0.55, 1.75, -0.2, P.leafDark, 0.8);
-        k.blob(0.58, 0.08, 2.62, -0.05, '#6fae62', 0.85);
+        const tiers: [number, number, number][] = [[1.65, 0.62, 0.9], [2.25, 0.56, 0.8], [2.85, 0.46, 0.7], [3.35, 0.32, 0.6]];
+        tiers.forEach(([y, r, sq], i) => {
+          for (let j = 0; j < 3; j++) {
+            const ang = j * 2.1 + i * 0.9;
+            k.blob(r * 0.72, Math.cos(ang) * r * 0.45, y, Math.sin(ang) * r * 0.45, j === 0 ? '#6e9a4c' : '#5f8a43', sq, 1);
+          }
+        });
+        k.blob(0.22, 0, 3.7, 0, '#7aa555', 1.1, 1);
       },
     },
     riverside: {
+      // Zelkova (느티나무)
       trunk: (k: VoxelKit) => {
-        k.cylinder(0.09, 0.17, 2.3, 0, 1.15, 0, '#7a5a3e', 7);
-        k.bar(0, 1.7, 0, 0.4, 2.4, 0.2, 0.08, '#7a5a3e');
+        k.cylinder(0.14, 0.24, 1.3, 0, 0.65, 0, '#6a5444', 7);
+        for (const a of [0.3, 1.9, 3.4, 4.9]) {
+          k.bar(0, 1.15, 0, Math.cos(a) * 0.95, 2.3, Math.sin(a) * 0.95, 0.09, '#6a5444');
+        }
       },
       canopy: (k: VoxelKit) => {
-        k.blob(0.72, 0, 2.7, 0, P.leafDark, 1.1);
-        k.blob(0.55, 0.35, 3.35, 0.12, P.leaf, 1.0);
-        k.blob(0.42, -0.3, 2.3, -0.15, P.leaf, 0.9);
+        for (let i = 0; i < 7; i++) {
+          const a = (i / 7) * Math.PI * 2;
+          const rr = i % 2 ? 1.05 : 0.85;
+          k.blob(0.62, Math.cos(a) * rr, 2.45 + (i % 3) * 0.12, Math.sin(a) * rr, i % 2 ? '#4f7a3f' : '#5a8746', 0.62, 1);
+        }
+        k.blob(0.8, 0, 2.85, 0, '#628f4b', 0.55, 1);
       },
     },
     blossom: {
+      // Cherry (벚나무): low spreading limbs, pale crown
       trunk: (k: VoxelKit) => {
-        k.cylinder(0.09, 0.16, 1.3, 0, 0.65, 0, '#6b4a3a', 7);
-        k.bar(0, 0.9, 0, 0.45, 1.6, 0.2, 0.08, '#6b4a3a');
-        k.bar(0, 1.0, 0, -0.4, 1.7, -0.22, 0.07, '#6b4a3a');
+        k.cylinder(0.09, 0.16, 1.1, 0, 0.55, 0, '#5a3f34', 7);
+        k.bar(0, 0.9, 0, 0.7, 1.5, 0.3, 0.07, '#5a3f34');
+        k.bar(0, 1.0, 0, -0.6, 1.6, -0.35, 0.07, '#5a3f34');
+        k.bar(0, 1.05, 0, 0.1, 1.75, -0.7, 0.06, '#5a3f34');
       },
       canopy: (k: VoxelKit) => {
-        k.blob(0.85, 0, 1.85, 0, '#e8a7c3', 0.8);
-        k.blob(0.55, 0.55, 1.6, 0.22, '#d98bb0', 0.8);
-        k.blob(0.52, -0.5, 1.7, -0.18, '#efc0d6', 0.75);
-        k.blob(0.5, 0.05, 2.4, -0.05, '#e8a7c3', 0.8);
+        for (const [x, y, z, r, c] of [
+          [0.7, 1.7, 0.3, 0.55, '#f0c9d6'], [-0.6, 1.8, -0.35, 0.55, '#e9b8c9'], [0.1, 1.95, -0.7, 0.5, '#f4d6df'],
+          [0, 2.15, 0.05, 0.6, '#efc3d2'], [-0.2, 1.75, 0.55, 0.45, '#e4aec2'],
+        ] as const) k.blob(r, x, y, z, c, 0.7, 1);
       },
     },
   } as const;
 
-  // Family assignment: explicit kind wins; otherwise riverside near the
-  // water bands, with a deterministic ~14% blossom sprinkle elsewhere.
+  // Family assignment: explicit kind wins; zelkova (riverside family) in
+  // the river parks, with a deterministic ~14% cherry sprinkle elsewhere.
   const assigned = positions.map((p, i) => {
     if (p.kind) return p.kind;
-    if ((p.z > 11 && p.z < 20) || (p.z > 48 && p.z < 54)) return i % 3 === 0 ? 'street' : 'riverside';
+    if ((p.z > 11 && p.z < 20) || (p.z > 48 && p.z < 54)) return i % 4 === 0 ? 'blossom' : 'riverside';
     return (i * 53) % 100 > 86 ? 'blossom' : 'street';
   });
 
@@ -95,7 +115,7 @@ export function createTrees(
 
     list.forEach((p, i) => {
       const idx = positions.indexOf(p);
-      const s = p.s ?? 0.85 + ((idx * 37) % 10) / 22;
+      const s = p.s ?? 0.95 + ((idx * 37) % 10) / 25;
       dummy.position.set(p.x, 0, p.z);
       dummy.rotation.y = (idx * 2.39996) % Math.PI;
       dummy.scale.setScalar(s);
@@ -110,7 +130,7 @@ export function createTrees(
     });
     trunk.castShadow = true;
     canopy.castShadow = true;
-    canopy.receiveShadow = false;
+    canopy.receiveShadow = true;
     trunk.instanceMatrix.needsUpdate = true;
     canopy.instanceMatrix.needsUpdate = true;
     group.add(trunk, canopy);
@@ -126,41 +146,48 @@ export function createTrees(
   };
 }
 
-/** Instanced streetlights with warm glow heads. */
+/**
+ * Seoul road lighting: a tapered grey octagonal pole on a base collar, a
+ * slim upswept arm, and a flat LED head over the road, with a district
+ * banner on brackets halfway up. One model, instanced (two draw calls).
+ */
 export function createStreetlights(positions: { x: number; z: number; ry?: number }[]): PropResult {
   const group = new THREE.Group();
-
-  // Pole/arm stay legible at night (the old near-black vanished against the
-  // sky, leaving the glowing head floating in mid-air), and the arm fully
-  // overlaps the head so the fixture reads as one connected object.
-  const poleGeo = new THREE.BoxGeometry(0.16, 3.6, 0.16);
-  poleGeo.translate(0, 1.8, 0);
-  const armGeo = new THREE.BoxGeometry(1.0, 0.12, 0.12);
-  armGeo.translate(0.5, 3.5, 0);
-  const pole = new THREE.InstancedMesh(poleGeo, new THREE.MeshLambertMaterial({ color: '#4d5560' }), positions.length);
-  const arm = new THREE.InstancedMesh(armGeo, new THREE.MeshLambertMaterial({ color: '#4d5560' }), positions.length);
-  const headGeo = new THREE.BoxGeometry(0.36, 0.16, 0.24);
-  headGeo.translate(0.8, 3.42, 0);
-  const head = new THREE.InstancedMesh(headGeo, new THREE.MeshBasicMaterial({ color: P.lampGlow }), positions.length);
-
+  const POLE = '#7d838a';
+  const k = new VoxelKit();
+  k.cylinder(0.16, 0.18, 0.5, 0, 0.25, 0, '#6a7077', 8);
+  k.cylinder(0.065, 0.11, 5.6, 0, 3.0, 0, POLE, 8);
+  // Arm: a short rise, then a long gently climbing reach
+  k.bar(0, 5.6, 0, 0.35, 5.95, 0, 0.08, POLE);
+  k.bar(0.35, 5.95, 0, 1.75, 6.15, 0, 0.07, POLE);
+  k.box(0.85, 0.1, 0.3, 1.85, 6.12, 0, '#4a5058');
+  // Banner brackets and a district banner
+  k.box(0.6, 0.04, 0.04, 0.3, 4.4, 0, POLE);
+  k.box(0.6, 0.04, 0.04, 0.3, 3.3, 0, POLE);
+  k.box(0.5, 1.05, 0.02, 0.33, 3.85, 0, '#2f6fb0');
+  k.box(0.5, 0.2, 0.025, 0.33, 4.15, 0, '#f2efe6');
+  const pole = new THREE.InstancedMesh(k.merge(), MATERIALS.litMetal, positions.length);
+  const headGeo = new THREE.BoxGeometry(0.72, 0.03, 0.22);
+  headGeo.translate(1.85, 6.06, 0);
+  const head = new THREE.InstancedMesh(headGeo, new THREE.MeshBasicMaterial({ color: '#f4f0e2' }), positions.length);
   positions.forEach((p, i) => {
     dummy.position.set(p.x, 0, p.z);
     dummy.rotation.y = p.ry ?? 0;
     dummy.scale.setScalar(1);
     dummy.updateMatrix();
     pole.setMatrixAt(i, dummy.matrix);
-    arm.setMatrixAt(i, dummy.matrix);
     head.setMatrixAt(i, dummy.matrix);
   });
   pole.castShadow = true;
-  group.add(pole, arm, head);
+  pole.receiveShadow = true;
+  group.add(pole, head);
 
   return {
     object: group,
     colliders: positions.map((p) => ({
       x: p.x,
       z: p.z,
-      spec: { w: 0.3, h: 3.6, d: 0.3, x: 0, y: 1.8, z: 0 },
+      spec: { w: 0.35, h: 4, d: 0.35, x: 0, y: 2, z: 0 },
     })),
   };
 }
@@ -279,44 +306,95 @@ export function createCityDetails(spec: CityDetailSpec): PropResult {
   const glow = new VoxelKit();
   const colliders: PropResult['colliders'] = [];
 
-  for (const s of spec.shelters) {
-    const cos = Math.cos(s.ry);
-    const sin = Math.sin(s.ry);
-    const at = (lx: number, lz: number): [number, number] => [
-      s.x + lx * cos + lz * sin,
-      s.z - lx * sin + lz * cos,
-    ];
-    for (const px of [-1.4, 1.4]) {
-      const [wx, wz] = at(px, 0.55);
-      kit.boxOn(0.14, 2.3, 0.14, wx, 0, wz, '#4d5560');
+  // Seoul bus shelter: steel frame, a glass roof, a glass back with the
+  // route map panel, the arrival display (BIS) under the roof, and a
+  // bench. Opening faces local +z.
+  for (const sh of spec.shelters) {
+    const cos = Math.cos(sh.ry);
+    const sin = Math.sin(sh.ry);
+    const at = (lx: number, lz: number): [number, number] => [sh.x + lx * cos + lz * sin, sh.z - lx * sin + lz * cos];
+    const STEEL = '#4f565e';
+    for (const px of [-1.7, 0, 1.7]) {
+      const [wx, wz] = at(px, -0.55);
+      kit.boxOn(0.1, 2.5, 0.1, wx, 0, wz, STEEL);
     }
-    const [rx, rz] = at(0, 0);
-    kit.box(3.3, 0.14, 1.7, rx, 2.32, rz, '#39586e', s.ry);
-    const [bx, bz] = at(0, -0.62);
-    kit.box(3.3, 1.25, 0.09, bx, 1.28, bz, '#3b4757', s.ry);
-    const [sx2, sz2] = at(0, -0.35);
-    kit.box(2.2, 0.1, 0.5, sx2, 0.55, sz2, P.woodLight, s.ry);
-    glow.box(1.6, 0.07, 0.12, rx, 2.2, rz, P.lampGlow, s.ry);
-    colliders.push({ x: s.x, z: s.z, spec: { w: 3.3, h: 2.4, d: 1.5, x: 0, y: 1.2, z: 0 } });
+    const [rx, rz] = at(0, 0.05);
+    kit.box(3.8, 0.08, 1.6, rx, 2.52, rz, '#8aa3b2', sh.ry);
+    const [fx, fz] = at(0, 0.82);
+    kit.box(3.8, 0.18, 0.06, fx, 2.46, fz, STEEL, sh.ry);
+    const [bx, bz] = at(-0.4, -0.56);
+    kit.box(2.4, 1.7, 0.03, bx, 1.3, bz, '#7f97a6', sh.ry);
+    kit.box(2.4, 0.05, 0.05, bx, 1.0, bz, '#4f565e', sh.ry);
+    // Route map panel with the coloured route lines
+    const [mx, mz] = at(1.05, -0.55);
+    kit.box(1.1, 1.75, 0.06, mx, 1.3, mz, '#e9ebec', sh.ry);
+    const [m2x, m2z] = at(1.05, -0.51);
+    kit.box(0.95, 0.12, 0.02, m2x, 1.95, m2z, '#2f62b8', sh.ry);
+    const routes = ['#2f62b8', '#3aa64a', '#d9472b', '#2f62b8', '#f2a900'];
+    routes.forEach((rc, i) => {
+      const [lx, lz] = at(0.7 + i * 0.17, -0.51);
+      kit.box(0.04, 1.2, 0.02, lx, 1.2, lz, rc, sh.ry);
+    });
+    // Arrival display hanging under the roof edge
+    const [dx, dz] = at(-0.5, 0.25);
+    kit.box(1.0, 0.3, 0.1, dx, 2.22, dz, '#1d2026', sh.ry);
+    const [d2x, d2z] = at(-0.5, 0.31);
+    glow.box(0.9, 0.2, 0.02, d2x, 2.22, d2z, '#ff9b3a', sh.ry);
+    const [sx2, sz2] = at(-0.4, -0.25);
+    kit.box(2.2, 0.08, 0.42, sx2, 0.5, sz2, '#b88a5c', sh.ry);
+    for (const bxo of [-1.2, 0.4]) {
+      const [lx, lz] = at(bxo, -0.25);
+      kit.box(0.06, 0.48, 0.38, lx, 0.25, lz, STEEL, sh.ry);
+    }
+    glow.box(3.2, 0.03, 0.12, rx, 2.45, rz, P.lampGlow, sh.ry);
+    colliders.push({ x: sh.x, z: sh.z, spec: { w: 3.8, h: 2.6, d: 1.5, x: 0, y: 1.3, z: 0 } });
   }
 
-  for (const c of spec.carts) {
-    kit.box(2.2, 0.85, 1.4, c.x, 0.85, c.z, '#8a4f36', c.ry);
-    kit.box(2.3, 0.1, 1.5, c.x, 1.34, c.z, '#b98a5a', c.ry);
-    const cos = Math.cos(c.ry);
-    const sin = Math.sin(c.ry);
-    for (const [lx, lz] of [
-      [-1.0, -0.6], [1.0, -0.6], [-1.0, 0.6], [1.0, 0.6],
-    ]) {
-      kit.box(0.09, 0.85, 0.09, c.x + lx * cos + lz * sin, 1.85, c.z - lx * sin + lz * cos, '#5c3d2a');
+  // Pojangmacha: an orange tarp tent on a pipe frame over a steel counter
+  // cart, a hanging bulb, plastic stools and a menu board.
+  for (const ct of spec.carts) {
+    const cos = Math.cos(ct.ry);
+    const sin = Math.sin(ct.ry);
+    const at = (lx: number, lz: number): [number, number] => [ct.x + lx * cos + lz * sin, ct.z - lx * sin + lz * cos];
+    const TARP = '#e0702c';
+    kit.box(1.9, 0.8, 0.9, ct.x, 0.55, ct.z, '#a9aeb3', ct.ry);
+    kit.box(2.0, 0.07, 1.0, ct.x, 0.98, ct.z, '#9b7650', ct.ry);
+    for (const side of [-0.6, 0.6]) {
+      const [wx, wz] = at(side, 0.47);
+      kit.cylinder(0.17, 0.17, 0.08, wx, 0.17, wz, '#22252c', 10);
     }
-    kit.box(2.7, 0.16, 1.9, c.x, 2.32, c.z, '#d97a2e', c.ry);
-    // wheels
-    for (const side of [-0.9, 0.9]) {
-      kit.box(0.4, 0.4, 0.14, c.x + side * cos, 0.22, c.z - side * sin, '#22252c', c.ry);
+    // Food trays on the counter: tteokbokki red, fish-cake broth, skewers
+    const [t1x, t1z] = at(-0.45, 0);
+    kit.box(0.6, 0.08, 0.5, t1x, 1.06, t1z, '#c63a2a', ct.ry);
+    const [t2x, t2z] = at(0.35, 0);
+    kit.box(0.6, 0.08, 0.5, t2x, 1.06, t2z, '#d9c08a', ct.ry);
+    for (let i = 0; i < 4; i++) {
+      const [sx3, sz3] = at(0.15 + i * 0.13, -0.1);
+      kit.box(0.02, 0.32, 0.02, sx3, 1.24, sz3, '#c9a77a');
     }
-    glow.box(0.24, 0.3, 0.24, c.x + 1.25 * cos, 1.95, c.z - 1.25 * sin, P.lampGlow, c.ry);
-    colliders.push({ x: c.x, z: c.z, spec: { w: 2.5, h: 2, d: 1.7, x: 0, y: 1, z: 0 } });
+    for (const [lx, lz] of [[-1.3, -1.0], [1.3, -1.0], [-1.3, 1.6], [1.3, 1.6]]) {
+      const [px, pz] = at(lx, lz);
+      kit.boxOn(0.05, 2.2, 0.05, px, 0, pz, '#6a7078');
+    }
+    const [rx, rz] = at(0, 0.3);
+    kit.prism(2.9, 0.5, 2.9, rx, 2.2, rz, TARP, ct.ry + Math.PI / 2);
+    for (const side of [-1, 1]) {
+      const [wx, wz] = at(side * 1.32, 0.3);
+      kit.box(0.03, 1.1, 2.6, wx, 1.65, wz, shade(TARP, 0.9), ct.ry);
+    }
+    const [bwx, bwz] = at(0, -1.02);
+    kit.box(2.6, 1.6, 0.03, bwx, 1.4, bwz, shade(TARP, 0.85), ct.ry);
+    // Clear plastic flap rolled up over the front, red menu board inside
+    const [flx, flz] = at(0, 1.62);
+    kit.cylinderX(0.08, 2.6, flx, 2.12, flz, '#cfd6d8', 8, ct.ry);
+    const [mbx, mbz] = at(0.9, -0.98);
+    kit.box(0.6, 0.45, 0.02, mbx, 1.7, mbz, '#b8322a', ct.ry);
+    glow.box(0.16, 0.2, 0.16, rx, 2.02, rz, '#ffd38a', ct.ry);
+    for (const [lx, lz] of [[-0.7, 1.0], [0, 1.15], [0.7, 1.0]]) {
+      const [sx4, sz4] = at(lx, lz);
+      kit.cylinder(0.17, 0.2, 0.42, sx4, 0.21, sz4, '#2f6fb0', 8);
+    }
+    colliders.push({ x: ct.x, z: ct.z, spec: { w: 2.8, h: 2.4, d: 2.8, x: 0, y: 1.2, z: 0 } });
   }
 
   for (const b of spec.boats) {
@@ -367,7 +445,7 @@ export function createCityDetails(spec: CityDetailSpec): PropResult {
   }
 
   const group = new THREE.Group();
-  group.add(kit.toMesh(MATERIALS.lit));
+  group.add(kit.toMesh(MATERIALS.litMetal));
   if (!glow.isEmpty) group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
   return { object: group, colliders };
 }
@@ -581,6 +659,40 @@ export interface FillerSpec {
   wall: string;
   window: string;
   windowChance?: number;
+  /** Full glass curtain wall in this tint (Yeouido and Teheran-ro towers). */
+  glass?: string;
+  /** Street side; omitted = whichever face is closest to a road. */
+  face?: Face;
+}
+
+type Face = 'n' | 's' | 'e' | 'w';
+
+/** Yaw that turns local +z (the modelled street face) toward `face`. */
+function faceYaw(face: Face): number {
+  return face === 's' ? 0 : face === 'n' ? Math.PI : face === 'e' ? Math.PI / 2 : -Math.PI / 2;
+}
+
+/** The face of a footprint that sits closest to a road edge. */
+function nearestStreetFace(f: { x: number; z: number; w: number; d: number }): Face {
+  let best: Face = 's';
+  let bestD = Infinity;
+  for (const [x, z, w, d] of ROADS) {
+    const overlapX = Math.min(f.x + f.w / 2, x + w / 2) - Math.max(f.x - f.w / 2, x - w / 2);
+    const overlapZ = Math.min(f.z + f.d / 2, z + d / 2) - Math.max(f.z - f.d / 2, z - d / 2);
+    const cand: [Face, number, number][] = [
+      ['s', z - d / 2 - (f.z + f.d / 2), overlapX],
+      ['n', f.z - f.d / 2 - (z + d / 2), overlapX],
+      ['e', x - w / 2 - (f.x + f.w / 2), overlapZ],
+      ['w', f.x - f.w / 2 - (x + w / 2), overlapZ],
+    ];
+    for (const [face, gap, overlap] of cand) {
+      if (gap >= -0.5 && overlap > 1 && gap < bestD) {
+        bestD = gap;
+        best = face;
+      }
+    }
+  }
+  return best;
 }
 
 /** Anchor for a texture-atlas shop sign quad (see SignTexture atlas). */
@@ -592,6 +704,8 @@ export interface SignSpot {
   h: number;
   /** Yaw of the sign's outward normal (0 = +z). */
   ry: number;
+  /** Tall narrow sign: uses the vertical-text atlas rows. */
+  vertical?: boolean;
 }
 
 /**
@@ -606,14 +720,23 @@ export interface SignSpot {
 export function createFillerBlocks(
   specs: FillerSpec[]
 ): PropResult & { occluders: THREE.Mesh[]; signSpots: SignSpot[] } {
-  const kit = new VoxelKit();
-  const glow = new VoxelKit();
+  const cityKit = new VoxelKit();
+  const cityGlow = new VoxelKit();
+  const cityGlass = new VoxelKit();
   const rng = mulberry32(1234);
   const floorH = 2.5;
   const PANE_DARK = '#454e5f';
   const signSpots: SignSpot[] = [];
 
-  for (const f of specs) {
+  for (const spec of specs) {
+    // Each block is modelled in local space with its street face on +z,
+    // then rotated to face whichever street it actually fronts.
+    const yaw = faceYaw(spec.face ?? nearestStreetFace(spec));
+    const across = Math.abs(Math.sin(yaw)) > 0.5;
+    const f = { ...spec, x: 0, z: 0, w: across ? spec.d : spec.w, d: across ? spec.w : spec.d };
+    const kit = new VoxelKit();
+    const glow = new VoxelKit();
+    const spots: SignSpot[] = [];
     const h = f.floors * floorH;
     const lowRise = f.floors <= 2;
     const setback = !lowRise && rng() < 0.4;
@@ -672,7 +795,7 @@ export function createFillerBlocks(
       // Full-width Korean sign band above the shopfront (text via atlas)
       const bandC = ['#b04b50', '#3f6f5a', '#31517c', '#7a4a3a'][Math.floor(rng() * 4)];
       kit.box(f.w * 0.88, 0.85, 0.16, f.x, floorH * 0.82 + 0.42, f.z + f.d / 2 + 0.1, bandC);
-      signSpots.push({
+      spots.push({
         x: f.x,
         y: floorH * 0.82 + 0.42,
         z: f.z + f.d / 2 + 0.22,
@@ -680,15 +803,72 @@ export function createFillerBlocks(
         h: 0.78,
         ry: 0,
       });
-      // Protruding vertical sign on one corner for taller buildings
-      if (!lowRise && rng() < 0.6) {
-        const sx = f.x + f.w / 2 - 0.4;
-        kit.box(0.14, 2.6, 0.5, sx, floorH + 2.2, f.z + f.d / 2 + 0.32, '#22262e');
-        glow.box(0.1, 2.3, 0.36, sx, floorH + 2.2, f.z + f.d / 2 + 0.34, rng() < 0.5 ? P.neonPink : P.neonYellow);
+      // Seoul shophouses stack a second business per floor: a sign band
+      // across the upper floors too (학원, 치과, 노래방 on the 2nd and 3rd).
+      for (let fl = 1; fl < Math.min(f.floors, 3); fl++) {
+        if (rng() > 0.55) continue;
+        const y = fl * floorH + 0.22;
+        const bw = f.w * (0.5 + rng() * 0.3);
+        const bx = f.x + (rng() - 0.5) * (f.w - bw) * 0.8;
+        kit.box(bw + 0.08, 0.5, 0.12, bx, y, f.z + f.d / 2 + 0.08, '#2a2d33');
+        spots.push({ x: bx, y, z: f.z + f.d / 2 + 0.15, w: bw, h: 0.44, ry: 0 });
+      }
+      // Projecting vertical sign (돌출간판) on the corner, perpendicular to
+      // the facade so it reads down the street. Atlas text runs vertically.
+      if (!lowRise && rng() < 0.7) {
+        const sx = f.x + f.w / 2 - 0.5;
+        const sz = f.z + f.d / 2 + 0.55;
+        const vh = Math.min(3.4, (f.floors - 1) * floorH - 0.4);
+        kit.box(0.5, 0.08, 0.7, sx, floorH + 0.6 + vh + 0.04, sz - 0.2, '#3a3d43');
+        kit.box(0.5, 0.08, 0.7, sx, floorH + 0.6, sz - 0.2, '#3a3d43');
+        kit.box(0.16, vh, 0.62, sx, floorH + 0.6 + vh / 2, sz, '#1d2026');
+        for (const side of [1, -1]) {
+          spots.push({ x: sx + side * 0.09, y: floorH + 0.6 + vh / 2, z: sz, w: 0.56, h: vh - 0.1, ry: side * (Math.PI / 2), vertical: true });
+        }
       }
     }
 
     const chance = f.windowChance ?? 0.6;
+    if (f.glass) {
+      // Curtain wall: the body is the glass; thin aluminium mullions every
+      // 1.5 m and a transom per floor, with a few lit panels behind it.
+      const gh = bodyH - floorH;
+      // The panes are their own material (glass profile: fresnel, no
+      // masonry joints) so the tower doesn't read as tinted brick.
+      const pane = new VoxelKit();
+      pane.box(f.w + 0.02, gh, f.d + 0.02, f.x, floorH + gh / 2, f.z, f.glass);
+      cityGlass.absorb(pane, new THREE.Matrix4().makeRotationY(yaw).setPosition(spec.x, 0, spec.z));
+      const MUL = shade(f.glass, 1.35);
+      for (const [len, isX] of [[f.w, true], [f.d, false]] as const) {
+        const n = Math.max(2, Math.round(len / 1.5));
+        for (let i = 0; i <= n; i++) {
+          const t = -len / 2 + (i * len) / n;
+          for (const sgn of [1, -1]) {
+            if (isX) kit.box(0.06, gh, 0.06, f.x + t, floorH + gh / 2, f.z + sgn * (f.d / 2 + 0.03), MUL);
+            else kit.box(0.06, gh, 0.06, f.x + sgn * (f.w / 2 + 0.03), floorH + gh / 2, f.z + t, MUL);
+          }
+        }
+      }
+      for (let fl = 1; fl < f.floors - (setback ? 1 : 0); fl++) {
+        kit.box(f.w + 0.08, 0.08, f.d + 0.08, f.x, fl * floorH, f.z, MUL);
+        for (const sgn of [1, -1]) {
+          for (let i = 0; i < Math.round(f.w / 1.5); i++) {
+            if (rng() > chance * 0.45) continue;
+            const t = -f.w / 2 + (i + 0.5) * (f.w / Math.round(f.w / 1.5));
+            glow.box(1.3, floorH - 0.5, 0.02, f.x + t, fl * floorH + floorH / 2, f.z + sgn * (f.d / 2 + 0.015), f.window);
+          }
+        }
+      }
+    }
+    if (f.glass) {
+      const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(spec.x, 0, spec.z);
+      cityKit.absorb(kit, m);
+      cityGlow.absorb(glow, m);
+      const c = Math.cos(yaw);
+      const sn = Math.sin(yaw);
+      for (const p of spots) signSpots.push({ ...p, x: spec.x + p.x * c + p.z * sn, z: spec.z - p.x * sn + p.z * c, ry: p.ry + yaw });
+      continue;
+    }
     // Each block gets one facade system, so the street reads as different
     // buildings by different builders rather than one tiled grid:
     //  - villa: paired windows with a shared sill (brick 빌라 walk-ups)
@@ -704,7 +884,10 @@ export function createFillerBlocks(
     const startD = -((colsD - 1) * pitch) / 2;
     const balconyFloors = !lowRise && f.w >= 9 && kind !== 'ribbon' && rng() < 0.45;
     const sillC = shade(f.wall, 0.7);
-    const pane = (lit: boolean): string => (lit ? (rng() < 0.8 ? f.window : '#5b667a') : PANE_DARK);
+    // Unlit panes vary the way real glass does: curtains drawn, blinds,
+    // reflections. One flat tone across a tower reads as a texture.
+    const DARKS = [PANE_DARK, '#3c4352', '#4d5463', '#5a5650', '#3f4a52'];
+    const pane = (lit: boolean): string => (lit ? (rng() < 0.8 ? f.window : '#5b667a') : DARKS[Math.floor(rng() * DARKS.length)]);
 
     /** One opening on a face. `n` is the face normal (x or z), `t` the offset along it. */
     const opening = (axis: 'x' | 'z', a: number, faceAt: number, sign: number, y: number, lit: boolean): void => {
@@ -774,16 +957,31 @@ export function createFillerBlocks(
         }
       }
     }
+
+    const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(spec.x, 0, spec.z);
+    cityKit.absorb(kit, m);
+    cityGlow.absorb(glow, m);
+    const c = Math.cos(yaw);
+    const sn = Math.sin(yaw);
+    for (const p of spots) {
+      signSpots.push({ ...p, x: spec.x + p.x * c + p.z * sn, z: spec.z - p.x * sn + p.z * c, ry: p.ry + yaw });
+    }
   }
 
   const group = new THREE.Group();
-  const litMesh = kit.toMesh(MATERIALS.lit);
+  const litMesh = cityKit.toMesh(MATERIALS.lit);
   group.add(litMesh);
-  if (!glow.isEmpty) group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
+  if (!cityGlow.isEmpty) group.add(new THREE.Mesh(cityGlow.merge(), MATERIALS.glow));
+  const occ: THREE.Mesh[] = [litMesh];
+  if (!cityGlass.isEmpty) {
+    const glassMesh = cityGlass.toMesh(MATERIALS.glassWall);
+    group.add(glassMesh);
+    occ.push(glassMesh);
+  }
 
   return {
     object: group,
-    occluders: [litMesh],
+    occluders: occ,
     signSpots,
     colliders: specs.map((f) => ({
       x: f.x,

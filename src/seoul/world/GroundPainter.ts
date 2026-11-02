@@ -37,6 +37,9 @@ function s(len: number): number {
   return len * SCALE;
 }
 
+/** Default sidewalk width either side of a road. */
+const SIDEWALK = 2.0;
+
 export const RIVER_NORTH_EDGE = 20;
 export const RIVER_SOUTH_EDGE = 48;
 
@@ -320,7 +323,7 @@ export function paintGroundCanvas(): HTMLCanvasElement {
   // ---------------------------------------------------------------- roads
   // Painted in layers: sidewalk aprons (rounded), curbs, then all asphalt
   // cores (rounded) so junctions merge into smooth fillets.
-  for (const [x, z, w, d, sidewalk = 1.6] of ROADS) {
+  for (const [x, z, w, d, sidewalk = SIDEWALK] of ROADS) {
     ctx.fillStyle = P.sidewalk;
     roundRectPath(
       ctx,
@@ -332,25 +335,41 @@ export function paintGroundCanvas(): HTMLCanvasElement {
     );
     ctx.fill();
   }
-  // Sidewalk paving joints (subtle grid lines along each apron)
-  ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-  ctx.lineWidth = s(0.06);
-  for (const [x, z, w, d, sidewalk = 1.6] of ROADS) {
+  // Sidewalk block paving (보도블럭): small staggered blocks with a per-block
+  // tone shift and a darker band at the kerb, then the yellow tactile strip
+  // (점자블록) that runs along every Seoul sidewalk.
+  for (const [x, z, w, d, sidewalk = SIDEWALK] of ROADS) {
     const horizontal = w > d;
-    if (horizontal) {
-      for (let px = x - w / 2; px <= x + w / 2; px += 2.4) {
-        ctx.beginPath();
-        ctx.moveTo(u(px), v(z - d / 2 - sidewalk));
-        ctx.lineTo(u(px), v(z + d / 2 + sidewalk));
-        ctx.stroke();
+    const len = horizontal ? w : d;
+    const a0 = (horizontal ? x : z) - len / 2 - sidewalk;
+    const total = len + sidewalk * 2;
+    for (const side of [-1, 1]) {
+      const c0 = (horizontal ? z : x) + side * ((horizontal ? d : w) / 2);
+      // Rectangle at along-offset `al` (length `ll`), `ac` metres out from
+      // the road edge (width `lc`).
+      const rect = (al: number, ac: number, ll: number, lc: number) => {
+        const c1 = c0 + side * ac;
+        const c2 = c0 + side * (ac + lc);
+        const lo = Math.min(c1, c2);
+        if (horizontal) ctx.fillRect(u(al), v(lo), s(ll), s(lc));
+        else ctx.fillRect(u(lo), v(al), s(lc), s(ll));
+      };
+      const rows = Math.floor((sidewalk - 0.3) / 0.3);
+      for (let r = 0; r < rows; r++) {
+        const off = r % 2 ? 0.3 : 0;
+        for (let t = a0 - off; t < a0 + total; t += 0.6) {
+          const n = rng();
+          if (n > 0.22 && n < 0.86) continue;
+          ctx.fillStyle = n <= 0.22 ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.07)';
+          rect(t + 0.03, 0.62 + r * 0.3, 0.54, 0.26);
+        }
       }
-    } else {
-      for (let pz = z - d / 2; pz <= z + d / 2; pz += 2.4) {
-        ctx.beginPath();
-        ctx.moveTo(u(x - w / 2 - sidewalk), v(pz));
-        ctx.lineTo(u(x + w / 2 + sidewalk), v(pz));
-        ctx.stroke();
-      }
+      // Kerb-side band of darker blocks
+      ctx.fillStyle = '#86807a';
+      rect(a0, 0.3, total, 0.3);
+      // Tactile guide strip, partway out from the kerb
+      ctx.fillStyle = '#b39a55';
+      rect(a0 + 2, 0.3 + (sidewalk - 0.3) * 0.6, total - 4, 0.22);
     }
   }
   // Curbs: a darker rim just outside the asphalt.
@@ -387,136 +406,68 @@ export function paintGroundCanvas(): HTMLCanvasElement {
   }
   ctx.restore();
 
+  // Tyre tracks: faintly darker bands where years of wheels have polished
+  // the aggregate, two per lane.
+  ctx.fillStyle = 'rgba(30,32,36,0.10)';
+  for (const [x, z, w, d] of ROADS) {
+    const horizontal = w > d;
+    for (const lane of [-1.5, 1.5]) {
+      for (const wheel of [-0.55, 0.55]) {
+        const o = lane + wheel;
+        if (horizontal) ctx.fillRect(u(x - w / 2), v(z + o - 0.22), s(w), s(0.44));
+        else ctx.fillRect(u(x + o - 0.22), v(z - d / 2), s(0.44), s(d));
+      }
+    }
+  }
+  // Crack-seal lines: thin black tar squiggles across the asphalt.
+  ctx.strokeStyle = 'rgba(28,30,34,0.35)';
+  ctx.lineWidth = s(0.07);
+  for (const [x, z, w, d] of ROADS) {
+    const horizontal = w > d;
+    const n = Math.floor((horizontal ? w : d) / 9);
+    for (let i = 0; i < n; i++) {
+      let pa = (horizontal ? x - w / 2 : z - d / 2) + rng() * (horizontal ? w : d);
+      let pc = (horizontal ? z : x) + (rng() - 0.5) * 4;
+      ctx.beginPath();
+      ctx.moveTo(horizontal ? u(pa) : u(pc), horizontal ? v(pc) : v(pa));
+      for (let k = 0; k < 5; k++) {
+        pa += 0.4 + rng() * 0.9;
+        pc += (rng() - 0.5) * 0.9;
+        ctx.lineTo(horizontal ? u(pa) : u(pc), horizontal ? v(pc) : v(pa));
+      }
+      ctx.stroke();
+    }
+  }
+
   // Paved aprons where the bridge ramps land on the south bank.
   ctx.fillStyle = P.asphalt;
   ctx.fillRect(u(-3.8), v(48), s(7.6), s(5.2)); // Hangang bridge landing
   ctx.fillRect(u(-51.4), v(48), s(6.8), s(5.2)); // Yanghwa bridge landing
 
-  // ------------------------------------------------------------- markings
-  // Korean scheme, kept strictly two-tone so it never reads muddled:
-  // YELLOW only ever separates directions (center lines); WHITE does
-  // everything else (lane dashes, edge lines, zebras, stop lines, arrows).
-  const YELLOW = '#d9a93c';
-  const WHITE = '#e9e7de';
-  const arterial = (c: number) => {
-    // Double yellow center line
-    ctx.fillStyle = YELLOW;
-    for (const off of [-0.22, 0.1]) {
-      ctx.fillRect(u(-104), v(c + off), s(208), s(0.12));
-    }
-    // White lane dashes at ±1.5
-    ctx.fillStyle = WHITE;
-    for (const off of [-1.5, 1.5]) {
-      for (let t = -104; t < 104; t += 3.2) {
-        ctx.fillRect(u(t), v(c + off - 0.08), s(1.5), s(0.16));
+  // Lane lines, zebras, stop lines and arrows are geometry (RoadMarkings.ts):
+  // painted into this canvas at 15 px/m they blurred as soon as the camera
+  // came close. Only the tactile pads stay painted, on the sidewalks.
+  // Yellow dotted tactile pads where each crosswalk meets the kerb.
+  const pad = (x: number, z: number) => {
+    ctx.fillStyle = '#c4a446';
+    ctx.fillRect(u(x - 0.45), v(z - 0.45), s(0.9), s(0.9));
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    for (let i = 0; i < 3; i++) {
+      for (let k = 0; k < 3; k++) {
+        ctx.beginPath();
+        ctx.arc(u(x - 0.3 + i * 0.3), v(z - 0.3 + k * 0.3), s(0.07), 0, Math.PI * 2);
+        ctx.fill();
       }
     }
   };
-  arterial(-34);
-  arterial(8);
-  arterial(56);
-  arterial(80);
-  // Cross streets: single solid yellow center line.
-  ctx.fillStyle = YELLOW;
-  const centerline = (x: number, z0: number, z1: number) => {
-    ctx.fillRect(u(x - 0.07), v(z0), s(0.14), s(z1 - z0));
-  };
-  centerline(0, -40, 2);
-  centerline(0, 50, 83);
-  centerline(-32, -34, 8);
-  centerline(-64, -34, 8);
-  centerline(32, -34, 8);
-  centerline(64, -34, 8);
-  centerline(-48, 8, 15);
-  centerline(32, 52, 80);
-  centerline(64, 52, 80);
-  centerline(-48, 52, 80);
-
-  // Edge lines along the arterials (solid, outside the dashes).
-  ctx.fillStyle = 'rgba(233,231,222,0.78)';
-  for (const [x, z, w, d] of ROADS) {
-    const horizontal = w > d;
-    if (horizontal) {
-      ctx.fillRect(u(x - w / 2 + 1), v(z - d / 2 + 0.28), s(w - 2), s(0.14));
-      ctx.fillRect(u(x - w / 2 + 1), v(z + d / 2 - 0.42), s(w - 2), s(0.14));
-    } else {
-      ctx.fillRect(u(x - w / 2 + 0.28), v(z - d / 2 + 1), s(0.14), s(d - 2));
-      ctx.fillRect(u(x + w / 2 - 0.42), v(z - d / 2 + 1), s(0.14), s(d - 2));
+  for (const j of JUNCTIONS) {
+    for (const sx of [-1, 1]) {
+      pad(j.x - 4.2, j.z + sx * 3.75);
+      pad(j.x + 4.2, j.z + sx * 3.75);
+      if (j.n) pad(j.x + sx * 3.75, j.z - 4.2);
+      if (j.s) pad(j.x + sx * 3.75, j.z + 4.2);
     }
   }
-
-  // Bus lane: warm tint along the south side of Teheran-ro (junction fills
-  // painted after this break it at every crossing, as in the real street).
-  ctx.fillStyle = 'rgba(140,84,66,0.5)';
-  ctx.fillRect(u(-104), v(81.1), s(208), s(1.55));
-  ctx.fillStyle = 'rgba(226,220,204,0.55)';
-  for (let x = -100; x < 104; x += 21) {
-    ctx.font = `700 ${s(1.05)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText('BUS', u(x), v(82.1));
-  }
-
-  // Clear the junctions: no longitudinal line may run through the box OR
-  // under the crosswalks, so the wipe is a plus shape reaching past the
-  // zebra zone (±3.1..5.3) on every leg that exists.
-  ctx.fillStyle = P.asphalt;
-  for (const j of JUNCTIONS) {
-    ctx.fillRect(u(j.x - 6.1), v(j.z - 3), s(12.2), s(6));
-    const zn = j.n ? 6.1 : 3;
-    const zs = j.s ? 6.1 : 3;
-    ctx.fillRect(u(j.x - 3), v(j.z - zn), s(6), s(zn + zs));
-  }
-
-  // Full Korean junction treatment: zebra crosswalks across every real leg
-  // plus a stop line on each approach lane (right-hand traffic).
-  const zebra = (x: number, z: number, alongX: boolean) => {
-    ctx.fillStyle = WHITE;
-    for (let i = -2.2; i <= 2.2; i += 0.8) {
-      if (alongX) ctx.fillRect(u(x + i - 0.225), v(z - 1.1), s(0.45), s(2.2));
-      else ctx.fillRect(u(x - 1.1), v(z + i - 0.225), s(2.2), s(0.45));
-    }
-  };
-  const stopLine = (x: number, z: number, alongX: boolean) => {
-    ctx.fillStyle = WHITE;
-    if (alongX) ctx.fillRect(u(x - 2.6), v(z - 0.2), s(2.5), s(0.4));
-    else ctx.fillRect(u(x - 0.2), v(z - 2.6), s(0.4), s(2.5));
-  };
-  for (const j of JUNCTIONS) {
-    if (j.n) zebra(j.x, j.z - 4.2, true); // crossing the n-s street, north leg
-    if (j.s) zebra(j.x, j.z + 4.2, true); // south leg
-    zebra(j.x - 4.2, j.z, false); // crossing the e-w arterial, west leg
-    zebra(j.x + 4.2, j.z, false); // east leg
-    // Stop lines: right-hand traffic, so the approach lane heading into
-    // the box is east of center going north, west going south, south of
-    // center going east, north going west.
-    if (j.s) stopLine(j.x + 2.9, j.z + 5.6, true); // northbound from south
-    if (j.n) stopLine(j.x - 0.3, j.z - 5.6, true); // southbound from north
-    stopLine(j.x - 5.6, j.z + 2.9, false); // eastbound from west
-    stopLine(j.x + 5.6, j.z - 0.3, false); // westbound from east
-  }
-
-  // Turn arrows on the spine approaches to the river boulevard.
-  const arrow = (x: number, z: number, dirZ: 1 | -1) => {
-    ctx.save();
-    ctx.translate(u(x), v(z));
-    if (dirZ === -1) ctx.rotate(Math.PI);
-    ctx.fillStyle = WHITE;
-    ctx.beginPath();
-    ctx.moveTo(0, s(1.4));
-    ctx.lineTo(0, -s(0.6));
-    ctx.lineTo(-s(0.42), -s(0.6));
-    ctx.lineTo(0, -s(1.5));
-    ctx.lineTo(s(0.42), -s(0.6));
-    ctx.lineTo(0, -s(0.6));
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  };
-  arrow(-1.4, 2, -1);
-  arrow(1.4, -16, 1);
-  arrow(-1.4, 66, -1);
-  arrow(1.4, 50.5, 1);
-
   // Manholes + storm drains scattered along the asphalt.
   for (const [x, z, w, d] of ROADS) {
     const horizontal = w > d;
@@ -586,42 +537,33 @@ export function paintGroundCanvas(): HTMLCanvasElement {
   ctx.fillRect(u(29.2), v(-46), s(5.6), s(12.2));
 
   // ------------------------------------------------------------------ plaza
+  // Granite civic paving like Gwanghwamun Square: a grid of 1.2 m slabs in
+  // two greys, each slab its own shade, inside a darker border course.
   const px0 = u(0);
   const pz0 = v(-14);
-  ctx.fillStyle = P.plaza;
+  ctx.save();
   ctx.beginPath();
   ctx.arc(px0, pz0, s(12), 0, Math.PI * 2);
-  ctx.fill();
-  // Two-tone paving wedges
-  ctx.fillStyle = 'rgba(160,143,116,0.35)';
-  for (let i = 0; i < 12; i += 2) {
-    ctx.beginPath();
-    ctx.moveTo(px0, pz0);
-    ctx.arc(px0, pz0, s(12), (i / 12) * Math.PI * 2, ((i + 1) / 12) * Math.PI * 2);
-    ctx.closePath();
-    ctx.fill();
+  ctx.clip();
+  ctx.fillStyle = '#a8a39a';
+  ctx.fillRect(px0 - s(12), pz0 - s(12), s(24), s(24));
+  for (let gx = -12; gx < 12; gx += 1.2) {
+    for (let gz = -12; gz < 12; gz += 1.2) {
+      const n = rng();
+      ctx.fillStyle = n < 0.3 ? '#a39e95' : n < 0.55 ? '#aca79e' : n < 0.6 ? '#9c9489' : '#a8a39a';
+      ctx.fillRect(px0 + s(gx + 0.03), pz0 + s(gz + 0.03), s(1.14), s(1.14));
+    }
   }
-  ctx.strokeStyle = P.plazaDark;
-  ctx.lineWidth = s(0.35);
-  for (const r of [3, 6, 9, 11.4]) {
-    ctx.beginPath();
-    ctx.arc(px0, pz0, s(r), 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  // Compass star at the very center
-  ctx.fillStyle = P.plazaDark;
-  ctx.save();
-  ctx.translate(px0, pz0);
-  for (let i = 0; i < 4; i++) {
-    ctx.rotate(Math.PI / 2);
-    ctx.beginPath();
-    ctx.moveTo(0, -s(2.6));
-    ctx.lineTo(s(0.7), 0);
-    ctx.lineTo(-s(0.7), 0);
-    ctx.closePath();
-    ctx.fill();
-  }
+  // A cross of darker granite bands aligned with the spine, as Seoul squares
+  // mark their axes.
+  ctx.fillStyle = 'rgba(80,74,66,0.12)';
+  ctx.fillRect(px0 - s(1.8), pz0 - s(12), s(3.6), s(24));
   ctx.restore();
+  ctx.strokeStyle = '#857f75';
+  ctx.lineWidth = s(0.6);
+  ctx.beginPath();
+  ctx.arc(px0, pz0, s(11.7), 0, Math.PI * 2);
+  ctx.stroke();
 
   // Curved footpath: plaza → Hongdae pocket park.
   strokePath(

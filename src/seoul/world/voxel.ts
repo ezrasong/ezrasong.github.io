@@ -173,6 +173,73 @@ export class VoxelKit {
     this.parts.push(geo);
   }
 
+  /**
+   * Adds a prebuilt geometry (curved roofs, extruded car bodies). With a
+   * colour it is painted flat; without one it must carry its own `color`
+   * attribute (e.g. per-vertex tile courses).
+   */
+  add(geo: THREE.BufferGeometry, color?: string): void {
+    if (color) paint(geo, color);
+    // Every primitive carries uv; merging needs matching attribute sets.
+    if (!geo.attributes.uv) {
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count * 2), 2));
+    }
+    this.parts.push(geo);
+  }
+
+  /**
+   * Side-profile extrusion: `pts` is an (x, y) outline in the vertical
+   * plane, extruded `depth` across z and centred on z. Car bodies, bus
+   * silhouettes and stair stringers read as modelled objects this way
+   * instead of stacked boxes.
+   */
+  profile(pts: [number, number][], depth: number, x: number, baseY: number, z: number, color: string, bevel = 0, rotY = 0): void {
+    const shape = new THREE.Shape(pts.map(([px, py]) => new THREE.Vector2(px, py)));
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: depth - bevel * 2,
+      bevelEnabled: bevel > 0,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 1,
+      curveSegments: 4,
+    });
+    geo.translate(0, 0, -(depth - bevel * 2) / 2);
+    if (rotY !== 0) geo.rotateY(rotY);
+    geo.translate(x, baseY, z);
+    paint(geo, color);
+    this.parts.push(geo);
+  }
+
+  /** Cylinder lying along local x (wheels, rolled awnings). Center at (x,y,z). */
+  cylinderX(r: number, len: number, x: number, y: number, z: number, color: string, segments = 10, rotY = 0): void {
+    const geo = new THREE.CylinderGeometry(r, r, len, segments);
+    geo.rotateZ(Math.PI / 2);
+    if (rotY !== 0) geo.rotateY(rotY);
+    geo.translate(x, y, z);
+    paint(geo, color);
+    this.parts.push(geo);
+  }
+
+  /**
+   * Moves every part of another kit into this one through `matrix`, so a
+   * model built once in local space (a car, a house) can be stamped around
+   * the world and still merge into a single draw call. `other` is spent.
+   */
+  absorb(other: VoxelKit, matrix: THREE.Matrix4): void {
+    for (const p of other.parts) {
+      p.applyMatrix4(matrix);
+      this.parts.push(p);
+    }
+    other.parts = [];
+  }
+
+  /** Deep copy, so one local model can be absorbed many times. */
+  clone(): VoxelKit {
+    const k = new VoxelKit();
+    k.parts = this.parts.map((p) => p.clone());
+    return k;
+  }
+
   get isEmpty(): boolean {
     return this.parts.length === 0;
   }
@@ -247,8 +314,30 @@ export const MATERIALS = {
   lit: CEL.lit,
   litMetal: CEL.litMetal,
   foliage: CEL.foliage,
+  glassWall: CEL.glass,
   glow: makeGlowMaterial(),
+  paper: makePaperMaterial(),
 };
+
+/**
+ * Hanji paper in lattice doors and lanterns: matte cream by day (paper does
+ * not turn into dark glass the way window panes do), warm and bright at
+ * night when the room behind it is lit.
+ */
+function makePaperMaterial(): THREE.MeshBasicMaterial {
+  const mat = new THREE.MeshBasicMaterial({ vertexColors: true });
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uDaylight = ENV.daylight;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float uDaylight;`)
+      .replace('#include <opaque_fragment>', `
+        outgoingLight *= mix( 1.0, 0.8, uDaylight );
+        #include <opaque_fragment>`);
+  };
+  mat.customProgramCacheKey = () => 'paper-daylight';
+  return mat;
+}
 
 /**
  * Lit windows, neon and lamps. At night they show their own colour at full
@@ -266,9 +355,13 @@ function makeGlowMaterial(): THREE.MeshBasicMaterial {
         uniform float uDaylight;
         uniform vec3 uSky;`)
       .replace('#include <opaque_fragment>', `{
+          // By day every pane is glass: dark, reflecting a little sky, with
+          // only a trace of the room colour. The threshold sits low so pale
+          // cool panes sink too (they read as white tiles otherwise).
           float lum = dot( outgoingLight, vec3( 0.299, 0.587, 0.114 ) );
-          vec3 glass = mix( vec3( 0.16, 0.18, 0.22 ), uSky, 0.32 ) + outgoingLight * 0.16;
-          outgoingLight = mix( outgoingLight, glass, uDaylight * 0.86 * smoothstep( 0.25, 0.7, lum ) );
+          // Linear-space values: 0.1 here is already a mid-dark grey on screen.
+          vec3 glass = mix( vec3( 0.025, 0.03, 0.042 ), uSky, 0.2 ) + outgoingLight * 0.03;
+          outgoingLight = mix( outgoingLight, glass, uDaylight * smoothstep( 0.12, 0.45, lum ) );
         }
         #include <opaque_fragment>`);
   };

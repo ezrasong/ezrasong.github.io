@@ -12,11 +12,14 @@ import { createWater } from './Water';
 import { ENV, timeOverride } from './Env';
 import { celMaterial } from './CelShading';
 import { createGrass } from './Grass';
+import { MATERIALS, VoxelKit } from './voxel';
+import { hanokHouse } from './Hanok';
+import { createVehicles } from './Vehicles';
+import { createRoadMarkings } from './RoadMarkings';
 import { buildStructure, facingToYaw, type BuiltStructure } from './VoxelBuilding';
 import {
   createTrees,
   createStreetlights,
-  createCars,
   createStreetFurniture,
   createFillerBlocks,
   createCityDetails,
@@ -36,7 +39,8 @@ import {
   createForestBelts,
   NAMSAN_BASE_RADIUS,
 } from './Landmarks';
-import { makeDecal, makeShopSignAtlas, KOREAN_FONT } from './SignTexture';
+import { makeDecal, KOREAN_FONT } from './SignTexture';
+import { makeShopSignAtlas } from './SignAtlas';
 import { ROADS, JUNCTIONS } from './GroundPainter';
 
 /**
@@ -131,8 +135,8 @@ export class World {
     cam.bottom = -SHADOW_HALF;
     cam.near = 1;
     cam.far = 400;
-    this.sun.shadow.bias = -0.0004;
-    this.sun.shadow.normalBias = 0.03;
+    this.sun.shadow.bias = -0.0003;
+    this.sun.shadow.normalBias = 0.04;
     this.scene.add(this.sun, this.sun.target);
 
     // Visible sun + moon discs riding the same arc as the light.
@@ -170,11 +174,19 @@ export class World {
     const daylight = smoothstep(-0.06, 0.18, e);
     this.daylight = daylight;
     if (e > -0.06) {
-      this.sun.position.copy(sunPos).add(this.shadowFocus);
+      // Shadows come from a light no lower than ~24 degrees. A grazing sun
+      // stretched every pole and wire into 40 m streaks across the street.
+      const lightPos = sunPos.clone();
+      const minY = Math.hypot(lightPos.x, lightPos.z) * Math.tan(0.42);
+      if (lightPos.y < minY) lightPos.y = minY;
+      this.sun.position.copy(lightPos).add(this.shadowFocus);
       this.sun.intensity = 0.3 + daylight * 2.3;
       this.sun.color.lerpColors(SUN_HORIZON, SUN_NOON, smoothstep(0.02, 0.55, e));
     } else {
-      this.sun.position.copy(moonPos).add(this.shadowFocus);
+      const lightPos = moonPos.clone();
+      const minY = Math.hypot(lightPos.x, lightPos.z) * Math.tan(0.6);
+      if (lightPos.y < minY) lightPos.y = minY;
+      this.sun.position.copy(lightPos).add(this.shadowFocus);
       this.sun.intensity = 0.5;
       this.sun.color.set('#8fa3d8');
     }
@@ -331,11 +343,11 @@ export class World {
     // Two road bridges cross the Han: the tied-arch Hangang bridge on the
     // spine (silhouette from the real 한강대교) and the girder Yanghwa
     // bridge linking Hongdae to Yeouido.
-    const hangangBridge = createBridge(0, 7, '한강대교 HANGANG BR.', 15, 49.5, 'arch');
+    const hangangBridge = createBridge(0, 7, '한강대교 HANGANG BR.', 15, 49, 'arch');
     this.scene.add(hangangBridge.object);
     this.registerColliders(hangangBridge);
 
-    const yanghwaBridge = createBridge(-48, 6, '양화대교 YANGHWA BR.', 15, 49.5, 'girder');
+    const yanghwaBridge = createBridge(-48, 6, '양화대교 YANGHWA BR.', 15, 49, 'girder');
     this.scene.add(yanghwaBridge.object);
     this.registerColliders(yanghwaBridge);
 
@@ -406,26 +418,21 @@ export class World {
       { x: -56, z: -44, w: 8, d: 6, floors: 3, wall: '#8f6a50', window: P.windowWarm },
       { x: -70, z: -44, w: 8, d: 7, floors: 2, wall: '#a08360', window: P.windowWarm },
       // --- Insadong-ish mid-rises (north bank east, between the east streets)
-      { x: 41.5, z: -24, w: 8, d: 7, floors: 3, wall: '#9a8a76', window: P.windowWarm },
-      { x: 54, z: -24, w: 9, d: 7, floors: 4, wall: P.concrete, window: P.windowWarm },
-      { x: 41.5, z: -6, w: 8, d: 8, floors: 3, wall: '#8f7a68', window: P.windowWarm },
-      { x: 54, z: -6, w: 9, d: 8, floors: 2, wall: '#9a8a76', window: P.windowWarm },
+      { x: 41.5, z: -24, w: 8, d: 7, floors: 3, wall: '#9a8a76', window: P.windowWarm, face: 'w' },
+      { x: 54, z: -24, w: 9, d: 7, floors: 4, wall: P.concrete, window: P.windowWarm, face: 'e' },
+      { x: 41.5, z: -6, w: 8, d: 8, floors: 3, wall: '#8f7a68', window: P.windowWarm, face: 'w' },
+      { x: 54, z: -6, w: 9, d: 8, floors: 2, wall: '#9a8a76', window: P.windowWarm, face: 'e' },
       { x: 74, z: -24, w: 8, d: 7, floors: 5, wall: '#8a8279', window: P.windowCool },
       { x: 74, z: -6, w: 8, d: 8, floors: 4, wall: '#7b5a4a', window: P.windowWarm, windowChance: 0.7 },
-      // --- Hanok alley neighbours (low traditional blocks)
-      { x: 28, z: -51, w: 7, d: 6, floors: 1, wall: P.hanokWall, window: P.windowWarm },
-      { x: 54, z: -51, w: 7, d: 6, floors: 1, wall: P.hanokWall, window: P.windowWarm },
-      { x: 63, z: -50, w: 6, d: 6, floors: 1, wall: '#dcd0b6', window: P.windowWarm },
-      { x: 74, z: -50, w: 7, d: 6, floors: 1, wall: P.hanokWall, window: P.windowWarm },
       // --- Gangnam second row, south of Teheran-ro: glass towers
       { x: 12, z: 90, w: 7, d: 7, floors: 6, wall: '#a49c90', window: P.windowCool, windowChance: 0.75 },
       { x: 28, z: 90, w: 8, d: 8, floors: 5, wall: '#6c6f72', window: P.windowCool },
       { x: 60, z: 90, w: 8, d: 7, floors: 6, wall: '#93705c', window: P.windowWarm, windowChance: 0.7 },
-      { x: 76, z: 90, w: 9, d: 8, floors: 7, wall: '#bab2a3', window: P.windowCool, windowChance: 0.75 },
+      { x: 76, z: 90, w: 9, d: 8, floors: 7, wall: '#6d7680', window: P.windowCool, windowChance: 0.75, glass: '#5a7384' },
       // --- Yeouido skyline (south bank west): the gold tower + neighbours
-      { x: -58, z: 68, w: 9, d: 9, floors: 12, wall: '#b8934a', window: P.windowWarm, windowChance: 0.8 },
+      { x: -58, z: 68, w: 9, d: 9, floors: 12, wall: '#6e5a36', window: P.windowWarm, windowChance: 0.8, glass: '#8c6e38' },
       { x: -72, z: 67, w: 8, d: 8, floors: 9, wall: '#5f6266', window: P.windowCool, windowChance: 0.7 },
-      { x: -58, z: 90, w: 9, d: 8, floors: 10, wall: '#866b58', window: P.windowCool, windowChance: 0.7 },
+      { x: -58, z: 90, w: 9, d: 8, floors: 10, wall: '#5d6670', window: P.windowCool, windowChance: 0.7, glass: '#4f6676' },
       { x: -72, z: 90, w: 8, d: 8, floors: 8, wall: '#9c968c', window: P.windowWarm, windowChance: 0.7 },
       // --- Riverside apartment slabs (the classic Korean 아파트 rows)
       { x: -20, z: 65, w: 12, d: 5, floors: 5, wall: '#c9c2b4', window: P.windowWarm },
@@ -460,6 +467,7 @@ export class World {
       { x: 80, z: 101, w: 10, d: 8, floors: 6, wall: '#6c6f72', window: P.windowWarm, windowChance: 0.4 },
     ];
 
+    this.addHanokRow();
     const built = createFillerBlocks([...filler, ...backdrop]);
     this.scene.add(built.object);
     this.occluders.push(...built.occluders);
@@ -468,6 +476,38 @@ export class World {
     }
     // Every filler shop band's Korean signboard, batched into one atlas mesh.
     if (built.signSpots.length > 0) this.scene.add(makeShopSignAtlas(built.signSpots));
+  }
+
+  /**
+   * The hanok alley neighbours: real houses from the same generator as
+   * About Ezra (curved giwa roof, posts, lattice doors), all merged into
+   * three draw calls.
+   */
+  private addHanokRow(): void {
+    const kit = new VoxelKit();
+    const glow = new VoxelKit();
+    const paper = new VoxelKit();
+    // Houses face south onto the alley (local +x → world +z).
+    const houses = [
+      { x: 28, z: -51.5, w: 7.5, d: 5.6 },
+      { x: 54, z: -51.5, w: 7.2, d: 5.4 },
+      { x: 63.5, z: -51, w: 6.2, d: 5.2 },
+      { x: 74, z: -51.5, w: 7.5, d: 5.6 },
+    ];
+    for (const h of houses) {
+      const k = new VoxelKit();
+      const g = new VoxelKit();
+      const pa = new VoxelKit();
+      hanokHouse(k, g, pa, { width: h.w, depth: h.d, wood: h.x > 60 ? '#5f4330' : undefined });
+      const m = new THREE.Matrix4().makeRotationY(-Math.PI / 2).setPosition(h.x, 0, h.z);
+      kit.absorb(k, m);
+      glow.absorb(g, m);
+      paper.absorb(pa, m);
+      this.physics.addStaticBox(h.x, 2.25, h.z, h.w + 1.3, 4.5, h.d + 1.3);
+    }
+    const body = kit.toMesh(MATERIALS.lit);
+    this.scene.add(body, new THREE.Mesh(glow.merge(), MATERIALS.glow), new THREE.Mesh(paper.merge(), MATERIALS.paper));
+    this.occluders.push(body);
   }
 
   /* ---------------------------------------------------------------- */
@@ -533,25 +573,33 @@ export class World {
     this.scene.add(lights.object);
     this.addPropColliders(lights.colliders);
 
-    // Parked fully on the asphalt, clear of every junction box.
-    const cars = createCars([
-      { x: -22, z: -35.5, ry: 0, color: '#7ba3c4' },
-      { x: 18, z: -32.5, ry: Math.PI, color: '#c47b7b' },
-      { x: 58, z: -35.5, ry: 0, color: '#d9c37a' },
-      { x: -58, z: 6.5, ry: 0, color: '#8fae8a' },
-      { x: 22, z: 9.5, ry: Math.PI, color: '#b0b4bd' },
-      { x: 54, z: 6.5, ry: 0, color: '#7ba3c4' },
-      { x: -30, z: 54.5, ry: 0, color: '#c4b57b' },
-      { x: 20, z: 57.5, ry: Math.PI, color: '#7ba3c4' },
-      { x: 74, z: 54.5, ry: 0, color: '#b0b4bd' },
-      { x: -20, z: 78.5, ry: 0, color: '#c47b7b' },
-      { x: 40, z: 81.5, ry: Math.PI, color: '#8fae8a' },
-      { x: -33.5, z: -16, ry: Math.PI / 2, color: '#d9c37a' },
-      { x: 30.5, z: -18, ry: -Math.PI / 2, color: '#7ba3c4' },
-      { x: 65.5, z: 66, ry: Math.PI / 2, color: '#c47b7b' },
-      { x: -49.5, z: 68, ry: -Math.PI / 2, color: '#b0b4bd' },
-      { x: 1.5, z: 64, ry: -Math.PI / 2, color: '#8fae8a' },
-      { x: -1.5, z: 88, ry: Math.PI / 2, color: '#d9c37a' },
+    // Parked at the kerb on the correct side for right-hand traffic:
+    // eastbound (ry 0) on the south half of an east-west road, westbound
+    // (ry π) on the north half; northbound (ry π/2) on the east half of a
+    // north-south street. All clear of the junction boxes.
+    const E = 0;
+    const W = Math.PI;
+    const N = Math.PI / 2;
+    const S = -Math.PI / 2;
+    const cars = createVehicles([
+      { x: -22, z: -32.4, ry: E, kind: 'sedan' },
+      { x: 46, z: -35.6, ry: W, kind: 'taxi' },
+      { x: 50, z: -32.4, ry: E, kind: 'truck' },
+      { x: -22, z: 6.4, ry: W, kind: 'bus' },
+      { x: 22, z: 6.4, ry: W, kind: 'suv' },
+      { x: 54, z: 9.6, ry: E, kind: 'sedan' },
+      { x: -30, z: 57.6, ry: E, kind: 'sedan' },
+      { x: 22, z: 54.4, ry: W, kind: 'taxi' },
+      { x: 74, z: 57.6, ry: E, kind: 'suv' },
+      { x: -22, z: 81.6, ry: E, kind: 'bus' },
+      { x: 42, z: 78.4, ry: W, kind: 'sedan' },
+      { x: -30.4, z: -16, ry: N, kind: 'compact' },
+      { x: 30.4, z: -18, ry: S, kind: 'sedan' },
+      { x: 65.6, z: 66, ry: N, kind: 'taxi' },
+      { x: -49.6, z: 68, ry: S, kind: 'suv' },
+      { x: -1.6, z: 64, ry: S, kind: 'compact' },
+      { x: 1.6, z: 88, ry: N, kind: 'sedan' },
+      { x: 65.6, z: -20, ry: N, kind: 'truck' },
     ]);
     this.scene.add(cars.object);
     this.addPropColliders(cars.colliders);
@@ -586,7 +634,7 @@ export class World {
       ],
       carts: [
         { x: -24, z: -21, ry: 0.4 }, // Hongdae side of the plaza
-        { x: -35, z: 2, ry: -0.3 }, // by the arcade
+        { x: -25, z: 0.4, ry: 0.2 }, // pocket park, across from the arcade
       ],
       boats: [
         { x: -28, z: 32, ry: 0.3 },
@@ -608,6 +656,8 @@ export class World {
     });
     this.scene.add(details.object);
     this.addPropColliders(details.colliders);
+
+    this.scene.add(createRoadMarkings());
 
     // Raised curbs along every street + bollards at the zebra corners.
     const curbs = createRoadFurniture(ROADS, JUNCTIONS);
@@ -723,7 +773,7 @@ export class World {
       128,
       true
     );
-    plate.position.set(0, 0.05, -2.2);
+    plate.position.set(0, 0.05, -5.5);
     this.scene.add(plate);
   }
 
@@ -734,13 +784,8 @@ export class World {
    */
   private addWayfinding(): void {
     const labels: { text: string; x: number; z: number; w: number; flip?: boolean }[] = [
-      { text: '남산 ↑', x: 0, z: -29.5, w: 6.5 }, // read walking north to the gate
-      { text: '한강 · 강남 ↑', x: 0, z: 2.5, w: 11, flip: true }, // walking south to the bridge
-      { text: '← 홍대', x: -8.5, z: -13, w: 6 }, // plaza paving
-      { text: '한옥골목 →', x: 8.5, z: -13, w: 9 }, // plaza paving
-      { text: '한옥골목 →', x: 40, z: -33.7, w: 9 }, // on Namsan-ro heading east
-      { text: '← 여의도', x: -59, z: 55.7, w: 7.5 }, // on Olympic-daero
-      { text: '강남 →', x: 40, z: 55.7, w: 6 },
+      { text: '← 홍대 HONGDAE', x: -8.5, z: -13, w: 6 }, // plaza paving
+      { text: '한옥골목 HANOK ALLEY →', x: 8.5, z: -13, w: 9 }, // plaza paving
     ];
     const H = 2.4;
     for (const label of labels) {

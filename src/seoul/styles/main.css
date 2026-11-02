@@ -259,7 +259,7 @@ kbd {
 }
 
 .title-controls dt {
-  color: var(--faint);
+  color: var(--dim);
 }
 
 .title-controls dd {
@@ -1099,4 +1099,49 @@ kbd {
     animation: none !important;
     transition-duration: 0ms !important;
   }
+}
+
+/* ---- language ---- */
+/* English mode: every Korean label in the interface carries lang="ko"; hide
+   them. The 3D city keeps its Korean signs. */
+.lang-en body [lang='ko'] {
+  display: none;
+}
+
+.title-lang {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1ch;
+  margin-bottom: 1.25rem;
+}
+
+.title-lang-label {
+  color: var(--dim);
+  margin-right: 1ch;
+}
+
+.lang-opt {
+  min-height: 44px;
+  padding: 0 1.4ch;
+  border: 1px solid var(--hair-strong);
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.lang-opt[aria-pressed='true'] {
+  color: var(--fg);
+  border-color: var(--fg);
+}
+
+.lang-opt:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+/* In English mode the "한국어 + english" option still needs its Korean. */
+.lang-en body .lang-opt [lang='ko'] {
+  display: inline;
 }

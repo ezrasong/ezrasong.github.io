@@ -53,14 +53,14 @@ export class App {
   // (a warm-up grace so first-frame JIT/decode jank never triggers a downgrade).
   private perfAccum = 0;
   private perfFrames = 0;
-  private perfSlowWindows = 0;
   private playSeconds = 0;
   // Dynamic resolution: a last-resort fill-rate valve once the lowest preset
   // still can't hold framerate. 1 = native (capped by the preset); the monitor
   // walks it down toward the floor, and the browser upscales the result.
   private renderScale = 1;
   private static readonly RENDER_SCALE_FLOOR = 0.5;
-  private perfModeAnnounced = false;
+  /** Startup calibration has run (or was skipped for a manual pick). */
+  private calibrated = false;
   // The minimap is a per-frame CPU canvas redraw; 30 Hz is imperceptible on a
   // navi map but frees main-thread time on weak machines.
   private minimapAccum = 0;
@@ -117,7 +117,7 @@ export class App {
     this.player = new Player(gltf, this.physics, this.input);
     this.world.scene.add(this.player.container);
     this.followCam = new FollowCamera(this.sizes.aspect, this.player);
-    this.followCam.setOccluders(this.world.occluders);
+    this.followCam.setOcclusionCaster((fx, fy, fz, tx, ty, tz) => this.physics.raycastSolid(fx, fy, fz, tx, ty, tz));
     this.followCam.attachOrbitControls(this.renderer.domElement);
     // Wheel zoom must wake the renderer even when the scene is still.
     this.renderer.domElement.addEventListener('wheel', () => (this.stillFrames = 0), { passive: true });
@@ -281,65 +281,45 @@ export class App {
   }
 
   /**
-   * Keep the frame rate playable on any hardware. While the scene is actually
-   * animating (not paused behind a modal) we average FPS over ~2s windows; two
-   * consecutive slow windows tune quality down. The preset only steps down on
-   * its own until the visitor picks a level by hand, but dynamic resolution —
-   * the last-resort fill-rate valve below the lowest preset — always engages,
-   * because a sub-30fps frame rate is unusable regardless of preference.
+   * One-time calibration right after Start: measure ~3 s of real play, and
+   * if this device can't hold 45 fps pick the level that will (lower preset
+   * first, then internal resolution). After that the quality never changes
+   * on its own; only the visitor's quality button changes it. Skipped
+   * entirely once the visitor has chosen a level by hand.
    */
   private monitorPerformance(dt: number, animating: boolean): void {
-    this.playSeconds += dt;
-    if (!animating || !this.started) return;
-    const canStepPreset = !this.quality.userSet && this.quality.current.level !== 'low';
-    const canScaleDown = this.renderScale > App.RENDER_SCALE_FLOOR;
-    if (!canStepPreset && !canScaleDown) return; // fully tuned out already
-    // Skip the first few seconds: startup shader compiles and asset decoding
-    // spike frame times in a way steady-state play never will.
-    if (this.playSeconds < 4) return;
-
-    this.perfAccum += dt;
-    this.perfFrames++;
-    if (this.perfAccum < 2) return;
-
-    const fps = this.perfFrames / this.perfAccum;
-    this.perfAccum = 0;
-    this.perfFrames = 0;
-
-    if (fps >= 45) {
-      this.perfSlowWindows = 0;
+    if (this.calibrated || !animating || !this.started) return;
+    if (this.quality.userSet) {
+      this.calibrated = true;
       return;
     }
-    if (++this.perfSlowWindows < 2) return;
-    this.perfSlowWindows = 0;
-
-    if (canStepPreset && this.quality.stepDown()) {
-      this.applyQuality();
-      this.ui.setQualityLabel(this.quality.current.label);
-      this.ui.showToast('그래픽 자동 조정', `graphics lowered to ${this.quality.current.label.replace(/^\S+ /, '').toLowerCase()} to keep it smooth`);
-    } else if (this.reduceRenderScale()) {
-      if (!this.perfModeAnnounced) {
-        this.perfModeAnnounced = true;
-        this.ui.showToast('성능 모드', 'performance mode on');
-      }
+    this.playSeconds += dt;
+    // Skip the first seconds: shader compiles and asset decoding spike
+    // frame times in a way steady-state play never will.
+    if (this.playSeconds < 2.5) return;
+    this.perfAccum += dt;
+    this.perfFrames++;
+    if (this.perfAccum < 3) return;
+    this.calibrated = true;
+    const fps = this.perfFrames / this.perfAccum;
+    if (fps >= 45) return;
+    // Estimate how far to drop from the measured rate: each preset step or
+    // resolution step buys roughly a third more frames on fill-bound GPUs.
+    let need = 45 / fps;
+    while (need > 1.05 && this.quality.stepDown()) need /= 1.35;
+    while (need > 1.05 && this.renderScale > App.RENDER_SCALE_FLOOR) {
+      this.renderScale = Math.max(App.RENDER_SCALE_FLOOR, Math.round((this.renderScale - 0.15) * 100) / 100);
+      need /= 1.3;
     }
+    this.applyQuality();
+    this.ui.setQualityLabel(this.quality.current.label);
+    this.ui.showToast('그래픽 설정', `graphics set to ${this.quality.current.level} for this device`);
   }
 
   /** Render at native resolution (capped by the preset) times renderScale. */
   private applyPixelRatio(): void {
     const base = Math.min(this.sizes.pixelRatio, this.quality.current.pixelRatioCap);
     this.renderer.setPixelRatio(base * this.renderScale);
-  }
-
-  /** Step the internal resolution down toward the floor. Returns true if it
-   *  moved (false once already at the floor). */
-  private reduceRenderScale(): boolean {
-    const next = Math.max(App.RENDER_SCALE_FLOOR, Math.round((this.renderScale - 0.15) * 100) / 100);
-    if (next >= this.renderScale) return false;
-    this.renderScale = next;
-    this.applyPixelRatio();
-    this.stillFrames = 0;
-    return true;
   }
 
   private trackDistrict(): void {
@@ -464,10 +444,10 @@ export class App {
         this.ui.setSoundState(on);
       },
       onQuality: () => {
-        // A manual pick is an explicit judgment call: restore full internal
-        // resolution and let the visitor see the preset they chose.
+        // A manual pick is final: full internal resolution at the chosen
+        // preset, and no further automatic changes.
         this.renderScale = 1;
-        this.perfModeAnnounced = false;
+        this.calibrated = true;
         const preset = this.quality.cycle();
         this.applyQuality();
         this.ui.setQualityLabel(preset.label);

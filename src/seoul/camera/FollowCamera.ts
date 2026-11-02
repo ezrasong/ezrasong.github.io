@@ -24,8 +24,8 @@ export class FollowCamera {
   private currentBaseY = 0;
   private currentLook = new THREE.Vector3();
   private revealBoost = 0;
-  private occluders: THREE.Object3D[] = [];
-  private ray = new THREE.Raycaster();
+  /** Ray caster against the static colliders (cheap) instead of meshes. */
+  private castSolid: ((fx: number, fy: number, fz: number, tx: number, ty: number, tz: number) => number) | null = null;
   /** 0..1, how far occlusion has pulled the camera in (damped). */
   private blocked = 0;
   private reducedMotion: boolean;
@@ -54,8 +54,14 @@ export class FollowCamera {
     this.snap();
   }
 
-  setOccluders(list: THREE.Object3D[]): void {
-    this.occluders = list;
+  /**
+   * Occlusion tests run against the physics colliders. Raycasting the merged
+   * city meshes walked ~400k triangles five times a frame and cost more
+   * than rendering; a few hundred boxes through the broadphase cost almost
+   * nothing and match exactly what the poro can bump into.
+   */
+  setOcclusionCaster(cast: (fx: number, fy: number, fz: number, tx: number, ty: number, tz: number) => number): void {
+    this.castSolid = cast;
   }
 
   /** Drag on the canvas to look around; recenters itself once you move. */
@@ -211,7 +217,7 @@ export class FollowCamera {
    * above the look point instead of pressing into the poro.
    */
   private applyOcclusion(pos: THREE.Vector3): THREE.Vector3 {
-    if (this.occluders.length === 0) return pos;
+    if (!this.castSolid) return pos;
     const dir = new THREE.Vector3().subVectors(pos, this.currentLook);
     const len = dir.length();
     if (len < 1e-4) return pos;
@@ -222,10 +228,9 @@ export class FollowCamera {
     const origin = new THREE.Vector3();
     for (const [s, u] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       origin.copy(this.currentLook).addScaledVector(side, s).addScaledVector(up, u);
-      this.ray.set(origin, dir);
-      this.ray.far = len + 0.6;
-      const hits = this.ray.intersectObjects(this.occluders, false);
-      if (hits.length > 0) nearest = Math.min(nearest, hits[0].distance);
+      const far = len + 0.6;
+      const d = this.castSolid(origin.x, origin.y, origin.z, origin.x + dir.x * far, origin.y + dir.y * far, origin.z + dir.z * far);
+      if (d < nearest) nearest = d;
     }
     if (!isFinite(nearest)) return pos;
     const d = nearest - 0.6;

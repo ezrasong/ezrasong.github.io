@@ -21,9 +21,14 @@ const T_SHADOW = LEVELS + 1;
 const T_SPECK0 = LEVELS + 2;
 const SPECKS = ["'", ",", "`", ".", "·"];
 const T_FOOD = T_SPECK0 + SPECKS.length;
-const TILE_COUNT = T_FOOD + 1;
+/** Prey glyphs: fish heading right / left, squid, and a dart (fleeing). */
+const PREY_GLYPHS = ['>', '<', '}', '{', '~'];
+const T_PREY0 = T_FOOD + 1;
+const TILE_COUNT = T_PREY0 + PREY_GLYPHS.length;
 /** Kind code for food pellets in the overlay list. */
 export const K_FOOD = SPECKS.length;
+/** Overlay kind codes for prey: K_PREY + glyph index. */
+export const K_PREY = K_FOOD + 1;
 
 export interface Palette {
   bg: string;
@@ -34,6 +39,8 @@ export interface Palette {
   eye: string;
   shadow: string;
   food: string;
+  prey: string;
+  preyBright: string;
 }
 
 const mix = (a: [number, number, number], b: [number, number, number], t: number): string => {
@@ -171,6 +178,7 @@ export class AsciiRenderer {
     tile(T_SHADOW, p.shadow, " ", p.speck);
     SPECKS.forEach((s, i) => tile(T_SPECK0 + i, null, s, p.speck));
     tile(T_FOOD, null, "*", p.food);
+    PREY_GLYPHS.forEach((g2, i) => tile(T_PREY0 + i, null, g2, i === 4 ? p.preyBright : p.prey));
     this.atlas = a;
   }
 
@@ -210,8 +218,7 @@ export class AsciiRenderer {
    * px from the top. Marine snow is passed in already in screen space.
    */
   draw(
-    tpl: OrcaTemplate,
-    pose: Pose,
+    bodies: ReadonlyArray<{ tpl: OrcaTemplate; pose: Pose }>,
     yToScreen: (y: number) => number,
     snow: ReadonlyArray<{ x: number; y: number; k: number }>,
     t: number,
@@ -234,6 +241,7 @@ export class AsciiRenderer {
       }
     };
 
+    for (const { tpl, pose } of bodies) {
     const cosF = Math.cos(pose.fluke);
     const sinF = Math.sin(pose.fluke);
     const cosP = Math.cos(pose.pec);
@@ -288,9 +296,12 @@ export class AsciiRenderer {
       const m = mat[i]!;
       // Black skin gets its own low band with strong form shading and a wet
       // highlight; grey and white read by albedo, lightly shaded.
+      // Orca black is glossy: dark and flat in the body of the shading, a
+      // narrow lit band on the upper flank, and a hard wet highlight. Keeping
+      // its range low is what lets the white patches read as markings.
       let l = m === MAT_BLACK
-        ? 0.07 + 0.42 * diff + 0.24 * spec
-        : a * (0.8 + 0.24 * diff) + 0.05 * spec;
+        ? 0.1 + 0.34 * Math.pow(diff, 1.3) + 0.3 * spec
+        : a * (0.86 + 0.18 * diff) + 0.04 * spec;
       // Rim darkening at grazing angles separates overlapping parts.
       if (m === MAT_BLACK) l *= 0.8 + 0.2 * Math.min(1, wz * 1.6 + 0.35);
       mark(cell, z, Math.min(1, l), m === MAT_WHITE ? 1 : 0);
@@ -300,14 +311,18 @@ export class AsciiRenderer {
     const ek = tpl.eyeStation;
     for (const side of [1, -1]) {
       const lz2 = pose.lz[ek]! * side;
-      if (lz2 < 0.2) continue;
+      if (lz2 < -0.25) continue;
       const x = pose.cx[ek]! + pose.ux[ek]! * tpl.eyeU + pose.lx[ek]! * tpl.eyeL * side;
       const y = pose.cy[ek]! + pose.uy[ek]! * tpl.eyeU + pose.ly[ek]! * tpl.eyeL * side;
       const z = pose.cz[ek]! + pose.uz[ek]! * tpl.eyeU + pose.lz[ek]! * tpl.eyeL * side;
       const cell = this.cellAt(x, yToScreen(y));
-      if (cell >= 0 && stamp[cell] === f && z >= depth[cell]! - tpl.length * 0.03) {
+      // The eye sits on the head's flank; a cell that also holds the snout
+      // reports the snout's depth, which is nearer by up to the head radius.
+      // Allow that much, so a head-on view shows both eyes steadily.
+      if (cell >= 0 && stamp[cell] === f && z >= depth[cell]! - tpl.length * 0.1) {
         kind[cell] = 2;
       }
+    }
     }
 
     // Shadow cast down-right, and loose specks where the body meets water.
@@ -371,7 +386,7 @@ export class AsciiRenderer {
       let tileIdx: number;
       if (k === 2) tileIdx = T_EYE;
       else if (k === 3) tileIdx = T_SHADOW;
-      else if (k >= 4) tileIdx = k - 4 === K_FOOD ? T_FOOD : T_SPECK0 + (k - 4);
+      else if (k >= 4) tileIdx = k - 4 >= K_PREY ? T_PREY0 + (k - 4 - K_PREY) : k - 4 === K_FOOD ? T_FOOD : T_SPECK0 + (k - 4);
       else {
         const l = lum[c]! * (k === 1 ? 1 : 0.92);
         tileIdx = Math.max(1, Math.min(LEVELS - 1, Math.round(l * (LEVELS - 1))));

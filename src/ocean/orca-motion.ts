@@ -71,6 +71,7 @@ export class OrcaMotion {
   private tgtZ = 0;
   private tgtTimer = 0;
   private urgent = 0;
+  private hunting = false;
   zone: Zone = { x0: 0, x1: 1, y0: 0, y1: 1 };
   private idle = 0;
   private rollShow = 0;
@@ -93,6 +94,16 @@ export class OrcaMotion {
   private dist = 0;
 
   private rand: () => number;
+  /** Per-animal rhythm, drawn from the seed. */
+  private tempo = 1;
+  private pace = 1;
+  private boutScale = 1;
+  /** Seconds the head has made little progress; triggers a fresh heading. */
+  private stall = 0;
+  /** Seconds left in which chase/avoid steering is ignored (after a give-up). */
+  private commit = 0;
+  private stallX = 0;
+  private stallY = 0;
 
   constructor(tpl: OrcaTemplate, seed = 7) {
     this.tpl = tpl;
@@ -116,6 +127,13 @@ export class OrcaMotion {
       s ^= s << 5;
       return (s >>> 0) / 4294967296;
     };
+    // Warm the generator so nearby seeds diverge, then draw a personality.
+    for (let i = 0; i < 8; i++) this.rand();
+    this.tempo = 0.82 + this.rand() * 0.36;
+    this.pace = 0.88 + this.rand() * 0.26;
+    this.boutScale = 0.75 + this.rand() * 0.5;
+    this.phase = this.rand() * TAU;
+    this.bout = this.rand() * 3;
   }
 
   /** Place the orca, already swimming, with a straight trail behind it. */
@@ -139,12 +157,38 @@ export class OrcaMotion {
 
   /** Steer to a point now (a tap on the water). */
   call(x: number, y: number): void {
+    this.hunting = true;
     this.tgtX = x;
     this.tgtY = y;
     this.tgtZ = 0;
     this.tgtTimer = 9;
     this.urgent = 1;
     this.idle = 0;
+  }
+
+  /**
+   * Hunt: steer at a moving point. Called every frame while prey is near,
+   * so it only nudges urgency up instead of resetting it.
+   */
+  chase(x: number, y: number): void {
+    if (this.commit > 0) return;
+    this.hunting = true;
+    this.tgtX = x;
+    this.tgtY = y;
+    this.tgtZ = 0;
+    this.tgtTimer = Math.max(this.tgtTimer, 2);
+    this.urgent = Math.max(this.urgent, 0.6);
+    this.idle = 0;
+  }
+
+  /** Swing away from a nearby pod mate without speeding up. */
+  avoid(x: number, y: number): void {
+    if (this.commit > 0) return;
+    this.hunting = false;
+    this.tgtX = x;
+    this.tgtY = y;
+    this.tgtTimer = Math.max(this.tgtTimer, 3);
+    this.commit = 2.5;
   }
 
   /** A fast pointer passing close to the head: veer away briefly. */
@@ -168,10 +212,11 @@ export class OrcaMotion {
   }
 
   private cruise(): number {
-    return this.tpl.length * 0.16;
+    return this.tpl.length * 0.16 * this.pace;
   }
 
   private pickTarget(): void {
+    this.hunting = false;
     const z = this.zone;
     const w = z.x1 - z.x0;
     const h = z.y1 - z.y0;
@@ -180,7 +225,11 @@ export class OrcaMotion {
     let tx = z.x0 + this.rand() * w;
     if (Math.abs(tx - this.x) < w * 0.35) tx = this.x < z.x0 + w / 2 ? z.x0 + w * (0.75 + this.rand() * 0.25) : z.x0 + w * this.rand() * 0.25;
     this.tgtX = tx;
-    this.tgtY = z.y0 + h * (0.15 + this.rand() * 0.7);
+    // Vertical change stays modest relative to the horizontal run, so the
+    // pitch limit can always reach it.
+    const run = Math.abs(tx - this.x);
+    const ty = z.y0 + h * (0.15 + this.rand() * 0.7);
+    this.tgtY = clamp(ty, this.y - run * 0.45, this.y + run * 0.45);
     this.tgtZ = (this.rand() - 0.5) * this.tpl.length * 0.25;
     this.tgtTimer = 8 + this.rand() * 6;
     this.urgent = 0;
@@ -192,27 +241,59 @@ export class OrcaMotion {
     this.idle += dt;
     this.tgtTimer -= dt;
 
+    // A cruising waypoint can be rounded off; prey and dropped food must
+    // be reached within biting distance before selecting another target.
+    const arrival = L * (this.hunting ? 0.04 : 0.25);
+    if ((Math.hypot(this.tgtX - this.x, this.tgtZ - this.z) < arrival && Math.abs(this.tgtY - this.y) < (this.hunting ? arrival : L * 0.6)) || this.tgtTimer <= 0) this.pickTarget();
+    // Stall guard: if the head has covered less than half a body length in
+    // four seconds, it's circling something it can't reach. Pick anew.
+    this.stall += dt;
+    if (this.stall > 4) {
+      if (!this.hunting && Math.hypot(this.x - this.stallX, this.y - this.stallY) < L * 0.5) this.pickTarget();
+      this.stall = 0;
+      this.stallX = this.x;
+      this.stallY = this.y;
+    }
+
+    // Keep the whole animal on screen. Look ahead along the heading: if the
+    // head will cross the zone edge within a turning distance, turn back
+    // now. Waiting until it was already past the edge sent the head off
+    // screen before the turn could finish.
+    const z = this.zone;
+    const look = Math.min(L * 0.45, (z.x1 - z.x0) * 0.3);
+    const ax = this.x + Math.cos(this.yaw) * look;
+    const ay = this.y + Math.sin(this.pitch) * look;
+    if (ax < z.x0 || ax > z.x1) {
+      this.tgtX = clamp(ax < z.x0 ? z.x0 + (z.x1 - z.x0) * 0.6 : z.x0 + (z.x1 - z.x0) * 0.4, z.x0, z.x1);
+      this.tgtY = clamp(this.tgtY, z.y0, z.y1);
+      this.tgtTimer = Math.max(this.tgtTimer, 3);
+    }
+    if (ay < z.y0 || ay > z.y1) {
+      this.tgtY = (z.y0 + z.y1) / 2;
+      // Without forward room the pitch limit can't climb back; aim ahead too.
+      if (Math.abs(this.tgtX - this.x) < L) this.tgtX = clamp(this.x + Math.cos(this.yaw) * L * 1.5, z.x0, z.x1);
+    }
+
+    this.commit = Math.max(0, this.commit - dt);
+    // Yaw follows the shortest turn. Forcing a reversal toward the viewer
+    // every frame can flip its sign halfway through and trap the animal
+    // facing the camera while it swims indefinitely out along z.
+    // A target close beside or behind the head sits inside the turning
+    // circle: steering at it only orbits it. Swim on and come back around
+    // with a fresh heading instead, the way a real orca overshoots and loops.
+    const targetDistance = Math.hypot(this.tgtX - this.x, this.tgtZ - this.z);
+    const targetAngle = wrap(Math.atan2(this.tgtZ - this.z, this.tgtX - this.x) - this.yaw);
+    if (!this.hunting && targetDistance < L * 0.9 && Math.abs(targetAngle) > 1.2 && this.commit <= 0) {
+      this.pickTarget();
+      this.commit = 2.5;
+    }
+    // Target selection and boundary avoidance above may have changed the
+    // heading. Both yaw and pitch must use that final target this frame.
     const dx = this.tgtX - this.x;
     const dy = this.tgtY - this.y;
     const dz = this.tgtZ - this.z;
     const flat = Math.hypot(dx, dz);
-    if ((flat < L * 0.25 && Math.abs(dy) < L * 0.2) || this.tgtTimer <= 0) this.pickTarget();
-
-    // Keep inside the water; a soft pull back if the zone moved under it.
-    const z = this.zone;
-    if (this.x < z.x0 - L * 0.6 || this.x > z.x1 + L * 0.6) {
-      this.tgtX = (z.x0 + z.x1) / 2;
-      this.tgtTimer = 6;
-    }
-
-    // Yaw: turn toward the target, through the side facing the viewer when
-    // it has to turn around, so a reversal shows the head and belly.
-    const want = Math.atan2(dz, dx);
-    let err = wrap(want - this.yaw);
-    if (Math.abs(err) > 2.6) {
-      const towardViewer = wrap(Math.PI / 2 - this.yaw);
-      err = Math.sign(towardViewer || 1) * Math.abs(err);
-    }
+    let err = wrap(Math.atan2(dz, dx) - this.yaw);
     // A turn rate limited by speed keeps the turning circle at least about
     // half a body length; any tighter and the trailing body coils on itself.
     const maxRate = Math.min(0.9, this.speed / (L * (0.45 - this.urgent * 0.1)));
@@ -229,11 +310,11 @@ export class OrcaMotion {
     this.bout -= dt;
     if (this.bout <= 0) {
       this.stroking = !this.stroking || this.urgent > 0.3;
-      this.bout = this.stroking ? 3.5 + this.rand() * 3 : 1.6 + this.rand() * 1.8;
+      this.bout = (this.stroking ? 3.5 + this.rand() * 3 : 1.6 + this.rand() * 1.8) * this.boutScale;
     }
     const wantAmp = this.stroking ? 0.55 + this.urgent * 0.45 : 0.07;
     this.amp = approach(this.amp, wantAmp, this.stroking ? 1.6 : 0.9, dt);
-    const freq = 0.42 + this.amp * 0.3;
+    const freq = (0.42 + this.amp * 0.3) * this.tempo;
     this.phase += freq * TAU * dt;
     const pulse = 0.55 + 0.45 * Math.sin(this.phase - 0.6);
     const thrust = this.cruise() * 1.35 * this.amp * pulse * (1 + this.urgent * 0.9);

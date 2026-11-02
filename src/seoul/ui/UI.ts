@@ -1,3 +1,4 @@
+import { bilingual, getLang, setLang } from './lang';
 import type { InteractionTarget } from '../types';
 import { PROFILE } from '../config/profile';
 import { ICON } from './icons';
@@ -5,8 +6,6 @@ import { ICON } from './icons';
 /** Touch devices get on-screen controls instead of key hints. */
 const TOUCH = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 
-/** Labels arrive as "높음 HIGH"; the HUD sets the English half in lowercase. */
-const bilingual = (label: string): string => label.replace(/[A-Z][A-Z ]*$/, (en) => en.toLowerCase());
 
 /**
  * Everything DOM that isn't the panel or menu: loading screen, title card,
@@ -51,6 +50,11 @@ export class UI {
           <h1>${PROFILE.name}</h1>
           <p class="title-sub"><span lang="ko">미니 서울</span> A small Seoul, built in code. Every building opens a piece of my work.</p>
           <dl class="title-controls">${controls}</dl>
+          <div class="title-lang" role="group" aria-label="Interface language">
+            <span class="title-lang-label">language</span>
+            <button type="button" class="lang-opt" data-lang="ko" aria-pressed="false"><span lang="ko">한국어</span> + english</button>
+            <button type="button" class="lang-opt" data-lang="en" aria-pressed="false">english only</button>
+          </div>
           <div class="title-actions">
             <button type="button" class="btn btn-primary title-start">enter the city ${ICON.arrow}</button>
             <a class="btn" href="./portfolio.html">read the portfolio instead</a>
@@ -71,6 +75,7 @@ export class UI {
         <div class="hud-right" role="toolbar" aria-label="Settings">
           <button type="button" class="hud-btn hud-sound" aria-pressed="false" aria-label="Sound off" title="Sound off">${ICON.soundOff}</button>
           <button type="button" class="hud-btn hud-quality" title="Graphics quality"></button>
+          <button type="button" class="hud-btn hud-lang" title="Interface language"></button>
           <button type="button" class="hud-btn hud-reset" aria-label="Back to the plaza (R)" title="Back to the plaza (R)">${ICON.home}</button>
           <button type="button" class="hud-btn hud-menu" aria-label="Directory (M)" title="Directory (M)">${ICON.directory}<span>directory</span></button>
         </div>
@@ -98,6 +103,36 @@ export class UI {
     this.hint = this.q('.controls-hint');
     this.soundBtn = this.q('.hud-sound') as HTMLButtonElement;
     this.qualityBtn = this.q('.hud-quality') as HTMLButtonElement;
+    this.wireLang();
+  }
+
+  private qualityLabel = '';
+  private weatherLabel = '';
+
+  /** Language buttons on the title card and in the HUD. */
+  private wireLang(): void {
+    const sync = () => {
+      const l = getLang();
+      for (const b of this.root.querySelectorAll<HTMLButtonElement>('.lang-opt')) {
+        b.setAttribute('aria-pressed', String(b.dataset.lang === l));
+      }
+      const hud = this.q('.hud-lang') as HTMLButtonElement;
+      hud.textContent = l === 'en' ? 'en' : '한/en';
+      hud.setAttribute('aria-label', l === 'en' ? 'Language: English. Click for Korean and English.' : 'Language: Korean and English. Click for English only.');
+      if (this.qualityLabel) this.setQualityLabel(this.qualityLabel);
+      this.setWeather(this.weatherLabel);
+    };
+    for (const b of this.root.querySelectorAll<HTMLButtonElement>('.lang-opt')) {
+      b.addEventListener('click', () => {
+        setLang(b.dataset.lang === 'en' ? 'en' : 'ko');
+        sync();
+      });
+    }
+    this.q('.hud-lang').addEventListener('click', () => {
+      setLang(getLang() === 'en' ? 'ko' : 'en');
+      sync();
+    });
+    sync();
   }
 
   private q(sel: string): HTMLElement {
@@ -156,6 +191,7 @@ export class UI {
   }
 
   setQualityLabel(label: string): void {
+    this.qualityLabel = label;
     this.qualityBtn.textContent = bilingual(label);
     this.qualityBtn.setAttribute('aria-label', `Graphics quality: ${label}. Click to change.`);
   }
@@ -278,7 +314,8 @@ export class UI {
   }
 
   setWeather(label: string): void {
-    (this.q('.hud-weather') as HTMLElement).textContent = bilingual(label);
+    this.weatherLabel = label;
+    (this.q('.hud-weather') as HTMLElement).textContent = label ? bilingual(label) : '';
   }
 
   /** Click (or Enter/Space) on the minimap expands it to the full map. */

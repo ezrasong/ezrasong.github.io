@@ -335,4 +335,5 @@ export const CEL = {
   lit: celMaterial({ profile: 'concrete', vertexColors: true }),
   litMetal: celMaterial({ profile: 'metal', vertexColors: true }),
   foliage: celMaterial({ profile: 'foliage', vertexColors: true }),
+  glass: celMaterial({ profile: 'glass', vertexColors: true }),
 };

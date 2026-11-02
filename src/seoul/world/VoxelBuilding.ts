@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { PALETTE as P } from '../config/palette';
 import type { BuildingType, Facing } from '../types';
 import { makeSign } from './SignTexture';
-import { MATERIALS, VoxelKit, shade } from './voxel';
+import { MATERIALS, VoxelKit } from './voxel';
+import { hanokHouse, hanokWall } from './Hanok';
+import { buildBody, FLOOR_H } from './ProjectBuildings';
 
 export interface ColliderSpec {
   w: number;
@@ -48,7 +50,6 @@ export function facingToYaw(facing: Facing): number {
   }
 }
 
-const FLOOR_H = 2.6;
 
 /**
  * Builds a structure at the origin with its door centered on the +X face.
@@ -69,294 +70,51 @@ export function buildStructure(spec: BuildingSpec): BuiltStructure {
 
 /* ------------------------------------------------------------------ */
 
-interface BodyStyle {
-  wall: string;
-  wallAlt: string;
-  window: string;
-  windowChance: number;
-  roof: string;
-}
-
-function styleFor(type: BuildingType, accent: string): BodyStyle {
-  switch (type) {
-    case 'arcade':
-      return { wall: '#47404a', wallAlt: '#38323b', window: accent, windowChance: 0.55, roof: '#302b33' };
-    case 'creative-studio':
-      return { wall: P.brick, wallAlt: P.brickDark, window: P.windowWarm, windowChance: 0.75, roof: P.roof };
-    case 'tech-lab':
-      return { wall: P.concrete, wallAlt: P.concreteDark, window: P.windowCool, windowChance: 0.8, roof: P.roof };
-    case 'glass-store':
-      return { wall: P.glass, wallAlt: P.glassDark, window: P.windowWarm, windowChance: 0.9, roof: '#e8e4dc' };
-    case 'server-facility':
-      return { wall: '#7c8288', wallAlt: '#6b7176', window: '#9adf9f', windowChance: 0.35, roof: '#5a6066' };
-    case 'office-tower':
-      return { wall: '#5d6772', wallAlt: '#4d5660', window: P.windowWarm, windowChance: 0.65, roof: P.roof };
-    case 'workshop':
-      return { wall: P.woodLight, wallAlt: '#a6794c', window: P.windowWarm, windowChance: 0.7, roof: '#8a5a3a' };
-    default:
-      return { wall: P.concrete, wallAlt: P.concreteDark, window: P.windowWarm, windowChance: 0.7, roof: P.roof };
-  }
-}
-
 function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
   const { width: w, depth: d, floors } = spec;
-  const style = styleFor(spec.type, spec.accent);
   const h = floors * FLOOR_H;
-  const kit = new VoxelKit();
-  const glow = new VoxelKit();
   const group = new THREE.Group();
-  const rng = mulberry32(hashCode(spec.signText));
-  const FRAME = '#2c313d';
-  const PANE_DARK = '#3d4657';
-  const isShop = spec.type === 'arcade' || spec.type === 'creative-studio' || spec.type === 'glass-store' || spec.type === 'workshop';
+  const body = buildBody(spec, mulberry32(hashCode(spec.signText)));
 
-  // Massing: chamfered main body over a slightly recessed ground band, so
-  // the block reads as base + shaft instead of one extrusion.
-  kit.boxOn(w - 0.24, FLOOR_H, d - 0.24, 0, 0, 0, style.wallAlt);
-  kit.rbox(w, h - FLOOR_H, d, 0, FLOOR_H + (h - FLOOR_H) / 2, 0, style.wall, 0.12);
-  // Belt course between base and shaft
-  kit.box(w + 0.14, 0.22, d + 0.14, 0, FLOOR_H, 0, style.roof);
-  // Parapet (chamfered) + roof slab
-  kit.rboxOn(w + 0.26, 0.4, d + 0.26, 0, h - 0.05, 0, style.roof, 0.1);
-  kit.box(w - 0.5, 0.14, d - 0.5, 0, h + 0.3, 0, '#565c66');
-
-  // Window grid: framed cells with lit or dark panes on every face — the
-  // facade reads structured in daylight, alive at night.
-  const winW = 0.95;
-  const winH = 1.15;
-  // The name sign mounts over the door on floor 1 — the cells behind it
-  // must stay clear or their glowing panes bleed through the board.
-  const signW = Math.min(w * 0.8, 6);
-  const addWindows = (faceW: number, axis: 'x' | 'z', sign: 1 | -1) => {
-    const cols = Math.max(1, Math.floor((faceW - 1.6) / 1.7));
-    const startOffset = -((cols - 1) * 1.7) / 2;
-    for (let f = 0; f < floors; f++) {
-      for (let c = 0; c < cols; c++) {
-        const along = startOffset + c * 1.7;
-        const isFront = axis === 'x' && sign === 1;
-        // Ground floor: door column clear; shops get a storefront instead,
-        // office towers a glass lobby.
-        const clearsGroundFront = spec.type === 'office-tower' || Math.abs(along) < 1.5;
-        if (f === 0 && (isShop || (isFront && clearsGroundFront))) continue;
-        // Floor 1: keep the sign band clear on the front face.
-        if (f === 1 && isFront && Math.abs(along) < signW / 2 + winW / 2 + 0.2) continue;
-        const y = f * FLOOR_H + FLOOR_H * 0.58;
-        const wall = axis === 'x' ? w : d;
-        const off = wall / 2 - (f === 0 ? 0.12 : 0);
-        const lit = rng() < style.windowChance && rng() < 0.8;
-        const color = lit ? style.window : PANE_DARK;
-        // A window is an opening, not a sticker: the jamb frame sits flush
-        // and thin, the pane is set back inside it, a sill projects below
-        // and a lintel shadows the top. Panes are smaller than the frame on
-        // every side, so lit glass can never bleed past it.
-        const n = (t: number) => sign * (off + t); // offset out of the wall
-        const pw = winW - 0.16;
-        const ph = winH - 0.16;
-        const mullion = winW > 0.8;
-        if (axis === 'x') {
-          kit.box(0.06, winH + 0.08, 0.07, n(0.03), y, along - winW / 2, FRAME);
-          kit.box(0.06, winH + 0.08, 0.07, n(0.03), y, along + winW / 2, FRAME);
-          kit.box(0.06, 0.07, winW, n(0.03), y + winH / 2, along, FRAME);
-          kit.box(0.04, ph, pw, n(0.005), y, along, '#1e2229'); // reveal
-          if (lit) glow.box(0.02, ph - 0.04, pw - 0.04, n(0.02), y, along, color);
-          else kit.box(0.02, ph - 0.04, pw - 0.04, n(0.02), y, along, color);
-          if (mullion) kit.box(0.03, ph, 0.04, n(0.035), y, along, FRAME);
-          kit.box(0.16, 0.08, winW + 0.2, n(0.08), y - winH / 2 - 0.02, along, shade(style.wall, 0.82)); // sill
-          kit.box(0.08, 0.12, winW + 0.14, n(0.04), y + winH / 2 + 0.08, along, shade(style.wall, 0.7)); // lintel
-          if (f > 0 && rng() < 0.12) {
-            kit.box(0.36, 0.34, 0.5, n(0.2), y - winH / 2 - 0.3, along + 0.2, '#9aa0a5');
-            kit.box(0.05, 0.24, 0.4, n(0.39), y - winH / 2 - 0.3, along + 0.2, '#7e858b');
-          }
-        } else {
-          kit.box(0.07, winH + 0.08, 0.06, along - winW / 2, y, n(0.03), FRAME);
-          kit.box(0.07, winH + 0.08, 0.06, along + winW / 2, y, n(0.03), FRAME);
-          kit.box(winW, 0.07, 0.06, along, y + winH / 2, n(0.03), FRAME);
-          kit.box(pw, ph, 0.04, along, y, n(0.005), '#1e2229');
-          if (lit) glow.box(pw - 0.04, ph - 0.04, 0.02, along, y, n(0.02), color);
-          else kit.box(pw - 0.04, ph - 0.04, 0.02, along, y, n(0.02), color);
-          if (mullion) kit.box(0.04, ph, 0.03, along, y, n(0.035), FRAME);
-          kit.box(winW + 0.2, 0.08, 0.16, along, y - winH / 2 - 0.02, n(0.08), shade(style.wall, 0.82));
-          kit.box(winW + 0.14, 0.12, 0.08, along, y + winH / 2 + 0.08, n(0.04), shade(style.wall, 0.7));
-          if (f > 0 && rng() < 0.12) {
-            kit.box(0.5, 0.34, 0.36, along - 0.2, y - winH / 2 - 0.3, n(0.2), '#9aa0a5');
-          }
-        }
-      }
-    }
-  };
-  addWindows(d, 'x', 1);
-  addWindows(d, 'x', -1);
-  addWindows(w, 'z', 1);
-  addWindows(w, 'z', -1);
-
-  // Shops: full-width storefront glass band on the front face with an
-  // accent awning; the door slots into it.
-  if (isShop) {
-    const bx = (w - 0.24) / 2;
-    const gw = d - 1.6;
-    kit.box(0.05, FLOOR_H * 0.66, gw + 0.1, bx + 0.01, FLOOR_H * 0.44, 0, '#1e2229');
-    glow.box(0.02, FLOOR_H * 0.56, gw - 0.06, bx + 0.03, FLOOR_H * 0.46, 0, style.window);
-    kit.box(0.12, FLOOR_H * 0.72, 0.16, bx + 0.04, FLOOR_H * 0.42, -(d - 1.5) / 2, FRAME);
-    kit.box(0.12, FLOOR_H * 0.72, 0.16, bx + 0.04, FLOOR_H * 0.42, (d - 1.5) / 2, FRAME);
-    kit.box(0.12, 0.16, d - 1.3, bx + 0.04, FLOOR_H * 0.78, 0, FRAME);
-    // Mullions every ~1.2 m, skipping the door bay, and a kick plate.
-    const bays = Math.max(2, Math.round(gw / 1.2));
-    for (let m = 1; m < bays; m++) {
-      const z = -gw / 2 + (gw / bays) * m;
-      if (Math.abs(z) < 0.9) continue;
-      kit.box(0.06, FLOOR_H * 0.58, 0.06, bx + 0.05, FLOOR_H * 0.46, z, FRAME);
-    }
-    kit.box(0.06, 0.3, gw, bx + 0.04, 0.15, 0, '#2d3035');
-    // Awning: sloped slab standing off the wall
-    kit.box(1.1, 0.09, d - 1.0, bx + 0.62, FLOOR_H * 0.92, 0, spec.accent);
-    kit.box(1.0, 0.05, d - 1.2, bx + 0.6, FLOOR_H * 0.87, 0, '#efe7d8');
+  const bodyMesh = body.kit.toMesh(MATERIALS.lit);
+  group.add(bodyMesh);
+  const occluders = [bodyMesh];
+  if (!body.glow.isEmpty) group.add(new THREE.Mesh(body.glow.merge(), MATERIALS.glow));
+  if (!body.glass.isEmpty) {
+    const glassMesh = body.glass.toMesh(MATERIALS.glassWall);
+    group.add(glassMesh);
+    occluders.push(glassMesh);
   }
+  for (const e of body.extras) group.add(e);
 
-  // Utility pipe down one rear corner + drain shoe.
-  kit.cylinder(0.07, 0.07, h - 0.4, -w / 2 - 0.09, (h - 0.4) / 2, -d / 2 + 0.5, '#6f757c', 6);
-  kit.box(0.2, 0.3, 0.2, -w / 2 - 0.09, 0.15, -d / 2 + 0.5, '#6f757c');
-
-  // Rooftop clutter: water tank + HVAC with pipe elbow (deterministic mix).
-  if (rng() < 0.8) {
-    kit.cylinder(0.62, 0.62, 1.0, -w / 4, h + 0.85, -d / 4, '#c8b98f', 10);
-    kit.cylinder(0.66, 0.66, 0.12, -w / 4, h + 1.42, -d / 4, '#a89a75', 10);
-    for (let leg = 0; leg < 3; leg++) {
-      const a = (leg / 3) * Math.PI * 2;
-      kit.box(0.08, 0.5, 0.08, -w / 4 + Math.cos(a) * 0.45, h + 0.55, -d / 4 + Math.sin(a) * 0.45, '#7a6f52');
-    }
+  // Name sign over the door. Most types mount it on a dark sign box that
+  // stands off the wall; the tower letters it straight onto the podium.
+  const signW = body.signW;
+  if (body.mount) {
+    const mount = new VoxelKit();
+    mount.box(0.14, 1.4, signW + 0.16, w / 2 + 0.1, body.signY, 0, '#141824');
+    const mountMesh = new THREE.Mesh(mount.merge(), MATERIALS.lit);
+    mountMesh.castShadow = true;
+    group.add(mountMesh);
   }
-  if (rng() < 0.7) {
-    kit.rboxOn(1.3, 0.7, 1.0, w / 5, h + 0.35, d / 5, '#8a9096', 0.08);
-    kit.box(0.9, 0.06, 0.7, w / 5, h + 1.08, d / 5, '#767c82');
-  }
-
-  // Door on +X face (mounted on the recessed ground band)
-  addDoor(kit, glow, (w - 0.24) / 2, spec.accent);
-
-  // Type-specific dressing
-  switch (spec.type) {
-    case 'arcade': {
-      // Neon frame stripes up the front corners + marquee
-      glow.box(0.07, h * 0.86, 0.07, w / 2 + 0.1, h * 0.47, d / 2 - 0.3, P.neonPink);
-      glow.box(0.07, h * 0.86, 0.07, w / 2 + 0.1, h * 0.47, -d / 2 + 0.3, P.neonCyan);
-      // Marquee rides between the top window frames and the parapet
-      glow.box(0.07, 0.07, d - 0.4, w / 2 + 0.1, h - 0.34, 0, P.neonYellow);
-      // Checkered entry tiles
-      for (let i = 0; i < 4; i++) {
-        for (let j = 0; j < 2; j++) {
-          const c = (i + j) % 2 === 0 ? '#efe7d8' : '#2e2837';
-          kit.box(0.8, 0.06, 0.8, w / 2 + 0.6 + j * 0.8, 0.03, -1.2 + i * 0.8, c);
-        }
-      }
-      // Rooftop vertical sign pole
-      kit.boxOn(0.25, 2.4, 0.25, -w / 2 + 1, h, -d / 2 + 1, '#2e2837');
-      glow.boxOn(0.5, 1.8, 0.12, -w / 2 + 1, h + 0.4, -d / 2 + 1.2, P.neonPink);
-      break;
-    }
-    case 'creative-studio': {
-      // Cream band above the storefront (the shop awning already covers
-      // the door, so no second awning here)
-      kit.box(w + 0.1, 0.5, d + 0.1, 0, FLOOR_H, 0, '#e5d9bd');
-      // Paper stack by the door
-      kit.boxOn(0.7, 0.5, 0.9, w / 2 + 0.9, 0, 2.3, '#efe9da');
-      kit.boxOn(0.6, 0.35, 0.8, w / 2 + 0.9, 0.5, 2.3, '#e2dbc8');
-      // Rooftop billboard easel
-      kit.boxOn(0.15, 1.6, 1.8, 0, h, d / 2 - 1.2, P.hanokWood);
-      break;
-    }
-    case 'tech-lab': {
-      // Antenna mast + dish
-      kit.boxOn(0.22, 3.6, 0.22, -w / 2 + 1.2, h, -d / 2 + 1.2, '#4d565f');
-      glow.box(0.3, 0.3, 0.3, -w / 2 + 1.2, h + 3.7, -d / 2 + 1.2, '#ff5d5d');
-      kit.cylinder(0.9, 0.25, 0.5, w / 4, h + 0.4, d / 4, '#c8cdd2', 10);
-      // Cyan data strip around the body, snapped to a floor boundary so it
-      // never slices through a window row.
-      glow.box(w + 0.08, 0.14, d + 0.08, 0, Math.round((h * 0.66) / FLOOR_H) * FLOOR_H, 0, spec.accent);
-      break;
-    }
-    case 'glass-store': {
-      // Mullion frame lines; verticals sit on the window-grid pitch (1.7) so
-      // they land between window quads instead of crossing them.
-      for (let f = 1; f < floors; f++) kit.box(w + 0.12, 0.14, d + 0.12, 0, f * FLOOR_H, 0, '#e8e4dc');
-      for (const cx of [-3.4, 0, 3.4]) kit.box(0.14, h, 0.14, w / 2 + 0.02, h / 2, cx, '#e8e4dc');
-      // Floating cube logo on the roof
-      glow.boxOn(0.9, 0.9, 0.9, 0, h + 0.7, 0, spec.accent);
-      break;
-    }
-    case 'server-facility': {
-      // AC units + vent rows + status LEDs (vents flank the door column so
-      // they never float over the doorway or hide the door lamp)
-      for (const zz of [-d / 4, d / 4]) kit.boxOn(1.6, 1.0, 1.6, -w / 4, h, zz, '#9aa0a5');
-      for (const zz of [-d / 4, d / 4]) kit.box(0.1, 1.6, 1.2, w / 2 + 0.04, h * 0.5, zz, '#5f6569');
-      for (let i = 0; i < 5; i++) glow.box(0.08, 0.12, 0.12, w / 2 + 0.06, 1.9, -1.6 + i * 0.8, i % 2 ? P.neonGreen : '#3f8f46');
-      // Pipes
-      kit.cylinder(0.16, 0.16, h, 0.16, h / 2, d / 2 + 0.2, '#8f959a', 6);
-      break;
-    }
-    case 'office-tower': {
-      // Setback crown + rooftop details
-      kit.boxOn(w * 0.6, FLOOR_H, d * 0.6, 0, h, 0, style.wallAlt);
-      kit.boxOn(w * 0.62, 0.25, d * 0.62, 0, h + FLOOR_H, 0, style.roof);
-      kit.boxOn(0.18, 2.8, 0.18, 0, h + FLOOR_H + 0.2, 0, '#4d565f');
-      glow.box(0.26, 0.26, 0.26, 0, h + FLOOR_H + 3.1, 0, '#ff5d5d');
-      // Glass lobby: framed panes flanking the doorway on the ground band,
-      // mounted like the window grid so the door stays visible.
-      const bx = (w - 0.24) / 2;
-      const paneD = d * 0.35 - 1.3;
-      for (const s of [-1, 1] as const) {
-        const zc = s * (1.3 + paneD / 2);
-        kit.box(0.06, FLOOR_H * 0.62 + 0.12, paneD + 0.12, bx + 0.02, FLOOR_H * 0.42, zc, FRAME);
-        glow.box(0.02, FLOOR_H * 0.62 - 0.08, paneD - 0.08, bx + 0.06, FLOOR_H * 0.42, zc, P.windowCool);
-        kit.box(0.04, FLOOR_H * 0.62, 0.05, bx + 0.08, FLOOR_H * 0.42, zc, FRAME);
-      }
-      break;
-    }
-    case 'workshop': {
-      // Sawtooth roof
-      for (let i = 0; i < 3; i++) {
-        kit.boxOn(w / 3, 0.9, d, -w / 3 + i * (w / 3), h, 0, i % 2 ? '#8a5a3a' : '#96633f');
-      }
-      // Garage door + tool rack
-      kit.box(0.12, 1.9, 2.6, w / 2 + 0.02, 0.95, -d / 4, '#7c6a55');
-      kit.box(0.1, 0.9, 1.4, w / 2 + 0.04, 1.5, d / 4, '#5d4a37');
-      break;
-    }
-    default:
-      break;
-  }
-
-  group.add(kit.toMesh(MATERIALS.lit));
-  if (!glow.isEmpty) {
-    const glowMesh = new THREE.Mesh(glow.merge(), MATERIALS.glow);
-    group.add(glowMesh);
-  }
-
-  // Sign above the door, mounted on a sign box that stands off the wall —
-  // clear of the pane plane (w/2+0.10) so no window can bleed through it.
-  const mount = new VoxelKit();
-  mount.box(0.14, 1.4, signW + 0.16, w / 2 + 0.08, FLOOR_H + 0.9, 0, '#141824');
-  const mountMesh = new THREE.Mesh(mount.merge(), MATERIALS.lit);
-  mountMesh.castShadow = true;
-  group.add(mountMesh);
   const sign = makeSign({
     text: spec.signText,
     subtext: spec.signSubtext,
-    bg: '#1d1f2a',
+    bg: body.mount ? '#1d1f2a' : '#2a2c30',
     fg: spec.accent,
     width: signW,
     height: 1.25,
     glow: true,
   });
-  sign.position.set(w / 2 + 0.16, FLOOR_H + 0.9, 0);
+  sign.position.set(w / 2 + (body.mount ? 0.18 : 0.08), body.signY, 0);
   sign.rotation.y = Math.PI / 2;
   group.add(sign);
 
-  const bodyMesh = group.children[0] as THREE.Mesh;
   return {
     group,
-    colliders: [{ w, h, d, x: 0, y: h / 2, z: 0 }],
+    colliders: [{ w, h, d, x: 0, y: h / 2, z: 0 }, ...body.colliders],
     entranceLocal: new THREE.Vector3(w / 2 + 1.3, 0, 0),
-    occluders: [bodyMesh],
+    occluders,
     highlight: makeHighlight(spec.accent, w / 2 + 1.3),
   };
 }
@@ -364,85 +122,49 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
 /* ------------------------------------------------------------------ */
 
 function buildHanok(spec: BuildingSpec): BuiltStructure {
-  const { width: w, depth: d } = spec;
+  // Frontage runs along local z, depth along x; the door faces +x.
+  const W = spec.width;
+  const D = spec.depth;
   const kit = new VoxelKit();
   const glow = new VoxelKit();
+  const paper = new VoxelKit();
   const group = new THREE.Group();
-  const bodyH = 2.4;
-
-  // Raised wooden platform
-  kit.boxOn(w + 0.8, 0.5, d + 0.8, 0, 0, 0, P.hanokWood);
-  // Walls
-  kit.boxOn(w, bodyH, d, 0, 0.5, 0, P.hanokWall);
-  // Wooden columns at corners and door
-  for (const cx of [-w / 2 + 0.25, w / 2 - 0.25]) {
-    for (const cz of [-d / 2 + 0.25, d / 2 - 0.25]) {
-      kit.boxOn(0.4, bodyH, 0.4, cx, 0.5, cz, P.hanokWood);
-    }
-  }
-  // Lattice windows (warm)
-  glow.box(0.06, 1.1, 1.4, w / 2 + 0.01, 1.7, -d / 4, P.windowWarm);
-  glow.box(0.06, 1.1, 1.4, w / 2 + 0.01, 1.7, d / 4, P.windowWarm);
-  // Tiled roof: wide lifted eaves stepping into a true gabled ridge, with
-  // eave-end caps — the classic hanok silhouette instead of a slab stack.
-  const roofBase = 0.5 + bodyH;
-  kit.boxOn(w + 2.6, 0.3, d + 2.6, 0, roofBase, 0, P.hanokRoof);
-  kit.boxOn(w + 1.7, 0.3, d + 1.7, 0, roofBase + 0.3, 0, P.roofTile);
-  kit.prism(d + 1.0, 1.35, w + 0.8, 0, roofBase + 0.6, 0, P.hanokRoof, Math.PI / 2);
-  kit.box(w + 1.0, 0.22, 0.7, 0, roofBase + 1.95, 0, '#333a45'); // ridge beam
-  // Eave-end caps (the pale roundels along the eave edges, ±z sides)
-  for (const side of [-1, 1]) {
-    const cols = Math.max(4, Math.round(w / 1.6));
-    for (let i = 0; i < cols; i++) {
-      const xx = -w / 2 - 0.9 + (i / (cols - 1)) * (w + 1.8);
-      kit.box(0.18, 0.18, 0.18, xx, roofBase + 0.08, side * (d / 2 + 1.2), '#d9d2c0');
-    }
-  }
-  // Tile courses: thin ridges parallel to the roof ridge, stepping up the
-  // ±z slopes of the prism.
-  for (const side of [-1, 1]) {
-    for (let i = 0; i < 4; i++) {
-      const t = i / 4;
-      const zz = side * ((d + 1.0) / 2) * (1 - t);
-      kit.box(w + 0.9 - t * 0.5, 0.1, 0.14, 0, roofBase + 0.62 + t * 1.28, zz, '#39404b');
-    }
-  }
-  // Door (front +X)
-  addDoor(kit, glow, w / 2, spec.accent, 0.5);
-  // Low courtyard wall with gate gap — hugs the house side of the approach
-  // so it never juts into the alley the door opens onto.
-  kit.boxOn(0.4, 1.1, d * 0.7, w / 2 + 1.1, 0, -d / 2 - 0.6, P.hanokWall);
-  kit.boxOn(0.5, 0.2, d * 0.7, w / 2 + 1.1, 1.1, -d / 2 - 0.6, P.roofTile);
+  const { floorY } = hanokHouse(kit, glow, paper, { width: W, depth: D, doorway: true });
+  // Courtyard walls run out from both sides of the house to the alley, so
+  // the house sits inside its own compound as hanok do.
+  for (const s of [-1, 1]) hanokWall(kit, D / 2 - 1.0, s * (W / 2 + 1.0), 4.4, true);
 
   const bodyMesh = kit.toMesh(MATERIALS.lit);
   group.add(bodyMesh);
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
+  group.add(new THREE.Mesh(paper.merge(), MATERIALS.paper));
 
-  // Name plaque under the eave: kept below the roof slab (bottom at 2.9)
-  // and in front of the door header (x up to w/2 + 0.12) so neither the
-  // eave nor the lintel ever cuts across the board.
+  // Name plaque (현판) on the lintel over the door, dark wood with
+  // carved-gold lettering, below the bracket course.
   const sign = makeSign({
     text: spec.signText,
     subtext: spec.signSubtext,
-    bg: '#2b2118',
-    fg: '#ffd9a0',
-    width: 3.2,
+    bg: '#3a2a1d',
+    fg: '#e9c98f',
+    border: '#5a412c',
+    width: 2.0,
     height: 0.62,
     glow: true,
   });
-  sign.position.set(w / 2 + 0.18, 2.55, 0);
+  sign.position.set(D / 2 + 0.13, floorY + 2.12, 0);
   sign.rotation.y = Math.PI / 2;
   group.add(sign);
 
   return {
     group,
     colliders: [
-      { w: w + 0.8, h: bodyH + 2, d: d + 0.8, x: 0, y: (bodyH + 2) / 2, z: 0 },
-      { w: 0.4, h: 1.3, d: d * 0.7, x: w / 2 + 1.1, y: 0.65, z: -d / 2 - 0.6 },
+      { w: D + 1.3, h: 4.5, d: W + 1.3, x: 0, y: 2.25, z: 0 },
+      { w: 4.4, h: 1.6, d: 0.6, x: D / 2 - 1.0, y: 0.8, z: -(W / 2 + 1.0) },
+      { w: 4.4, h: 1.6, d: 0.6, x: D / 2 - 1.0, y: 0.8, z: W / 2 + 1.0 },
     ],
-    entranceLocal: new THREE.Vector3(w / 2 + 1.6, 0, 0),
+    entranceLocal: new THREE.Vector3(D / 2 + 2.3, 0, 0),
     occluders: [bodyMesh],
-    highlight: makeHighlight(spec.accent, w / 2 + 1.6),
+    highlight: makeHighlight(spec.accent, D / 2 + 2.3),
   };
 }
 
@@ -455,36 +177,59 @@ function buildPhoneBooth(spec: BuildingSpec): BuiltStructure {
   const w = 1.4;
   const h = 2.6;
 
-  kit.boxOn(w, 0.15, w, 0, 0, 0, '#8f2f24');
-  // Corner posts
-  for (const cx of [-w / 2 + 0.12, w / 2 - 0.12]) {
-    for (const cz of [-w / 2 + 0.12, w / 2 - 0.12]) {
-      kit.boxOn(0.22, h, 0.22, cx, 0.15, cz, spec.accent);
+  // Korean street phone booth (공중전화): a slim aluminium frame with
+  // glazed sides, a grey roof cap, and the green-and-white 공중전화 band.
+  // The door side (+x) is open toward the approach.
+  const FRAME = '#c9cdd2';
+  const FRAME_DARK = '#8d939a';
+  kit.boxOn(w, 0.08, w, 0, 0, 0, '#7e8389');
+  for (const cx of [-w / 2 + 0.05, w / 2 - 0.05]) {
+    for (const cz of [-w / 2 + 0.05, w / 2 - 0.05]) {
+      kit.boxOn(0.1, h, 0.1, cx, 0.08, cz, FRAME);
     }
   }
-  // Glass panes
-  glow.box(0.05, h * 0.55, w - 0.5, -w / 2 + 0.02, h * 0.55, 0, '#cfe8ef');
-  glow.box(w - 0.5, h * 0.55, 0.05, 0, h * 0.55, -w / 2 + 0.02, '#cfe8ef');
-  glow.box(w - 0.5, h * 0.55, 0.05, 0, h * 0.55, w / 2 - 0.02, '#cfe8ef');
-  // Crown + lamp
-  kit.boxOn(w + 0.2, 0.4, w + 0.2, 0, h + 0.15, 0, '#8f2f24');
-  glow.boxOn(0.3, 0.2, 0.3, 0, h + 0.55, 0, P.lampGlow);
-
+  // Glazed sides with a kick panel and a mid rail (glass reads dark by day)
+  const paneH = h * 0.62;
+  const paneY = 0.6 + paneH / 2;
+  for (const [px, pz, rot] of [[-w / 2, 0, true], [0, -w / 2, false], [0, w / 2, false]] as const) {
+    const pw = w - 0.12;
+    if (rot) {
+      kit.box(0.04, 0.5, pw, px, 0.33, pz, FRAME_DARK);
+      glow.box(0.03, paneH, pw - 0.04, px, paneY, pz, '#bcd6e2');
+      kit.box(0.05, 0.05, pw, px, paneY, pz, FRAME);
+    } else {
+      kit.box(pw, 0.5, 0.04, px, 0.33, pz, FRAME_DARK);
+      glow.box(pw - 0.04, paneH, 0.03, px, paneY, pz, '#bcd6e2');
+      kit.box(pw, 0.05, 0.05, px, paneY, pz, FRAME);
+    }
+  }
+  // Phone unit on the back wall, with handset and shelf
+  kit.box(0.18, 0.6, 0.42, -w / 2 + 0.16, 1.45, 0, '#3f6db5');
+  kit.box(0.08, 0.36, 0.1, -w / 2 + 0.28, 1.5, 0.12, '#25282d');
+  kit.box(0.34, 0.04, 0.6, -w / 2 + 0.24, 1.08, 0, FRAME_DARK);
+  // Roof cap and the sign band on every side
+  kit.boxOn(w + 0.14, 0.34, w + 0.14, 0, h + 0.08, 0, '#e8ebee');
+  kit.boxOn(w + 0.2, 0.08, w + 0.2, 0, h + 0.42, 0, '#9aa0a6');
+  glow.boxOn(0.24, 0.1, 0.24, 0, h + 0.5, 0, P.lampGlow);
   const bodyMesh = kit.toMesh(MATERIALS.lit);
   group.add(bodyMesh);
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
 
-  const sign = makeSign({
-    text: '전화',
-    subtext: 'CONTACT',
-    bg: '#8f2f24',
-    fg: '#ffe9d0',
-    width: 1.2,
-    height: 0.6,
-    glow: true,
-  });
-  sign.position.set(0, h - 0.15, w / 2 + 0.11);
-  group.add(sign);
+  // 공중전화 band, the KT green on white, facing the approach and the plaza.
+  for (const [px, pz, ry] of [[w / 2 + 0.08, 0, Math.PI / 2], [0, w / 2 + 0.08, 0], [0, -w / 2 - 0.08, Math.PI]] as const) {
+    const sign = makeSign({
+      text: '공중전화',
+      bg: '#f4f5f2',
+      fg: '#1f7a4d',
+      border: '#1f7a4d',
+      width: 1.32,
+      height: 0.3,
+      glow: true,
+    });
+    sign.position.set(px, h + 0.25, pz);
+    sign.rotation.y = ry;
+    group.add(sign);
+  }
 
   return {
     group,
@@ -498,85 +243,137 @@ function buildPhoneBooth(spec: BuildingSpec): BuiltStructure {
 /* ------------------------------------------------------------------ */
 
 function buildSubwayStation(spec: BuildingSpec): BuiltStructure {
+  // A Seoul Metro exit (출구): a stair dropping into the ground inside a
+  // granite-capped parapet, under a glass-and-steel canopy, with the pole
+  // sign carrying the line roundel, the station name and the exit number.
+  // The stair opens toward +x, which is where the player enters.
   const kit = new VoxelKit();
   const glow = new VoxelKit();
+  const glass = new VoxelKit();
   const group = new THREE.Group();
-  const w = spec.width; // canopy length
-  const d = spec.depth;
+  const w = spec.width; // stair length, along x
+  const d = spec.depth; // width across
+  const STEEL = '#59606a';
+  const GRANITE = '#a19c92';
+  const LINE = '#0d3692'; // Line 1 blue
 
-  // Canopy on four pillars over a "descending" stair
-  const canopyY = 2.7;
-  for (const cx of [-w / 2 + 0.3, w / 2 - 0.3]) {
-    for (const cz of [-d / 2 + 0.3, d / 2 - 0.3]) {
-      kit.boxOn(0.35, canopyY, 0.35, cx, 0, cz, '#3f4d5c');
+  // Parapet walls along both sides and the far end, granite cap on top
+  for (const s of [-1, 1]) {
+    kit.boxOn(w, 0.95, 0.3, 0, 0, s * (d / 2 - 0.15), '#8b8780');
+    kit.boxOn(w + 0.04, 0.08, 0.38, 0, 0.95, s * (d / 2 - 0.15), GRANITE);
+  }
+  kit.boxOn(0.3, 0.95, d, -w / 2 + 0.15, 0, 0, '#8b8780');
+  kit.boxOn(0.38, 0.08, d + 0.04, -w / 2 + 0.15, 0.95, 0, GRANITE);
+  // The street is one flat plane, so the stair can't actually cut into it.
+  // Instead the well is raised: the parapet stands 0.95 m tall, and the
+  // flight is modelled inside it as solid treads stepping DOWN from the
+  // parapet top toward a dark landing, with lit risers so every step reads.
+  // From street level and from the follow camera it reads as a stair
+  // dropping into the concourse.
+  const steps = 9;
+  const top = 0.92;
+  const bottom = -0.02;
+  const inner = d - 0.7;
+  const run = (w - 1.2) / steps;
+  for (let i = 0; i < steps; i++) {
+    const x = w / 2 - 0.5 - (i + 0.5) * run;
+    const y = top - ((top - bottom) * (i + 1)) / steps;
+    const t = i / (steps - 1);
+    const tread = '#' + new THREE.Color('#9a9c98').lerp(new THREE.Color('#4a4e52'), t).getHexString();
+    // Solid step down to the well floor so no gap shows under any tread
+    kit.boxOn(run + 0.02, y + 0.02, inner, x, -0.02, 0, '#3a3d40');
+    kit.box(run + 0.02, 0.06, inner, x, y, 0, tread);
+    kit.box(0.08, 0.03, inner, x + run / 2 - 0.04, y + 0.035, 0, '#d1ac3e'); // anti-slip nosing
+  }
+  // Entry: a short landing at street level in front of the first step,
+  // then the dark opening at the bottom with the concourse light.
+  kit.box(0.5, 0.94, inner, w / 2 - 0.25, 0.45, 0, '#8e918f');
+  kit.box(0.6, 0.04, inner, w / 2 - 0.3, 0.94, 0, '#a7a9a5');
+  kit.boxOn(0.5, 0.9, inner, -w / 2 + 0.55, -0.02, 0, '#16181b');
+  glow.box(0.04, 0.6, inner - 0.2, -w / 2 + 0.81, 0.35, 0, '#ffedbe');
+  // Stainless handrails following the flight on both sides
+  for (const sd of [-1, 1]) {
+    const z = sd * (inner / 2 - 0.08);
+    kit.bar(w / 2 - 0.5, top + 0.85, z, -w / 2 + 0.9, bottom + 0.85, z, 0.05, '#c3c8cd');
+    for (const xp of [w / 2 - 0.5, 0, -w / 2 + 0.9]) {
+      const yp = top + ((bottom - top) * (w / 2 - 0.5 - xp)) / (w - 1.4);
+      kit.bar(xp, yp, z, xp, yp + 0.85, z, 0.04, '#c3c8cd');
     }
   }
-  kit.boxOn(w + 0.6, 0.35, d + 0.6, 0, canopyY, 0, '#4d6275');
-  // Accent strip embedded in the canopy fascia (not hanging below its edge)
-  glow.box(w + 0.5, 0.14, 0.14, 0, canopyY + 0.12, d / 2 + 0.28, spec.accent);
 
-  // Stairwell: dark pit ringed by a low wall, steps fading down
-  kit.boxOn(0.3, 0.9, d - 0.8, -w / 2 + 0.9, 0, 0, '#8f958f');
-  kit.boxOn(w - 1.6, 0.9, 0.3, 0, 0, -d / 2 + 0.5, '#8f958f');
-  kit.boxOn(w - 1.6, 0.9, 0.3, 0, 0, d / 2 - 0.5, '#8f958f');
-  const steps = 5;
-  for (let i = 0; i < steps; i++) {
-    const t = i / steps;
-    kit.box(w - 2.2, 0.18, d - 1.4, -0.2 - t * 0.0, 0.05 - i * 0.16, 0, i < 2 ? '#7d8386' : '#565b5e');
+  // Canopy: steel portal frames with a glass roof, curved down toward the
+  // entry the way the newer Seoul exits are
+  const canopyY = 2.75;
+  const frames = 4;
+  for (let i = 0; i < frames; i++) {
+    const x = -w / 2 + 0.3 + (i * (w - 0.6)) / (frames - 1);
+    for (const s of [-1, 1]) kit.boxOn(0.12, canopyY, 0.12, x, 0, s * (d / 2 - 0.15), STEEL);
+    kit.box(0.14, 0.14, d, x, canopyY, 0, STEEL);
   }
-  glow.box(w - 2.4, 0.05, d - 1.6, -0.2, -0.72, 0, '#ffedbe'); // light from below
+  for (const s of [-1, 1]) kit.box(w - 0.4, 0.12, 0.12, 0, canopyY, s * (d / 2 - 0.15), STEEL);
+  glass.box(w - 0.4, 0.04, d - 0.2, 0, canopyY + 0.1, 0, '#6f8796');
+  // Front lip curving down over the entry
+  kit.profile([[0, 0], [0.5, -0.12], [0.75, -0.42], [0.69, -0.45], [0.46, -0.18], [0, -0.07]], d + 0.1, w / 2 - 0.2, canopyY + 0.12, 0, STEEL);
+  // Exit number plate on the canopy fascia, facing the approach
+  glow.box(0.04, 0.3, 0.3, w / 2 + 0.36, canopyY - 0.12, d / 2 - 0.5, '#f5c400');
 
-  // Rooftop sign mounting: two posts + a solid board core
-  const signY = canopyY + 1.15;
-  kit.boxOn(0.12, 0.85, 0.12, -1.6, canopyY + 0.35, 0, '#3f4d5c');
-  kit.boxOn(0.12, 0.85, 0.12, 1.6, canopyY + 0.35, 0, '#3f4d5c');
-  kit.box(4.4, 1.1, 0.08, 0, signY, 0, '#0d2545');
+  // Pole sign standing beside the entry
+  const px = w / 2 + 0.4;
+  const pz = -d / 2 - 0.45;
+  kit.cylinder(0.08, 0.1, 3.2, px, 1.6, pz, STEEL, 8);
+  kit.box(0.14, 1.15, 0.92, px, 3.6, pz, '#e9ebec');
+  kit.cylinder(0.32, 0.32, 0.12, px, 4.45, pz, LINE, 16);
+  glow.box(0.02, 1.05, 0.82, px + 0.08, 3.6, pz, '#ffffff');
 
   const bodyMesh = kit.toMesh(MATERIALS.lit);
   group.add(bodyMesh);
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
+  const glassMesh = glass.toMesh(MATERIALS.glassWall);
+  group.add(glassMesh);
 
-  // Line-1 style roundel sign on both faces of the board
+  // Station sign over the canopy, both faces: line roundel + name
+  const signY = canopyY + 0.75;
+  const board = new VoxelKit();
+  board.box(0.1, 0.9, 4.0, 0, signY, 0, '#0b2a6a');
+  for (const s of [-1, 1]) board.boxOn(0.08, 0.5, 0.08, 0, canopyY + 0.15, s * 1.6, STEEL);
+  group.add(board.toMesh(MATERIALS.lit));
   for (const side of [1, -1] as const) {
     const sign = makeSign({
       text: '① 포트폴리오역',
       subtext: 'PORTFOLIO STN · LINKS',
-      bg: '#12325c',
+      bg: LINE,
       fg: '#ffffff',
       border: spec.accent,
-      width: 4.4,
-      height: 1.1,
+      width: 4.0,
+      height: 0.86,
       glow: true,
     });
-    // 0.08: proud of both the board core (±0.04) and the post faces (±0.06)
-    // so neither surface z-fights the lettering.
-    sign.position.set(0, signY, side * 0.08);
-    if (side === -1) sign.rotation.y = Math.PI;
+    sign.position.set(side * 0.07, signY, 0);
+    sign.rotation.y = side * (Math.PI / 2);
     group.add(sign);
   }
+  // Small exit-number sign on the pole, toward the approach
+  const pole = makeSign({ text: '1', subtext: '출구 EXIT', bg: '#f5c400', fg: '#1a1a1a', width: 0.8, height: 0.95, glow: true });
+  // Keep the lettering in front of the illuminated panel's outer face.
+  pole.position.set(px + 0.105, 3.6, pz);
+  pole.rotation.y = Math.PI / 2;
+  group.add(pole);
 
   return {
     group,
-    // Solid block under the canopy so the player can't fall into the "stairs";
-    // the interaction happens at the entrance edge.
-    colliders: [{ w: w - 1, h: 1.6, d: d - 0.6, x: 0, y: 0.35, z: 0 }],
+    // Solid block over the stair well so the player can't fall in; the
+    // interaction happens at the entry edge.
+    colliders: [
+      { w: w - 1, h: 1.6, d: d - 0.6, x: 0, y: 0.35, z: 0 },
+      { w: 0.3, h: 3.2, d: 0.3, x: px, y: 1.6, z: pz },
+    ],
     entranceLocal: new THREE.Vector3(w / 2 + 1.2, 0, 0),
-    occluders: [bodyMesh],
+    occluders: [bodyMesh, glassMesh],
     highlight: makeHighlight(spec.accent, w / 2 + 1.2),
   };
 }
 
 /* ------------------------------------------------------------------ */
-
-function addDoor(kit: VoxelKit, glow: VoxelKit, faceX: number, accent: string, baseY = 0): void {
-  // Inset dark doorway + frame + lamp + step
-  kit.box(0.14, 2.0, 1.5, faceX + 0.01, baseY + 1.0, 0, '#20242e');
-  kit.box(0.18, 2.2, 0.22, faceX + 0.03, baseY + 1.1, -0.85, '#2e333f');
-  kit.box(0.18, 2.2, 0.22, faceX + 0.03, baseY + 1.1, 0.85, '#2e333f');
-  kit.box(0.18, 0.22, 1.9, faceX + 0.03, baseY + 2.2, 0, '#2e333f');
-  kit.boxOn(1.2, 0.18, 1.9, faceX + 0.5, 0, 0, '#9b958a'); // step
-  glow.box(0.16, 0.22, 0.5, faceX + 0.06, baseY + 2.45, 0, accent); // door lamp
-}
 
 function makeHighlight(accent: string, doorDist: number): THREE.Group {
   const group = new THREE.Group();

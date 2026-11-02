@@ -5,6 +5,9 @@ import * as CANNON from 'cannon-es';
  * one dynamic player sphere, stepped at a fixed 60Hz with substeps so thin
  * colliders don't tunnel.
  */
+/** Collision group for statics the follow camera should treat as walls. */
+export const CAMERA_SOLID = 2;
+
 export class Physics {
   readonly world: CANNON.World;
   readonly groundMaterial: CANNON.Material;
@@ -50,6 +53,8 @@ export class Physics {
     rotationY = 0
   ): CANNON.Body {
     const body = new CANNON.Body({ mass: 0, material: this.groundMaterial });
+    // Tall, wide solids block the camera; thin poles and low props don't.
+    if (height >= 1.8 && Math.max(width, depth) >= 0.9) body.collisionFilterGroup = 1 | CAMERA_SOLID;
     const half = new CANNON.Vec3(width / 2, height / 2, depth / 2);
     body.addShape(new CANNON.Box(half));
     body.position.set(cx, cy, cz);
@@ -63,6 +68,7 @@ export class Physics {
   addStaticCylinder(cx: number, cy: number, cz: number, radius: number, height: number): CANNON.Body {
     const body = new CANNON.Body({ mass: 0, material: this.groundMaterial });
     body.addShape(new CANNON.Cylinder(radius, radius, height, 12));
+    if (radius >= 1) body.collisionFilterGroup = 1 | CAMERA_SOLID;
     body.position.set(cx, cy, cz);
     this.world.addBody(body);
     this.cylinderVolumes.push({ x: cx, y: cy, z: cz, radius, height });
@@ -97,6 +103,29 @@ export class Physics {
       }
     }
     return false;
+  }
+
+  private rayFrom = new CANNON.Vec3();
+  private rayTo = new CANNON.Vec3();
+
+  /**
+   * Distance from `from` to the first static solid along `to`, or Infinity.
+   * The follow camera uses this for occlusion: a few hundred boxes through
+   * the broadphase instead of every triangle of the merged city meshes.
+   * Only bodies in the CAMERA_SOLID group count, so kerbs, benches and
+   * thin poles never shove the camera around.
+   */
+  raycastSolid(
+    fx: number, fy: number, fz: number,
+    tx: number, ty: number, tz: number
+  ): number {
+    this.rayFrom.set(fx, fy, fz);
+    this.rayTo.set(tx, ty, tz);
+    let best = Infinity;
+    this.world.raycastAll(this.rayFrom, this.rayTo, { skipBackfaces: true, collisionFilterMask: CAMERA_SOLID }, (r) => {
+      if (r.distance < best) best = r.distance;
+    });
+    return best;
   }
 
   step(dt: number): void {

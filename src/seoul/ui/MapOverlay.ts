@@ -1,3 +1,4 @@
+import { getLang, onLangChange } from './lang';
 import type { DistrictInfo, InteractionTarget } from '../types';
 import { trapFocus } from './focusTrap';
 import { ICON } from './icons';
@@ -51,7 +52,9 @@ export class MapOverlay {
     // --- Base map: the painted ground, brightened, with district names
     const canvas = section.querySelector('.map-canvas') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d')!;
-    if (ground) {
+    const drawMap = () => {
+      if (!ground) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.filter = 'grayscale(0.55) brightness(0.66) contrast(1.08)';
       ctx.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, 760, 760);
       ctx.filter = 'none';
@@ -63,15 +66,20 @@ export class MapOverlay {
         const cz = (((d.bounds.minZ + d.bounds.maxZ) / 2 + 104) / 208) * 760;
         ctx.fillStyle = 'rgba(233,229,220,0.9)';
         ctx.font = '600 19px "IBM Plex Sans KR", sans-serif';
-        ctx.fillText(d.koreanName, cx, cz - 9);
-        ctx.fillStyle = 'rgba(233,229,220,0.62)';
-        ctx.font = '500 11px "Geist Mono Variable", ui-monospace, monospace';
-        ctx.fillText(d.name.toLowerCase(), cx, cz + 10);
+        const english = getLang() === 'en';
+        ctx.fillText(english ? d.name : d.koreanName, cx, english ? cz : cz - 9);
+        if (!english) {
+          ctx.fillStyle = 'rgba(233,229,220,0.62)';
+          ctx.font = '500 11px "Geist Mono Variable", ui-monospace, monospace';
+          ctx.fillText(d.name.toLowerCase(), cx, cz + 10);
+        }
       }
       ctx.fillStyle = 'rgba(233,229,220,0.85)';
       ctx.font = '600 15px "Geist Mono Variable", ui-monospace, monospace';
       ctx.fillText('N', 380, 18);
-    }
+    };
+    drawMap();
+    onLangChange(drawMap);
 
     // --- Destination markers (real buttons: clickable + tabbable)
     const markers = section.querySelector('.map-markers') as HTMLElement;

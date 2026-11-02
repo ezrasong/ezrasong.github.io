@@ -24,8 +24,8 @@ export const GRP_PEC = 2;
 export const GRP_FLUKE = 3;
 
 /** Max half-height of the body as a fraction of length. */
-const H = 0.105;
-const DORSAL_H = 0.185;
+const H = 0.12;
+const DORSAL_H = 0.2;
 const PEC_STATION_S = 0.2;
 const EYE_S = 0.112;
 
@@ -58,12 +58,12 @@ function curve(pts: Pts): (s: number) => number {
 
 /* Side profile above and below the spine, and half-breadth, in units of H. */
 const top = curve([
-  [0, 0.06], [0.025, 0.42], [0.07, 0.66], [0.14, 0.84], [0.26, 0.95], [0.4, 0.96],
-  [0.52, 0.86], [0.64, 0.7], [0.76, 0.52], [0.86, 0.38], [0.94, 0.25], [1, 0.14],
+  [0, 0.12], [0.02, 0.48], [0.06, 0.72], [0.12, 0.86], [0.22, 0.95], [0.36, 0.98],
+  [0.5, 0.88], [0.62, 0.68], [0.74, 0.46], [0.84, 0.3], [0.93, 0.18], [1, 0.1],
 ]);
 const bottom = curve([
-  [0, 0], [0.025, 0.34], [0.07, 0.6], [0.14, 0.86], [0.26, 1.05], [0.38, 1.06],
-  [0.5, 0.92], [0.62, 0.68], [0.74, 0.48], [0.84, 0.34], [0.93, 0.2], [1, 0.1],
+  [0, 0.04], [0.02, 0.4], [0.06, 0.66], [0.12, 0.88], [0.24, 1.06], [0.36, 1.1],
+  [0.48, 1.0], [0.6, 0.76], [0.72, 0.5], [0.83, 0.3], [0.92, 0.17], [1, 0.08],
 ]);
 const breadth = curve([
   [0, 0], [0.03, 0.36], [0.1, 0.66], [0.25, 0.86], [0.42, 0.86], [0.6, 0.66],
@@ -75,16 +75,18 @@ const smooth = (a: number, b: number, x: number): number => {
   return t * t * (3 - 2 * t);
 };
 
-const ALB_BLACK = 0.22;
+const ALB_BLACK = 0.12;
 const ALB_GREY = 0.55;
 const ALB_WHITE = 1;
 
 /** Albedo of the body skin at spine position s, height n (-1..1), side |l| (0..1). */
 function skin(s: number, n: number, l: number): number {
   // Eye patch: an oval above and behind the eye, rising toward its rear end.
-  const es = (s - 0.17) / 0.062;
-  const en = (n - 0.26 - (s - 0.17) * 1.5) / 0.2;
-  const eye = (1 - smooth(0.75, 1.15, es * es + en * en)) * smooth(0.18, 0.4, l);
+  // A long white oval just above and behind the eye, tilted up toward the
+  // rear: the single most recognisable orca mark.
+  const es = (s - 0.165) / 0.07;
+  const en = (n - 0.3 - (s - 0.165) * 1.8) / 0.17;
+  const eye = (1 - smooth(0.8, 1.05, es * es + en * en)) * smooth(0.12, 0.32, l);
 
   // White underside: chin, throat, belly band, then the flank lobe sweeping
   // up behind the dorsal fin and ending in a point toward the tail.
@@ -93,8 +95,8 @@ function skin(s: number, n: number, l: number): number {
   else if (s < 0.13) line = -0.18 - (s - 0.025) * 0.6;
   else if (s < 0.23) line = -0.24 - smooth(0.13, 0.23, s) * 0.42;
   else if (s < 0.47) line = -0.66;
-  else if (s < 0.645) line = -0.66 + smooth(0.47, 0.645, s) * 0.74;
-  else if (s < 0.74) line = 0.08 - smooth(0.645, 0.74, s) * 1.0;
+  else if (s < 0.65) line = -0.66 + smooth(0.47, 0.65, s) * 0.92;
+  else if (s < 0.76) line = 0.26 - smooth(0.65, 0.76, s) * 1.25;
   else line = -2;
   const under = 1 - smooth(line - 0.07, line + 0.07, n);
 
@@ -177,19 +179,22 @@ export function buildOrca(length: number, subW: number, subH: number): OrcaTempl
   const maxR = H * 1.06 * L;
   const nPhi = Math.max(28, Math.min(120, Math.ceil(((2 * Math.PI * maxR) / step) * 0.9)));
   const ds = 1 / (nStations - 1);
-  for (let k = 0; k < nStations; k++) {
-    const s = stations[k]!;
-    const ht = top(s) * H * L;
-    const hb = bottom(s) * H * L;
-    const b = breadth(s) * H * L;
-    // Taper slope gives the snout and tail stock forward/backward-facing normals.
-    const s0 = Math.max(0, s - ds);
-    const s1 = Math.min(1, s + ds);
+  // One elliptical ring of skin at spine position sv, attached to station k
+  // and offset fOff px along the spine (negative = toward the tail).
+  const ring = (k: number, sv: number, fOff: number): void => {
+    const ht = top(sv) * H * L;
+    const hb = bottom(sv) * H * L;
+    const b = breadth(sv) * H * L;
+    // Taper slope tilts the normals: where the body widens toward the tail
+    // (the head) the skin faces forward, where it narrows (the tail stock)
+    // it faces back. The sign matters: inverted, the whole head was culled
+    // as a back face whenever the orca turned toward the viewer.
+    const s0 = Math.max(0, sv - ds);
+    const s1 = Math.min(1, sv + ds);
     const slope = ((top(s1) + bottom(s1) - top(s0) - bottom(s0)) * 0.5 * H) / (s1 - s0);
-    // Fewer points around thin sections; keeps density even.
-    const ring = Math.max(10, Math.ceil(nPhi * Math.max(ht, hb, b) / maxR));
-    for (let j = 0; j < ring; j++) {
-      const phi = (j / ring) * Math.PI * 2;
+    const count = Math.max(10, Math.ceil((nPhi * Math.max(ht, hb, b)) / maxR));
+    for (let j = 0; j < count; j++) {
+      const phi = (j / count) * Math.PI * 2;
       const n = Math.sin(phi);
       const c = Math.cos(phi);
       const hs = n > 0 ? ht : hb;
@@ -198,8 +203,37 @@ export function buildOrca(length: number, subW: number, subH: number): OrcaTempl
       const qU = hs > 0 ? n / hs : 0;
       const qL = b > 0 ? c / b : 0;
       const qLen = Math.hypot(qU, qL) || 1;
-      const a = skin(s, n, Math.abs(c));
-      push(k, 0, u, l, -slope, qU / qLen, qL / qLen, a, matOf(a), GRP_BODY);
+      const al = skin(sv, n, Math.abs(c));
+      push(k, fOff, u, l, slope, qU / qLen, qL / qLen, al, matOf(al), GRP_BODY);
+    }
+  };
+  const radius = (sv: number): number => Math.max(top(sv), bottom(sv), breadth(sv)) * H * L;
+  for (let k = 0; k < nStations; k++) {
+    const sv = stations[k]!;
+    ring(k, sv, 0);
+    if (k === nStations - 1) break;
+    // Where the radius changes fast (snout, tail stock), consecutive rings
+    // sit far apart radially and a view along the spine sees through the
+    // gaps. Fill them with sub-rings between the stations.
+    const gap = Math.abs(radius(stations[k + 1]!) - radius(sv));
+    const subs = Math.min(8, Math.ceil(gap / (step * 0.8)) - 1);
+    for (let j = 1; j <= subs; j++) {
+      const t = j / (subs + 1);
+      ring(k, sv + t * ds, -t * ds * L);
+    }
+  }
+  // Snout cap: a filled ellipse closing the very front, facing forward.
+  {
+    const ht = top(0) * H * L;
+    const hb = bottom(0) * H * L;
+    const b = breadth(0.012) * H * L;
+    for (let u = -hb; u <= ht; u += step * 0.8) {
+      for (let l = -b; l <= b; l += step * 0.8) {
+        const hs = u > 0 ? ht : hb;
+        if ((hs > 0 ? (u / hs) ** 2 : 0) + (b > 0 ? (l / b) ** 2 : 0) > 1) continue;
+        const al = skin(0, hs > 0 ? u / hs : 0, b > 0 ? Math.abs(l / b) : 0);
+        push(0, step * 0.3, u, l, 1, u / (hs || 1) * 0.3, l / (b || 1) * 0.3, al, matOf(al), GRP_BODY);
+      }
     }
   }
 

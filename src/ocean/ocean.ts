@@ -6,9 +6,10 @@
  * Decorative only: the canvas is aria-hidden and never takes pointer events.
  */
 
-import { AsciiRenderer, K_FOOD, type Palette } from "./ascii-renderer";
+import { AsciiRenderer, K_FOOD, K_PREY, type Palette } from "./ascii-renderer";
 import { buildOrca, type OrcaTemplate } from "./orca-model";
 import { OrcaMotion } from "./orca-motion";
+import { PreyField, PREY_SQUID } from "./prey";
 
 export interface OceanOptions {
   /**
@@ -32,6 +33,8 @@ const PALETTE: Palette = {
   eye: "#f1ede4",
   shadow: "#121110",
   food: "#d9774b",
+  prey: "#8fa7b0",
+  preyBright: "#c9dde3",
 };
 
 interface Snow {
@@ -53,6 +56,19 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
   const renderer = new AsciiRenderer(canvas, PALETTE);
 
   let tpl: OrcaTemplate | null = null;
+  /** The pod. The first orca is resident; the rest are visitors. */
+  interface Orca {
+    tpl: OrcaTemplate;
+    motion: OrcaMotion;
+    /** Seconds until a visitor heads for the exit; Infinity for the resident. */
+    stay: number;
+    leaving: boolean;
+    fullFor: number;
+  }
+  const pod: Orca[] = [];
+  const MAX_POD = 3;
+  /** Seconds until the next visitor may arrive. */
+  let visitIn = 25;
   let motion: OrcaMotion | null = null;
   let w = 0;
   let h = 0;
@@ -63,6 +79,7 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
   let running = false;
   const snow: Snow[] = [];
   const food: Food[] = [];
+  const prey = new PreyField();
 
   // Low-power devices get 30 fps; the grid quantizes motion anyway.
   const lowPower = coarse || (navigator.hardwareConcurrency ?? 8) <= 4;
@@ -91,6 +108,9 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     const z = opts.zone(w, h);
     // World y is up from the bottom of the viewport.
     motion.zone = { x0: z.x0, x1: z.x1, y0: h - z.y1, y1: h - z.y0 };
+    pod.length = 0;
+    pod.push({ tpl, motion, stay: Infinity, leaving: false, fullFor: 6 });
+    prey.resize(w, h);
     if (prev) {
       const px = Math.min(Math.max(prev.x, z.x0), z.x1);
       motion.place(px, (motion.zone.y0 + motion.zone.y1) / 2, prev.yaw);
@@ -113,14 +133,65 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     snowView.length = 0;
     for (const s of snow) snowView.push({ x: s.x, y: s.y, k: s.k });
     for (const f of food) snowView.push({ x: f.x, y: f.y, k: K_FOOD });
+    for (const p of prey.list) {
+      const g = p.fear > 0.5 ? 4 : p.kind === PREY_SQUID ? (p.vx >= 0 ? 2 : 3) : p.vx >= 0 ? 0 : 1;
+      snowView.push({ x: p.x, y: p.y, k: K_PREY + g });
+    }
     updateMask();
-    renderer.draw(tpl, motion.pose, yToScreen, snowView, clock);
+    renderer.draw(pod.map((o) => ({ tpl: o.tpl, pose: o.motion.pose })), yToScreen, snowView, clock);
   };
 
   const step = (dt: number): void => {
     if (!motion || !tpl) return;
     clock += dt;
-    motion.update(dt);
+    for (const o of pod) o.motion.update(dt);
+    // Keep the pod spaced: when two heads get within a body length, the
+    // smaller one veers off, so they swim near each other instead of
+    // overlapping into one shape.
+    for (let i = 1; i < pod.length; i++) {
+      const a = pod[i]!;
+      if (a.leaving) continue;
+      for (let j = 0; j < pod.length; j++) {
+        if (j === i) continue;
+        const b2 = pod[j]!;
+        const dx = a.motion.x - b2.motion.x;
+        const dy = a.motion.y - b2.motion.y;
+        const min = (a.tpl.length + b2.tpl.length) * 0.55;
+        if (dx * dx + dy * dy < min * min) {
+          const zn = a.motion.zone;
+          a.motion.avoid(clamp(a.motion.x + Math.sign(dx || 1) * min * 1.5, zn.x0, zn.x1), clamp(a.motion.y + Math.sign(dy || 1) * min * 0.4, zn.y0, zn.y1));
+        }
+      }
+    }
+    // Visitors: a smaller orca (a female or a juvenile) swims in from a side
+    // edge every half minute or so, stays a while, then leaves the way it came.
+    visitIn -= dt;
+    if (visitIn <= 0 && pod.length < MAX_POD) {
+      visitIn = 25 + Math.random() * 25;
+      const scale = 0.62 + Math.random() * 0.2;
+      const vt = buildOrca(tpl.length * scale, renderer.cssCw, renderer.cssCh);
+      const vm = new OrcaMotion(vt, 1 + ((Math.random() * 0x7ffffffe) | 0));
+      vm.zone = { ...motion.zone };
+      const fromLeft = Math.random() < 0.5;
+      const y = vm.zone.y0 + (vm.zone.y1 - vm.zone.y0) * (0.2 + Math.random() * 0.6);
+      vm.place(fromLeft ? -vt.length * 0.4 : w + vt.length * 0.4, y, fromLeft ? 0 : Math.PI);
+      vm.call(fromLeft ? vm.zone.x0 + (vm.zone.x1 - vm.zone.x0) * 0.4 : vm.zone.x0 + (vm.zone.x1 - vm.zone.x0) * 0.6, y);
+      pod.push({ tpl: vt, motion: vm, stay: 35 + Math.random() * 30, leaving: false, fullFor: 3 });
+    }
+    for (let i = pod.length - 1; i >= 1; i--) {
+      const o = pod[i]!;
+      o.stay -= dt;
+      if (o.stay <= 0 && !o.leaving) {
+        // Head out past the nearest side edge.
+        o.leaving = true;
+        o.motion.zone = { x0: -w, x1: 2 * w, y0: o.motion.zone.y0, y1: o.motion.zone.y1 };
+      }
+      if (o.leaving) {
+        const out = o.motion.x < w / 2 ? -o.tpl.length * 1.6 : w + o.tpl.length * 1.6;
+        o.motion.call(out, o.motion.y);
+        if (o.motion.x < -o.tpl.length * 1.3 || o.motion.x > w + o.tpl.length * 1.3) pod.splice(i, 1);
+      }
+    }
     for (const s of snow) {
       s.y += s.vy * dt;
       s.x += Math.sin(clock * 0.3 + s.vy) * 1.5 * dt;
@@ -129,20 +200,39 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
         s.x = Math.random() * w;
       }
     }
-    // Food sinks slowly and is eaten when the head reaches it.
-    const ek = tpl.eyeStation;
-    const hx = motion.pose.cx[ek]!;
-    const hy = yToScreen(motion.pose.cy[ek]!);
+    // Head positions in screen space
+    const heads = pod.map((o) => {
+      const ek = o.tpl.eyeStation;
+      return { o, x: o.motion.pose.cx[ek]!, y: yToScreen(o.motion.pose.cy[ek]!) };
+    });
+    // Food sinks slowly and is eaten when any head reaches it.
     for (let i = food.length - 1; i >= 0; i--) {
       const f = food[i]!;
       f.t += dt;
       f.y += 6 * dt;
       f.x += Math.sin(f.t * 1.7 + i) * 3 * dt;
-      if (Math.hypot(f.x - hx, f.y - hy) < tpl.length * 0.09 || f.t > 14) food.splice(i, 1);
+      if (f.t > 14 || heads.some((hd) => Math.hypot(f.x - hd.x, f.y - hd.y) < hd.o.tpl.length * 0.09)) food.splice(i, 1);
     }
-    if (food.length) {
-      const f = food[0]!;
-      motion.call(clamp(f.x, motion.zone.x0, motion.zone.x1), h - f.y);
+    // Prey flee the nearest head and get hunted by any hungry orca. Food
+    // the visitor dropped always comes first, for the resident.
+    prey.update(dt, heads, tpl.length * 0.6);
+    for (const { o, x, y } of heads) {
+      o.fullFor -= dt;
+      if (prey.eatNear(x, y, o.tpl.length * 0.09) > 0) {
+        o.fullFor = 5 + Math.random() * 6;
+        o.motion.poke();
+      }
+      if (o.leaving) continue;
+      const zn = o.motion.zone;
+      if (o === pod[0] && food.length) {
+        const f = food[0]!;
+        o.motion.call(clamp(f.x, zn.x0, zn.x1), h - f.y);
+      } else if (o.fullFor <= 0) {
+        const p = prey.nearest(x, y);
+        // Lead the target a little, the way a hunter cuts off a fleeing
+        // fish, and only hunt inside the water the orca may swim in.
+        if (p) o.motion.chase(clamp(p.x + p.vx * 0.5, zn.x0, zn.x1), clamp(h - (p.y + p.vy * 0.5), zn.y0, zn.y1));
+      }
     }
   };
 
@@ -269,6 +359,15 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
   (window as unknown as { __ocean?: unknown }).__ocean = {
     get motion() {
       return motion;
+    },
+    get pod() {
+      return pod.length;
+    },
+    /** Head positions of every orca, CSS px from the top-left (tests). */
+    heads: () => pod.map((o) => [Math.round(o.motion.x), Math.round(h - o.motion.y)]),
+    /** Bring a visitor in now (tests). */
+    visit: () => {
+      visitIn = 0;
     },
     get cells() {
       return { cols: renderer.cols, rows: renderer.rows };

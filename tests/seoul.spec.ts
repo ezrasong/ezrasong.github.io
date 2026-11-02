@@ -24,8 +24,15 @@ test("seoul: title, HUD, directory, panel and map all work and fit", async ({ pa
   expect(axeTitle.violations.map((v) => v.id)).toEqual([]);
   if (mobile) await expect(page.locator(".joystick")).toBeHidden();
 
+  const originalMap = await page.locator('.map-canvas').evaluate((c: HTMLCanvasElement) => c.toDataURL());
+  await page.locator('.lang-opt[data-lang="en"]').click();
+  await expect(page.locator('html')).toHaveClass(/lang-en/);
+  expect(await page.locator('.map-canvas').evaluate((c: HTMLCanvasElement) => c.toDataURL())).not.toBe(originalMap);
+
   await page.locator(".title-start").click();
   await expect(page.locator(".hud")).toBeVisible();
+  await expect(page.locator('.hud-lang')).toHaveText('en');
+  await expect(page.locator('.hud-quality')).not.toContainText(/[가-힣]/);
 
   const fit = await page.evaluate(() => {
     const out: string[] = [];
@@ -70,4 +77,33 @@ test("seoul: title, HUD, directory, panel and map all work and fit", async ({ pa
     .not.toBe(before);
 
   expect(problems).toEqual([]);
+
+  await page.reload();
+  await page.locator('.title-start').waitFor({ state: 'visible', timeout: 90_000 });
+  await expect(page.locator('.lang-opt[data-lang="en"]')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('seoul: quality calibrates once at startup and respects a manual choice', async ({ page }) => {
+  await ready(page);
+  await page.locator('.title-start').click();
+  const calibrated = await page.evaluate(() => {
+    const app = (window as any).__voxelSeoul.app;
+    // Feed slow frame timings through the real calibration policy.
+    for (let i = 0; i < 100; i++) app.monitorPerformance(0.1, true);
+    const first = { level: app.quality.current.level, scale: app.renderScale };
+    for (let i = 0; i < 100; i++) app.monitorPerformance(0.125, true);
+    return { first, later: { level: app.quality.current.level, scale: app.renderScale } };
+  });
+  expect(calibrated.first.scale).toBeLessThan(1);
+  expect(calibrated.later).toEqual(calibrated.first);
+
+  await page.locator('.hud-quality').click();
+  const manual = await page.evaluate(() => {
+    const app = (window as any).__voxelSeoul.app;
+    const first = { level: app.quality.current.level, scale: app.renderScale };
+    for (let i = 0; i < 100; i++) app.monitorPerformance(0.125, true);
+    return { first, later: { level: app.quality.current.level, scale: app.renderScale } };
+  });
+  expect(manual.first.scale).toBe(1);
+  expect(manual.later).toEqual(manual.first);
 });
