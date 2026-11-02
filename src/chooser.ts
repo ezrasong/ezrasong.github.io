@@ -1,58 +1,21 @@
-/** Landing chooser: pick an experience with the keyboard (1 / 2) or a click. */
+/** Landing chooser: 1 / 2 on the keyboard, or a click. */
 
-let audioCtx: AudioContext | null = null;
+import "./style.css";
 
-function clack(): void {
-  try {
-    if (!audioCtx) {
-      const Ctor =
-        window.AudioContext ??
-        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctor) return;
-      audioCtx = new Ctor();
-    }
-    if (audioCtx.state === "suspended") void audioCtx.resume();
-    const ctx = audioCtx;
-    const t = ctx.currentTime;
-    const out = ctx.createGain();
-    out.gain.value = 0.28;
-    out.connect(ctx.destination);
-    const osc = ctx.createOscillator();
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(172, t);
-    osc.frequency.exponentialRampToValueAtTime(92, t + 0.05);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.4, t + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.0008, t + 0.07);
-    osc.connect(g).connect(out);
-    osc.start(t);
-    osc.stop(t + 0.09);
-  } catch (e) {
-    /* audio unavailable */
-  }
-}
+import { startOcean } from "./ocean/ocean";
+import { chooserWater } from "./ocean/water";
 
-function go(url: string): void {
-  clack();
-  window.setTimeout(() => {
-    window.location.href = url;
-  }, 70);
-}
+const canvas = document.querySelector<HTMLCanvasElement>("[data-ocean]");
+if (canvas) startOcean(canvas, chooserWater);
 
 const choices = Array.from(document.querySelectorAll<HTMLAnchorElement>(".choice"));
 
 window.addEventListener("keydown", (e) => {
-  if (e.key === "1") {
-    e.preventDefault();
-    go("./portfolio.html");
-  } else if (e.key === "2") {
-    e.preventDefault();
-    go("./seoul.html");
-  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const target = choices[Number(e.key) - 1];
+  if (!target) return;
+  e.preventDefault();
+  target.click();
 });
-
-choices.forEach((c) => c.addEventListener("click", () => clack()));
-choices[0]?.focus({ preventScroll: true });
 
 export {};

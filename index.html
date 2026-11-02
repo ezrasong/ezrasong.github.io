@@ -3,15 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <script>
-      document.documentElement.classList.add("js");
-      try {
-        var t = localStorage.getItem("theme");
-        document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
-      } catch (e) {
-        document.documentElement.setAttribute("data-theme", "dark");
-      }
-    </script>
     <title>Ezra Song</title>
     <meta
       name="description"
@@ -19,67 +10,53 @@
     />
     <link rel="canonical" href="https://ezrasong.github.io/" />
     <meta name="author" content="Ezra Song" />
-    <meta name="theme-color" content="#efe6d4" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#12151f" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#171615" />
+    <meta name="color-scheme" content="dark" />
 
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://ezrasong.github.io/" />
     <meta property="og:title" content="Ezra Song" />
     <meta property="og:description" content="Two ways in: a straightforward portfolio, or a playable 3D Seoul." />
+    <meta property="og:image" content="https://ezrasong.github.io/og.png" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="/src/style.css" />
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='5' width='24' height='23' rx='5' fill='%23232838'/%3E%3Crect x='6' y='6' width='20' height='17' rx='4' fill='%23c96f4a'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23171615'/%3E%3Crect x='6' y='13' width='5' height='5' fill='%23e9e5dc'/%3E%3Crect x='12' y='13' width='5' height='5' fill='%23e9e5dc'/%3E%3Crect x='18' y='13' width='5' height='5' fill='%2377726a'/%3E%3Crect x='14' y='7' width='5' height='5' fill='%23e9e5dc'/%3E%3C/svg%3E"
     />
   </head>
-  <body class="chooser-page">
-    <main class="chooser">
-      <header class="chooser__head">
-        <p class="eyebrow chooser__eyebrow"><span class="eyebrow__prompt" aria-hidden="true">&gt;</span> ezra song</p>
-        <h1 class="chooser__title">Two ways in.</h1>
-        <p class="chooser__sub">
-          Same work, two builds. Pick one; there's a switch on the other side to come back.
-        </p>
-      </header>
+  <body class="page page--chooser">
+    <canvas class="ocean" data-ocean aria-hidden="true"></canvas>
 
-      <div class="chooser__grid">
-        <a class="choice" href="./portfolio.html" data-choice="1">
-          <span class="choice__key key" aria-hidden="true">1</span>
-          <span class="choice__body">
-            <span class="choice__name">Portfolio</span>
-            <span class="choice__desc">
-              Clean and fast, with a real working terminal. The straightforward tour of the work.
-            </span>
-            <span class="choice__meta">pixel · terminal · keyboard</span>
-          </span>
-          <span class="choice__go" aria-hidden="true">→</span>
-        </a>
+    <header class="bar bar--top">
+      <span class="mark">ezra song</span>
+      <span class="bar__aside dim">software engineer</span>
+    </header>
 
-        <a class="choice" href="./seoul.html" data-choice="2">
-          <span class="choice__key key" aria-hidden="true">2</span>
-          <span class="choice__body">
-            <span class="choice__name">Mini Seoul</span>
-            <span class="choice__desc">
-              Drive a poro through a stylized low-poly Seoul and knock on doors to open the work.
-            </span>
-            <span class="choice__meta">three.js · physics · webgl</span>
-          </span>
-          <span class="choice__go" aria-hidden="true">→</span>
-        </a>
-      </div>
-
-      <p class="chooser__hint">
-        <span class="eyebrow__prompt" aria-hidden="true">&gt;</span>
-        press <b>1</b> or <b>2</b>, or click
-      </p>
+    <main class="chooser" data-content>
+      <h1 class="chooser__title">Two ways in.</h1>
+      <p class="chooser__sub">Same work, two builds. Each side has a way back.</p>
+      <ol class="choices">
+        <li>
+          <a class="choice" href="./portfolio.html">
+            <kbd class="choice__key">1</kbd>
+            <span class="choice__name">portfolio</span>
+            <span class="choice__desc">the straightforward tour of the work</span>
+          </a>
+        </li>
+        <li>
+          <a class="choice" href="./seoul.html">
+            <kbd class="choice__key">2</kbd>
+            <span class="choice__name">mini seoul</span>
+            <span class="choice__desc">drive a poro through a voxel Seoul, knock on doors to open the work</span>
+          </a>
+        </li>
+      </ol>
     </main>
+
+    <footer class="bar bar--foot bar--fixed">
+      <p class="dim"><span class="kbd-hint">press 1 or 2</span></p>
+      <p class="dim foot__hint" data-hint>tap open water to feed the orca</p>
+    </footer>
 
     <script type="module" src="/src/chooser.ts"></script>
   </body>
