@@ -109,11 +109,11 @@ function renderProject(target: InteractionTarget): DocumentFragment {
     div.appendChild(el('dd', '', value));
     meta.appendChild(div);
   };
-  row('year', p.year);
-  row('role', p.role);
-  row('problem', p.challenge);
-  row('result', p.outcome);
-  frag.appendChild(meta);
+  if (p.year) row('year', p.year);
+  if (p.role) row('role', p.role);
+  if (p.challenge) row('problem', p.challenge);
+  if (p.outcome) row('result', p.outcome);
+  if (meta.childElementCount) frag.appendChild(meta);
 
   const tech = el('ul', 'panel-tech');
   for (const t of p.technologies) tech.appendChild(el('li', '', t));
@@ -154,12 +154,12 @@ function renderPlace(target: InteractionTarget): DocumentFragment {
     case 'about': {
       for (const para of PROFILE.about.paragraphs) frag.appendChild(el('p', 'panel-para', para));
       const edu = el('dl', 'panel-meta');
-      const div = el('div', 'panel-meta-row');
-      div.appendChild(el('dt', '', 'study'));
-      div.appendChild(
-        el('dd', '', `${PROFILE.education.school}: ${PROFILE.education.program} (${PROFILE.education.range})`)
-      );
-      edu.appendChild(div);
+      for (const school of PROFILE.education) {
+        const div = el('div', 'panel-meta-row');
+        div.appendChild(el('dt', '', 'study'));
+        div.appendChild(el('dd', '', `${school.school}: ${school.program} (${school.range})`));
+        edu.appendChild(div);
+      }
       frag.appendChild(edu);
       break;
     }
@@ -182,6 +182,22 @@ function renderPlace(target: InteractionTarget): DocumentFragment {
         head.appendChild(el('span', 'panel-job-range', job.range));
         article.appendChild(head);
         article.appendChild(el('p', 'panel-para', job.summary));
+        frag.appendChild(article);
+      }
+      frag.appendChild(el('h3', 'panel-subhead', 'Résumé projects'));
+      for (const project of PROFILE.resumeProjects) {
+        const article = el('article', 'panel-job');
+        article.appendChild(el('h4', 'panel-subhead', project.title));
+        for (const text of project.bullets) article.appendChild(el('p', 'panel-para', text));
+        article.appendChild(el('p', 'panel-para', project.technologies.join(', ')));
+        if (project.url) article.appendChild(externalLink(project.url, 'source'));
+        frag.appendChild(article);
+      }
+      frag.appendChild(el('h3', 'panel-subhead', 'Hackathons & awards'));
+      for (const award of PROFILE.awards) {
+        const article = el('article', 'panel-job');
+        article.appendChild(el('h4', 'panel-subhead', award.event));
+        article.appendChild(el('p', 'panel-para', award.award));
         frag.appendChild(article);
       }
       break;

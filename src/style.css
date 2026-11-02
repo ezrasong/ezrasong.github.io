@@ -279,6 +279,10 @@ main {
   font-weight: 600;
 }
 
+.rows + .block__head {
+  margin-top: 32px;
+}
+
 .rows {
   counter-reset: row;
 }

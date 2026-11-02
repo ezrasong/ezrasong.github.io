@@ -47,7 +47,7 @@ export class UI {
 
       <div class="title-screen hidden">
         <div class="title-card">
-          <h1>${PROFILE.name}</h1>
+          <h1></h1>
           <p class="title-sub"><span lang="ko">미니 서울</span> A small Seoul, built in code. Every building opens a piece of my work.</p>
           <dl class="title-controls">${controls}</dl>
           <div class="title-lang" role="group" aria-label="Interface language">
@@ -64,7 +64,7 @@ export class UI {
 
       <div class="hud hidden">
         <div class="hud-left">
-          <a class="hud-back" href="./" aria-label="${PROFILE.name}, back to the start">${ICON.back}<span>${PROFILE.name.toLowerCase()}</span></a>
+          <a class="hud-back" href="./">${ICON.back}<span></span></a>
           <div class="minimap-wrap">
             <canvas class="minimap" width="320" height="320" role="button" tabindex="0"
               aria-label="City minimap. Click to open the full map; scroll to zoom."></canvas>
@@ -100,6 +100,9 @@ export class UI {
     this.titleScreen = this.q('.title-screen');
     this.prompt = this.q('.prompt');
     this.toast = this.q('.toast');
+    this.q('.title-card h1').textContent = PROFILE.name;
+    this.q('.hud-back').setAttribute('aria-label', `${PROFILE.name}, back to the start`);
+    this.q('.hud-back span').textContent = PROFILE.name.toLowerCase();
     this.hint = this.q('.controls-hint');
     this.soundBtn = this.q('.hud-sound') as HTMLButtonElement;
     this.qualityBtn = this.q('.hud-quality') as HTMLButtonElement;
@@ -333,7 +336,9 @@ export class UI {
   /* ---- prompt & toast ---- */
   showPrompt(target: InteractionTarget): void {
     const how = TOUCH ? 'tap <b>E</b> to enter' : '<kbd>E</kbd> to enter';
-    this.prompt.innerHTML = `<span class="prompt-dot"></span><strong>${target.title}</strong><span class="prompt-kr" lang="ko">${target.koreanTitle}</span><span class="prompt-how">${how}</span>`;
+    this.prompt.innerHTML = `<span class="prompt-dot"></span><strong></strong><span class="prompt-kr" lang="ko"></span><span class="prompt-how">${how}</span>`;
+    this.prompt.querySelector('strong')!.textContent = target.title;
+    this.prompt.querySelector('.prompt-kr')!.textContent = target.koreanTitle;
     this.prompt.style.setProperty('--accent', target.accent);
     this.prompt.classList.remove('hidden');
   }
@@ -343,7 +348,9 @@ export class UI {
   }
 
   showToast(kr: string, en: string): void {
-    this.toast.innerHTML = `<span class="toast-kr" lang="ko">${kr}</span><span class="toast-en">${en}</span>`;
+    this.toast.innerHTML = `<span class="toast-kr" lang="ko"></span><span class="toast-en"></span>`;
+    this.toast.querySelector('.toast-kr')!.textContent = kr;
+    this.toast.querySelector('.toast-en')!.textContent = en;
     // Restart the entrance even when a toast replaces one still showing.
     this.toast.classList.add('hidden');
     void this.toast.offsetWidth;

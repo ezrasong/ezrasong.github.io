@@ -5,10 +5,14 @@
   "type": "module",
   "description": "Personal site of Ezra Song — software engineer",
   "scripts": {
+    "resume:sync": "node scripts/sync-resume.mjs",
+    "predev": "npm run resume:sync",
     "dev": "vite",
+    "prebuild": "npm run resume:sync",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:resume": "node --test tests/resume.test.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.3.0",
@@ -20,6 +24,7 @@
     "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.64.1",
     "@types/three": "^0.170.0",
+    "pdfjs-dist": "^6.5.438",
     "typescript": "^5.6.3",
     "vite": "^6.0.3"
   }

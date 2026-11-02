@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import resume from '../src/content/resume.json' with { type: 'json' };
 
 // The 3D city is heavy under software rendering: one run per width is plenty.
 test.describe.configure({ mode: "serial" });
@@ -65,6 +66,20 @@ test("seoul: title, HUD, directory, panel and map all work and fit", async ({ pa
   await expect(page.locator("#panel-title")).toHaveText("UW Course Planner");
   await page.keyboard.press("Escape");
   await expect(page.locator("#panel-title")).toBeHidden();
+
+  await page.locator('.hud-menu').click();
+  await page.locator('.menu-open').filter({ hasText: 'Experience Tower' }).click();
+  const resumePanel = page.locator('.panel-body').filter({ hasText: 'Résumé projects' });
+  for (const job of resume.experience) {
+    await expect(resumePanel).toContainText(job.role);
+    await expect(resumePanel).toContainText(job.range);
+  }
+  for (const project of resume.projects) await expect(resumePanel).toContainText(project.title);
+  for (const award of resume.awards) await expect(resumePanel).toContainText(award.award);
+  const axeResume = await new AxeBuilder({ page }).include('#panel-title').include('.panel-body').analyze();
+  expect(axeResume.violations.map((v) => v.id)).toEqual([]);
+  await page.screenshot({ path: `artifacts/screenshots/resume/seoul-${info.project.name}.png` });
+  await page.keyboard.press('Escape');
 
   // Map: opens from the minimap, a marker travels there.
   await page.locator(".minimap").click();

@@ -1,0 +1,153 @@
+{
+  "name": "Ezra Song",
+  "links": {
+    "email": "e34song@uwaterloo.ca",
+    "github": "https://github.com/ezrasong",
+    "linkedin": "https://linkedin.com/in/e34song",
+    "resume": "Ezra_Song_Resume.pdf"
+  },
+  "education": [
+    {
+      "school": "University of Waterloo",
+      "location": "Waterloo, ON",
+      "program": "Bachelor of Mathematics (BMath), Honours Mathematics",
+      "range": "Sep 2025 – Apr 2029"
+    }
+  ],
+  "skills": [
+    {
+      "title": "Languages",
+      "items": [
+        "TypeScript",
+        "JavaScript",
+        "Python",
+        "Swift",
+        "Java",
+        "C++",
+        "C#",
+        "SQL",
+        "Dart",
+        "HTML/CSS"
+      ]
+    },
+    {
+      "title": "Frameworks",
+      "items": [
+        "React",
+        "Next.js",
+        "React Native",
+        "Expo",
+        "SwiftUI",
+        "Flutter",
+        "Node.js",
+        "NestJS",
+        "Fastify",
+        "PyTorch"
+      ]
+    },
+    {
+      "title": "Tools",
+      "items": [
+        "PostgreSQL",
+        "Supabase",
+        "Docker",
+        "Git",
+        "GitHub Actions",
+        "Playwright",
+        "Vitest",
+        "REST APIs",
+        "OpenAPI",
+        "Linux"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "role": "Software Engineer Intern",
+      "company": "Unmodal Research Inc.",
+      "range": "Jan 2026 – Sep 2026",
+      "bullets": [
+        "Shipped responsive production features with Next.js, React, TypeScript, NestJS, and PostgreSQL, reducing UI duplication across frontend and backend systems.",
+        "Worked on project orchestration layers; evaluated AI tools, frameworks, and competing workflows.",
+        "Tested and deployed releases with Supabase, Docker, GitHub Actions, Vitest, and Playwright to catch regressions.",
+        "Built iOS/macOS features with Swift and SwiftUI, integrating backend services for reliable workflows."
+      ]
+    },
+    {
+      "role": "Web Developer",
+      "company": "DoBetter.love",
+      "range": "Sep 2025 – Nov 2025",
+      "bullets": [
+        "Built reusable React/JavaScript components and responsive HTML/CSS layouts from design feedback.",
+        "Tested navigation, forms, error states, and breakpoints with browser tools; documented defect steps, environments, and severity for clearer handoffs."
+      ]
+    },
+    {
+      "role": "Mobile App Developer",
+      "company": "AIXFF",
+      "range": "Jul 2025 – Aug 2025",
+      "bullets": [
+        "Built reusable screens, navigation, and responsive states in React Native/Expo for faster mobile prototyping.",
+        "Modularized REST API calls and centralized state with React Context; tested user flows and device sizes to resolve edge cases and keep screen data consistent."
+      ]
+    },
+    {
+      "role": "Junior Software Engineer",
+      "company": "North P&D",
+      "range": "Feb 2023 – Nov 2023",
+      "bullets": [
+        "Built reusable React/JavaScript and responsive HTML/CSS components for accessibility and consistent layouts.",
+        "Fixed layout regressions with browser developer tools, cross-browser QA, and targeted CSS changes before release."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "title": "Sonolyth",
+      "technologies": [
+        "Flutter",
+        "Dart",
+        "Riverpod"
+      ],
+      "url": "https://github.com/ezrasong/sonolyth",
+      "bullets": [
+        "Maintained an Android Spotube/Flutter fork: native playback, music plugins, synced lyrics, and Spotify metadata fixes.",
+        "Versioned the app and HetuScript plugin in a monorepo; added nested playlist/album/artist folders, HTTP 429 retries, and preserved upstream sync."
+      ]
+    },
+    {
+      "title": "Discord Automation Bot",
+      "technologies": [
+        "Node.js",
+        "discord.js",
+        "Docker"
+      ],
+      "url": "https://github.com/ezrasong/Discord-Bot",
+      "bullets": [
+        "Built slash commands for moderation, reaction roles, internship alerts, and AMP server monitoring/control with instance autocomplete and permission checks.",
+        "Added queued Lavalink music over WebSockets; deployed with Docker Compose/Unraid and bounded caches/V8 heap to keep idle memory near 30–40 MB."
+      ]
+    }
+  ],
+  "awards": [
+    {
+      "event": "UltraHacks 2026 — University of Toronto",
+      "award": "Winner – Best Use of ElevenLabs (MLH)"
+    },
+    {
+      "event": "UTMIST AI Tournament 2025 — University of Toronto",
+      "award": "Top 8 Finalist"
+    },
+    {
+      "event": "Go On Hacks 2025 — University of Waterloo",
+      "award": "Best Pitch Award"
+    }
+  ],
+  "status": {
+    "label": "recent",
+    "text": "Software Engineer Intern, Unmodal Research Inc.",
+    "paragraph": "My most recent role was Software Engineer Intern at Unmodal Research Inc. (Jan 2026 – Sep 2026). Shipped responsive production features with Next.js, React, TypeScript, NestJS, and PostgreSQL, reducing UI duplication across frontend and backend systems."
+  },
+  "intro": "Software engineer and student at University of Waterloo. I build software across web, mobile, and backend systems, and I care about how each one feels under the fingers.",
+  "sourceSha256": "785d2d4b88dd28b92a664251f2e280693acc36f9cb4a44fc97f46ae0aff8530f"
+}

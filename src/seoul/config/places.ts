@@ -38,7 +38,7 @@ export const PLACES: PlaceData[] = [
     kind: 'experience',
     title: 'Experience Tower',
     koreanTitle: '경력 타워',
-    tagline: 'Four floors of work history.',
+    tagline: 'Work, projects, and awards from my résumé.',
     buildingType: 'office-tower',
     district: 'gangnam',
     position: { x: 76, z: 68 },

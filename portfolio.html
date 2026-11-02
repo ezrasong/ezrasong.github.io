@@ -6,7 +6,7 @@
     <title>Ezra Song, Software Engineer</title>
     <meta
       name="description"
-      content="Ezra Song is a software engineer and mathematics student at the University of Waterloo, building frontend for research tools at Unmodal Research."
+      content="Ezra Song is a software engineer and mathematics student at the University of Waterloo, building across web, mobile, and backend systems."
     />
     <link rel="canonical" href="https://ezrasong.github.io/portfolio.html" />
     <meta name="author" content="Ezra Song" />
@@ -33,19 +33,9 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23171615'/%3E%3Crect x='6' y='13' width='5' height='5' fill='%23e9e5dc'/%3E%3Crect x='12' y='13' width='5' height='5' fill='%23e9e5dc'/%3E%3Crect x='18' y='13' width='5' height='5' fill='%2377726a'/%3E%3Crect x='14' y='7' width='5' height='5' fill='%23e9e5dc'/%3E%3C/svg%3E"
     />
 
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "Person",
-        "name": "Ezra Song",
-        "jobTitle": "Software Engineer",
-        "url": "https://ezrasong.github.io/",
-        "email": "mailto:e34song@uwaterloo.ca",
-        "alumniOf": { "@type": "CollegeOrUniversity", "name": "University of Waterloo" },
-        "worksFor": { "@type": "Organization", "name": "Unmodal Research Inc." },
-        "sameAs": ["https://github.com/ezrasong", "https://linkedin.com/in/e34song"]
-      }
-    </script>
+    <!-- resume:structured-data:start -->
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"Ezra Song","jobTitle":"Software Engineer","url":"https://ezrasong.github.io/","email":"mailto:e34song@uwaterloo.ca","alumniOf":[{"@type":"CollegeOrUniversity","name":"University of Waterloo"}],"sameAs":["https://github.com/ezrasong","https://linkedin.com/in/e34song"]}</script>
+<!-- resume:structured-data:end -->
   </head>
   <body class="page">
     <canvas class="ocean" data-ocean aria-hidden="true"></canvas>
@@ -64,29 +54,29 @@
 
     <main>
       <section class="intro" aria-labelledby="name" data-content>
-        <h1 id="name" class="intro__name">Ezra Song</h1>
-        <p class="intro__line">
-          Software engineer and mathematics student at Waterloo. I build software people use:
-          course planners, chat clients, and research tooling, and I care about how each one
-          feels under the fingers.
-        </p>
-        <dl class="facts">
-          <div><dt>now</dt><dd>Frontend, Unmodal Research</dd></div>
-          <div><dt>study</dt><dd>BMath, University of Waterloo</dd></div>
-          <div><dt>based</dt><dd>Waterloo / Toronto, CA</dd></div>
-        </dl>
-        <ul class="links" aria-label="Elsewhere">
-          <li><a href="https://github.com/ezrasong" target="_blank" rel="noopener noreferrer">github</a></li>
-          <li><a href="https://linkedin.com/in/e34song" target="_blank" rel="noopener noreferrer">linkedin</a></li>
-          <li><a href="mailto:e34song@uwaterloo.ca">email</a></li>
-          <li><a href="Ezra_Song_Resume.pdf" target="_blank" rel="noopener noreferrer">résumé</a></li>
-        </ul>
+        <h1 id="name" class="intro__name"><!-- resume:name:start -->
+Ezra Song
+<!-- resume:name:end --></h1>
+        <p class="intro__line"><!-- resume:intro:start -->
+Software engineer and student at University of Waterloo. I build software across web, mobile, and backend systems, and I care about how each one feels under the fingers.
+<!-- resume:intro:end --></p>
+        <dl class="facts"><!-- resume:facts:start -->
+<div><dt>recent</dt><dd>Software Engineer Intern, Unmodal Research Inc.</dd></div>
+<div><dt>study</dt><dd>Bachelor of Mathematics (BMath), Honours Mathematics, University of Waterloo</dd></div>
+<div><dt>based</dt><dd>Waterloo / Toronto, CA</dd></div>
+<!-- resume:facts:end --></dl>
+        <ul class="links" aria-label="Elsewhere"><!-- resume:intro-links:start -->
+<li><a href="https://github.com/ezrasong" target="_blank" rel="noopener noreferrer">github</a></li>
+<li><a href="https://linkedin.com/in/e34song" target="_blank" rel="noopener noreferrer">linkedin</a></li>
+<li><a href="mailto:e34song@uwaterloo.ca">email</a></li>
+<li><a href="Ezra_Song_Resume.pdf" target="_blank" rel="noopener noreferrer">résumé</a></li>
+<!-- resume:intro-links:end --></ul>
       </section>
 
       <section class="block" id="work" aria-labelledby="work-h" data-content>
         <header class="block__head">
           <h2 id="work-h">work</h2>
-          <span class="dim">05 projects, 2024 to 2026</span>
+          <span class="dim">05 selected projects</span>
         </header>
         <ol class="rows">
           <li class="row">
@@ -144,70 +134,68 @@
               </p>
             </div>
           </li>
-          <li class="row">
-            <span class="row__year">2024</span>
-            <div class="row__main">
-              <h3 class="row__title">
-                <a href="https://github.com/ezrasong/Discord-Bot" target="_blank" rel="noopener noreferrer">Discord Bot<span class="go" aria-hidden="true">↗</span></a>
-              </h3>
-              <p class="row__desc">
-                A multi-purpose Discord bot built for 24/7 uptime: isolated command failures,
-                persistent per-server config, and clean recovery from gateway disconnects.
-              </p>
-              <p class="row__meta"><span>solo: commands, persistence, hosting</span><span>Python, discord.py</span></p>
-            </div>
-          </li>
+          <!-- resume:featured-bot:start -->
+<li class="row">
+  <span class="row__year">—</span><div class="row__main">
+  <h3 class="row__title"><a href="https://github.com/ezrasong/Discord-Bot" target="_blank" rel="noopener noreferrer">Discord Automation Bot<span class="go" aria-hidden="true">↗</span></a></h3><p class="row__desc">Built slash commands for moderation, reaction roles, internship alerts, and AMP server monitoring/control with instance autocomplete and permission checks.</p>
+<p class="row__desc">Added queued Lavalink music over WebSockets; deployed with Docker Compose/Unraid and bounded caches/V8 heap to keep idle memory near 30–40 MB.</p>
+  <p class="row__meta"><span>Node.js, discord.js, Docker</span></p></div></li>
+<!-- resume:featured-bot:end -->
         </ol>
       </section>
 
-      <section class="block" id="experience" aria-labelledby="exp-h" data-content>
-        <header class="block__head">
-          <h2 id="exp-h">experience</h2>
-          <span class="dim">2023 to present</span>
-        </header>
-        <ol class="rows rows--tight">
-          <li class="row">
-            <span class="row__year">2026</span>
-            <div class="row__main">
-              <h3 class="row__title">Frontend Engineer <span class="at">Unmodal Research Inc.</span></h3>
-              <p class="row__desc">Building frontend features and reusable UI components for internal and client-facing research tools.</p>
-              <p class="row__meta"><span>Jan 2026 to present</span></p>
-            </div>
-          </li>
-          <li class="row">
-            <span class="row__year">2025</span>
-            <div class="row__main">
-              <h3 class="row__title">Web Developer <span class="at">DoBetter.love</span></h3>
-              <p class="row__desc">Structured QA workflows for mobile features: UI/UX consistency, edge-case validation, and regression verification.</p>
-              <p class="row__meta"><span>Sep to Nov 2025</span></p>
-            </div>
-          </li>
-          <li class="row">
-            <span class="row__year">2025</span>
-            <div class="row__main">
-              <h3 class="row__title">Mobile App Developer <span class="at">AIXFF</span></h3>
-              <p class="row__desc">Built a storefront prototype in React Native and Expo with modular API service layers and Context-based state.</p>
-              <p class="row__meta"><span>Jul to Aug 2025</span></p>
-            </div>
-          </li>
-          <li class="row">
-            <span class="row__year">2023</span>
-            <div class="row__main">
-              <h3 class="row__title">Junior Software Engineer <span class="at">North P&amp;D</span></h3>
-              <p class="row__desc">Built React UI components and improved responsiveness, accessibility, and cross-browser behaviour.</p>
-              <p class="row__meta"><span>Feb to Nov 2023</span></p>
-            </div>
-          </li>
-          <li class="row">
-            <span class="row__year">2025</span>
-            <div class="row__main">
-              <h3 class="row__title">BMath, Honours Mathematics <span class="at">University of Waterloo</span></h3>
-              <p class="row__desc">Studying mathematics; building things on the side that people use.</p>
-              <p class="row__meta"><span>2025 to 2029</span></p>
-            </div>
-          </li>
-        </ol>
-      </section>
+      <section class="block" id="experience" aria-labelledby="exp-h" data-content><!-- resume:experience:start -->
+<header class="block__head"><h2 id="exp-h">experience</h2><span class="dim">2023 to 2026</span></header>
+<ol class="rows rows--tight"><li class="row">
+  <span class="row__year">2026</span><div class="row__main">
+  <h3 class="row__title">Software Engineer Intern <span class="at">Unmodal Research Inc.</span></h3><p class="row__desc">Shipped responsive production features with Next.js, React, TypeScript, NestJS, and PostgreSQL, reducing UI duplication across frontend and backend systems.</p>
+<p class="row__desc">Worked on project orchestration layers; evaluated AI tools, frameworks, and competing workflows.</p>
+<p class="row__desc">Tested and deployed releases with Supabase, Docker, GitHub Actions, Vitest, and Playwright to catch regressions.</p>
+<p class="row__desc">Built iOS/macOS features with Swift and SwiftUI, integrating backend services for reliable workflows.</p>
+  <p class="row__meta"><span>Jan 2026 – Sep 2026</span></p></div></li>
+<li class="row">
+  <span class="row__year">2025</span><div class="row__main">
+  <h3 class="row__title">Web Developer <span class="at">DoBetter.love</span></h3><p class="row__desc">Built reusable React/JavaScript components and responsive HTML/CSS layouts from design feedback.</p>
+<p class="row__desc">Tested navigation, forms, error states, and breakpoints with browser tools; documented defect steps, environments, and severity for clearer handoffs.</p>
+  <p class="row__meta"><span>Sep 2025 – Nov 2025</span></p></div></li>
+<li class="row">
+  <span class="row__year">2025</span><div class="row__main">
+  <h3 class="row__title">Mobile App Developer <span class="at">AIXFF</span></h3><p class="row__desc">Built reusable screens, navigation, and responsive states in React Native/Expo for faster mobile prototyping.</p>
+<p class="row__desc">Modularized REST API calls and centralized state with React Context; tested user flows and device sizes to resolve edge cases and keep screen data consistent.</p>
+  <p class="row__meta"><span>Jul 2025 – Aug 2025</span></p></div></li>
+<li class="row">
+  <span class="row__year">2023</span><div class="row__main">
+  <h3 class="row__title">Junior Software Engineer <span class="at">North P&amp;D</span></h3><p class="row__desc">Built reusable React/JavaScript and responsive HTML/CSS components for accessibility and consistent layouts.</p>
+<p class="row__desc">Fixed layout regressions with browser developer tools, cross-browser QA, and targeted CSS changes before release.</p>
+  <p class="row__meta"><span>Feb 2023 – Nov 2023</span></p></div></li><li class="row">
+  <span class="row__year">2025</span><div class="row__main">
+  <h3 class="row__title">Bachelor of Mathematics (BMath), Honours Mathematics <span class="at">University of Waterloo</span></h3>
+  <p class="row__meta"><span>Sep 2025 – Apr 2029</span></p></div></li></ol>
+<header class="block__head"><h3>résumé projects</h3></header>
+<ul class="rows rows--tight"><li class="row">
+  <span class="row__year">—</span><div class="row__main">
+  <h4 class="row__title"><a href="https://github.com/ezrasong/sonolyth" target="_blank" rel="noopener noreferrer">Sonolyth<span class="go" aria-hidden="true">↗</span></a></h4><p class="row__desc">Maintained an Android Spotube/Flutter fork: native playback, music plugins, synced lyrics, and Spotify metadata fixes.</p>
+<p class="row__desc">Versioned the app and HetuScript plugin in a monorepo; added nested playlist/album/artist folders, HTTP 429 retries, and preserved upstream sync.</p>
+  <p class="row__meta"><span>Flutter, Dart, Riverpod</span></p></div></li>
+<li class="row">
+  <span class="row__year">—</span><div class="row__main">
+  <h4 class="row__title"><a href="https://github.com/ezrasong/Discord-Bot" target="_blank" rel="noopener noreferrer">Discord Automation Bot<span class="go" aria-hidden="true">↗</span></a></h4><p class="row__desc">Built slash commands for moderation, reaction roles, internship alerts, and AMP server monitoring/control with instance autocomplete and permission checks.</p>
+<p class="row__desc">Added queued Lavalink music over WebSockets; deployed with Docker Compose/Unraid and bounded caches/V8 heap to keep idle memory near 30–40 MB.</p>
+  <p class="row__meta"><span>Node.js, discord.js, Docker</span></p></div></li></ul>
+<header class="block__head"><h3>hackathons &amp; awards</h3></header>
+<ul class="rows rows--tight"><li class="row">
+  <span class="row__year">2026</span><div class="row__main">
+  <h4 class="row__title">UltraHacks 2026 — University of Toronto</h4><p class="row__desc">Winner – Best Use of ElevenLabs (MLH)</p>
+  </div></li>
+<li class="row">
+  <span class="row__year">2025</span><div class="row__main">
+  <h4 class="row__title">UTMIST AI Tournament 2025 — University of Toronto</h4><p class="row__desc">Top 8 Finalist</p>
+  </div></li>
+<li class="row">
+  <span class="row__year">2025</span><div class="row__main">
+  <h4 class="row__title">Go On Hacks 2025 — University of Waterloo</h4><p class="row__desc">Best Pitch Award</p>
+  </div></li></ul>
+<!-- resume:experience:end --></section>
 
       <section class="block" id="about" aria-labelledby="about-h" data-content>
         <header class="block__head"><h2 id="about-h">about</h2></header>
@@ -219,33 +207,35 @@
               has to be felt, not just described: latency, drag-and-drop, the exact moment a UI
               responds.
             </p>
-            <p>
-              Right now I build frontend for research tools at Unmodal Research. Before that I
-              shipped React Native prototypes, ran QA pipelines, and built production React UI.
-            </p>
+            <!-- resume:about-status:start -->
+<p>My most recent role was Software Engineer Intern at Unmodal Research Inc. (Jan 2026 – Sep 2026). Shipped responsive production features with Next.js, React, TypeScript, NestJS, and PostgreSQL, reducing UI duplication across frontend and backend systems.</p>
+<!-- resume:about-status:end -->
             <p>
               Away from the editor I'm usually deep in a keyboard build: lubing switches, tuning a
               layout, chasing a sound. It's the same fixation on how a thing feels that I bring to
               everything else.
             </p>
           </div>
-          <dl class="stack">
-            <div><dt>languages</dt><dd>TypeScript, JavaScript, Python, Java, C++, C#, SQL, Racket</dd></div>
-            <div><dt>frameworks</dt><dd>React, React Native, Three.js, Node.js, Express, Supabase, Firebase</dd></div>
-            <div><dt>tools</dt><dd>Git, Docker, GitHub Actions, Linux, Vite, REST</dd></div>
-          </dl>
+          <dl class="stack"><!-- resume:skills:start -->
+<div><dt>languages</dt><dd>TypeScript, JavaScript, Python, Swift, Java, C++, C#, SQL, Dart, HTML/CSS</dd></div>
+<div><dt>frameworks</dt><dd>React, Next.js, React Native, Expo, SwiftUI, Flutter, Node.js, NestJS, Fastify, PyTorch</dd></div>
+<div><dt>tools</dt><dd>PostgreSQL, Supabase, Docker, Git, GitHub Actions, Playwright, Vitest, REST APIs, OpenAPI, Linux</dd></div>
+<!-- resume:skills:end --></dl>
         </div>
       </section>
 
       <section class="block block--end" id="contact" aria-labelledby="contact-h" data-content>
         <header class="block__head"><h2 id="contact-h">contact</h2></header>
         <p class="contact__lead">Open to internships and interesting problems.</p>
-        <p><a class="contact__mail" href="mailto:e34song@uwaterloo.ca">e34song@uwaterloo.ca</a></p>
-        <ul class="links">
-          <li><a href="https://github.com/ezrasong" target="_blank" rel="noopener noreferrer">github</a></li>
-          <li><a href="https://linkedin.com/in/e34song" target="_blank" rel="noopener noreferrer">linkedin</a></li>
-          <li><a href="Ezra_Song_Resume.pdf" target="_blank" rel="noopener noreferrer">résumé</a></li>
-        </ul>
+        <p><!-- resume:contact-email:start -->
+<a class="contact__mail" href="mailto:e34song@uwaterloo.ca">e34song@uwaterloo.ca</a>
+<!-- resume:contact-email:end --></p>
+        <ul class="links"><!-- resume:contact-links:start -->
+<li><a href="https://github.com/ezrasong" target="_blank" rel="noopener noreferrer">github</a></li>
+<li><a href="https://linkedin.com/in/e34song" target="_blank" rel="noopener noreferrer">linkedin</a></li>
+<li><a href="mailto:e34song@uwaterloo.ca">email</a></li>
+<li><a href="Ezra_Song_Resume.pdf" target="_blank" rel="noopener noreferrer">résumé</a></li>
+<!-- resume:contact-links:end --></ul>
       </section>
     </main>
 

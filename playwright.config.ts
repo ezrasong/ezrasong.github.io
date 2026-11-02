@@ -4,6 +4,7 @@ const widths = [360, 390, 768, 1024, 1440, 1920];
 
 export default defineConfig({
   testDir: "./tests",
+  testMatch: "**/*.spec.ts",
   outputDir: "./artifacts/playwright/results",
   reporter: [["list"]],
   use: { baseURL: "http://127.0.0.1:4173" },

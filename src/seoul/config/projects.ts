@@ -1,4 +1,5 @@
 import type { ProjectData } from '../types';
+import resume from '../../content/resume.json';
 
 /**
  * The five project buildings. Everything a visitor reads about a project
@@ -6,7 +7,7 @@ import type { ProjectData } from '../types';
  * Images with a `src` load real artwork (GitHub OpenGraph cards); entries
  * without one get a generated accent-colored art card.
  */
-export const PROJECTS: ProjectData[] = [
+const FEATURED_PROJECTS: ProjectData[] = [
   {
     id: 'course-planner',
     title: 'UW Course Planner',
@@ -146,3 +147,18 @@ export const PROJECTS: ProjectData[] = [
     size: { width: 9, depth: 8, floors: 2 },
   },
 ];
+
+// Matching résumé projects share their current facts with the portfolio.
+// New projects are always listed in Experience Tower, without moving city lots.
+export const PROJECTS: ProjectData[] = FEATURED_PROJECTS.map((project) => {
+  const current = resume.projects.find((entry) => entry.url && entry.url.toLowerCase() === project.repositoryUrl?.toLowerCase());
+  if (!current) return project;
+  return {
+    ...project,
+    title: current.title,
+    shortDescription: current.bullets[0],
+    longDescription: current.bullets.join(' '),
+    technologies: current.technologies,
+    role: '', year: '', challenge: '', outcome: '',
+  };
+});

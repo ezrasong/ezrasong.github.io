@@ -1,7 +1,27 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { createHash } from 'node:crypto';
+import resume from '../src/content/resume.json' with { type: 'json' };
 
 const PAGES = ["/", "/portfolio.html"];
+
+test('portfolio: résumé facts and PDF download match the shared source', async ({ page, request }) => {
+  await page.goto('/portfolio.html');
+  const experience = page.locator('#experience');
+  for (const job of resume.experience) {
+    await expect(experience).toContainText(job.role);
+    await expect(experience).toContainText(job.company);
+    await expect(experience).toContainText(job.range);
+  }
+  for (const project of resume.projects) await expect(experience).toContainText(project.title);
+  for (const award of resume.awards) await expect(experience).toContainText(award.award);
+  for (const group of resume.skills) for (const item of group.items) await expect(page.locator('.stack')).toContainText(item);
+  const pdf = await request.get('/Ezra_Song_Resume.pdf');
+  expect(pdf.ok()).toBe(true);
+  expect(createHash('sha256').update(await pdf.body()).digest('hex')).toBe(resume.sourceSha256);
+  const metadata = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent() ?? '{}');
+  expect(metadata.worksFor).toBeUndefined();
+});
 
 function watch(page: Page): string[] {
   const problems: string[] = [];

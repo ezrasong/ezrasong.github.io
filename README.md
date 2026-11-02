@@ -66,12 +66,37 @@ public/
   models/poro.glb, Ezra_Song_Resume.pdf, robots.txt, sitemap.xml
 ```
 
-## Editing content
+## Updating the résumé
 
-- **Portfolio:** hand-written in `portfolio.html`. Projects in the
-  `.work-grid`, roles in the `.exp-grid`, skills as `.tags` in `#about`.
-- **Mini Seoul:** everything a visitor reads lives in `src/seoul/config/`
-  (`profile.ts`, `projects.ts`, `places.ts`, `palette.ts`).
+Replace **`public/Ezra_Song_Resume.pdf`** with a new résumé using GitHub's
+**Add file → Upload files** inside `public/`, keeping the filename exactly
+the same. Commit to `main` (or merge a PR). The existing Pages workflow
+extracts it and deploys both experiences automatically. No API key is needed.
+
+The PDF updates the download, education, skills, work history, résumé
+projects, awards, contact links, and current/recent role wording. The clean
+portfolio shows the résumé in its experience section; Mini Seoul shows it
+in About Ezra, Skills Workshop, and Experience Tower. Featured projects with
+the same repository URL also receive the updated description and stack.
+
+Keep the current **text-based, single-column layout** and sections:
+Education, Technical Skills, Professional Experience, Projects, and
+Hackathons & Awards. Put dates/stacks/results on the right as in the current
+PDF, and use real bullet points. Scanned PDFs, password-protected PDFs, and
+unexpected layouts fail the build with an extraction error; the last good
+deployment stays live. The parser supports up to five pages and 5 MB.
+
+Locally, `npm run resume:sync` refreshes `src/content/resume.json` and the
+marked blocks in `portfolio.html` and `seoul.html` (including search metadata
+and the accessible text summary). Both `npm run dev` and `npm run build`
+run this first. Generated content is committed as a readable snapshot;
+GitHub regenerates it during deployment without making a bot commit.
+
+## Editing other content
+
+- **Portfolio:** edit outside the `resume:…` comment blocks in `portfolio.html`.
+- **Mini Seoul:** curated projects and world placement stay in `src/seoul/config/`.
+  New résumé projects appear in Experience Tower without moving buildings.
 - **Chooser copy:** in `index.html`.
 
 ## Getting started
