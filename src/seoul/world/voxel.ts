@@ -2,8 +2,19 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { CEL } from './CelShading';
+import { ENV } from './Env';
 
 const tmpColor = new THREE.Color();
+
+/** Multiplies a hex color's value by `f` (cheap shade/tint). */
+export function shade(hex: string, f: number): string {
+  const c = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.round(((c >> 16) & 255) * f));
+  const g = Math.min(255, Math.round(((c >> 8) & 255) * f));
+  const b = Math.min(255, Math.round((c & 255) * f));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
 
 /**
  * Collects colored primitives and merges them into a single BufferGeometry
@@ -53,7 +64,7 @@ export class VoxelKit {
     rotY = 0
   ): void {
     const r = Math.min(radius, w / 2.01, h / 2.01, d / 2.01);
-    const geo = new RoundedBoxGeometry(w, h, d, 2, r);
+    const geo = new RoundedBoxGeometry(w, h, d, 1, r);
     if (rotY !== 0) geo.rotateY(rotY);
     geo.translate(x, y, z);
     paint(geo, color);
@@ -179,6 +190,7 @@ export class VoxelKit {
     const merged = mergeGeometries(parts, false);
     for (const p of parts) p.dispose();
     this.parts = [];
+    bakeAO(merged);
     return merged;
   }
 
@@ -189,6 +201,29 @@ export class VoxelKit {
     mesh.receiveShadow = receiveShadow;
     return mesh;
   }
+}
+
+/**
+ * Baked ambient occlusion in the vertex colours. Structures are built in
+ * local space with the ground at y=0, so height is a good proxy for contact:
+ * the bottom ~0.6 m of every wall darkens toward the pavement, and faces
+ * pointing down (eave and sill undersides, awnings, balconies) sit in their
+ * own shade. Cheap, no extra geometry, and it gives every box a footing.
+ */
+function bakeAO(geo: THREE.BufferGeometry): void {
+  const pos = geo.attributes.position;
+  const nor = geo.attributes.normal;
+  const col = geo.attributes.color;
+  if (!pos || !nor || !col) return;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const ny = nor.getY(i);
+    const contact = y < 0.6 ? 0.72 + 0.28 * Math.max(0, y / 0.6) : 1;
+    const under = ny < -0.5 ? 0.7 : 1;
+    const k = contact * under;
+    col.setXYZ(i, col.getX(i) * k, col.getY(i) * k, col.getZ(i) * k);
+  }
+  col.needsUpdate = true;
 }
 
 function paint(geo: THREE.BufferGeometry, color: string): void {
@@ -212,5 +247,31 @@ export const MATERIALS = {
   lit: CEL.lit,
   litMetal: CEL.litMetal,
   foliage: CEL.foliage,
-  glow: new THREE.MeshBasicMaterial({ vertexColors: true }),
+  glow: makeGlowMaterial(),
 };
+
+/**
+ * Lit windows, neon and lamps. At night they show their own colour at full
+ * strength; by day a window is glass, so the colour sinks toward a dark
+ * reflective tone with a faint sky sheen and only a trace of the interior
+ * light. Without this, every lit pane read as a flat cream sticker at noon.
+ */
+function makeGlowMaterial(): THREE.MeshBasicMaterial {
+  const mat = new THREE.MeshBasicMaterial({ vertexColors: true });
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uDaylight = ENV.daylight;
+    shader.uniforms.uSky = ENV.skyZenith;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float uDaylight;
+        uniform vec3 uSky;`)
+      .replace('#include <opaque_fragment>', `{
+          float lum = dot( outgoingLight, vec3( 0.299, 0.587, 0.114 ) );
+          vec3 glass = mix( vec3( 0.16, 0.18, 0.22 ), uSky, 0.32 ) + outgoingLight * 0.16;
+          outgoingLight = mix( outgoingLight, glass, uDaylight * 0.86 * smoothstep( 0.25, 0.7, lum ) );
+        }
+        #include <opaque_fragment>`);
+  };
+  mat.customProgramCacheKey = () => 'glow-daylight';
+  return mat;
+}

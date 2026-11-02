@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PALETTE as P } from '../config/palette';
-import { MATERIALS, VoxelKit } from './voxel';
+import { MATERIALS, VoxelKit, shade } from './voxel';
 import { addWindSway, celMaterial } from './CelShading';
 import type { ColliderSpec } from './VoxelBuilding';
 
@@ -658,7 +658,17 @@ export function createFillerBlocks(
     // Ground-floor shop band on some street-facing blocks
     const shopBand = lowRise || rng() < 0.35;
     if (shopBand) {
-      glow.box(f.w * 0.7, floorH * 0.5, 0.07, f.x, floorH * 0.38, f.z + f.d / 2 + 0.03, rng() < 0.6 ? P.windowWarm : P.neonCyan);
+      // Shopfront: glazing split by mullions, a door bay, and a dark kick plate.
+      const sfW = f.w * 0.74;
+      const sfZ = f.z + f.d / 2;
+      const sfC = rng() < 0.6 ? P.windowWarm : P.neonCyan;
+      kit.box(sfW + 0.12, floorH * 0.58, 0.05, f.x, floorH * 0.4, sfZ + 0.02, '#23262b');
+      glow.box(sfW - 0.08, floorH * 0.5, 0.02, f.x, floorH * 0.42, sfZ + 0.05, sfC);
+      const bays = Math.max(2, Math.round(sfW / 1.3));
+      for (let m = 1; m < bays; m++) {
+        kit.box(0.06, floorH * 0.52, 0.04, f.x - sfW / 2 + (sfW / bays) * m, floorH * 0.42, sfZ + 0.07, '#23262b');
+      }
+      kit.box(sfW, 0.28, 0.06, f.x, 0.14, sfZ + 0.04, '#2d3035');
       // Full-width Korean sign band above the shopfront (text via atlas)
       const bandC = ['#b04b50', '#3f6f5a', '#31517c', '#7a4a3a'][Math.floor(rng() * 4)];
       kit.box(f.w * 0.88, 0.85, 0.16, f.x, floorH * 0.82 + 0.42, f.z + f.d / 2 + 0.1, bandC);
@@ -679,49 +689,89 @@ export function createFillerBlocks(
     }
 
     const chance = f.windowChance ?? 0.6;
-    // Window cells on all four faces: framed cells with a sill, panes dark
-    // by day and a lit subset at night — no street looks at a blank wall.
-    const cols = Math.max(1, Math.floor((f.w - 1) / 1.6));
-    const start = -((cols - 1) * 1.6) / 2;
-    const colsD = Math.max(1, Math.floor((f.d - 1) / 1.6));
-    const startD = -((colsD - 1) * 1.6) / 2;
-    const balconyFloors = !lowRise && f.w >= 9 && rng() < 0.45;
+    // Each block gets one facade system, so the street reads as different
+    // buildings by different builders rather than one tiled grid:
+    //  - villa: paired windows with a shared sill (brick 빌라 walk-ups)
+    //  - ribbon: continuous glazing strips between spandrels (offices)
+    //  - punched: single tall windows on a wide rhythm (older concrete)
+    const kind = lowRise ? 'villa' : f.floors >= 7 ? 'ribbon' : rng() < 0.5 ? 'villa' : 'punched';
+    const pitch = kind === 'villa' ? 2.4 : kind === 'punched' ? 1.9 : 1.6;
+    const winW = kind === 'villa' ? 0.7 : kind === 'punched' ? 0.82 : 1.42;
+    const winH = kind === 'ribbon' ? 1.25 : kind === 'punched' ? 1.3 : 1.05;
+    const cols = Math.max(1, Math.floor((f.w - 1) / pitch));
+    const start = -((cols - 1) * pitch) / 2;
+    const colsD = Math.max(1, Math.floor((f.d - 1) / pitch));
+    const startD = -((colsD - 1) * pitch) / 2;
+    const balconyFloors = !lowRise && f.w >= 9 && kind !== 'ribbon' && rng() < 0.45;
+    const sillC = shade(f.wall, 0.7);
+    const pane = (lit: boolean): string => (lit ? (rng() < 0.8 ? f.window : '#5b667a') : PANE_DARK);
+
+    /** One opening on a face. `n` is the face normal (x or z), `t` the offset along it. */
+    const opening = (axis: 'x' | 'z', a: number, faceAt: number, sign: number, y: number, lit: boolean): void => {
+      const out = (o: number): number => faceAt + sign * o;
+      const sub = kind === 'villa' ? [-0.4, 0.4] : [0];
+      for (const dx of sub) {
+        const c = a + dx;
+        if (axis === 'z') {
+          kit.box(winW + 0.08, winH + 0.08, 0.05, c, y, out(0.025), frameC);
+          kit.box(winW - 0.06, winH - 0.06, 0.04, c, y, out(0.03), '#1e2229');
+          (lit ? glow : kit).box(winW - 0.12, winH - 0.12, 0.02, c, y, out(0.045), pane(lit));
+          if (kind !== 'ribbon') kit.box(0.04, winH - 0.1, 0.03, c, y, out(0.055), frameC);
+        } else {
+          kit.box(0.05, winH + 0.08, winW + 0.08, out(0.025), y, c, frameC);
+          kit.box(0.04, winH - 0.06, winW - 0.06, out(0.03), y, c, '#1e2229');
+          (lit ? glow : kit).box(0.02, winH - 0.12, winW - 0.12, out(0.045), y, c, pane(lit));
+          if (kind !== 'ribbon') kit.box(0.03, winH - 0.1, 0.04, out(0.055), y, c, frameC);
+        }
+      }
+      const sillW = kind === 'villa' ? 1.7 : winW + 0.2;
+      if (axis === 'z') kit.box(sillW, 0.07, 0.16, a, y - winH / 2 - 0.04, out(0.08), sillC);
+      else kit.box(0.16, 0.07, sillW, out(0.08), y - winH / 2 - 0.04, a, sillC);
+    };
+
     for (let fl = 0; fl < f.floors; fl++) {
       if (setback && fl >= f.floors - 1) break;
       const y = fl * floorH + floorH * 0.55;
+      // Ribbon offices: a dark spandrel band ties each floor's glazing.
+      if (kind === 'ribbon' && fl > 0) {
+        for (const sign of [1, -1]) {
+          kit.box(f.w - 0.5, winH + 0.2, 0.04, f.x, y, f.z + (f.d / 2 + 0.01) * sign, shade(f.wall, 0.55));
+        }
+      }
       for (let c = 0; c < cols; c++) {
-        const wx = f.x + start + c * 1.6;
+        const wx = f.x + start + c * pitch;
         for (const sign of [1, -1]) {
           if (fl === 0 && sign === 1 && shopBand) continue;
           const lit = rng() < chance && rng() < 0.75;
-          const zz = f.z + (f.d / 2 + 0.03) * sign;
-          kit.box(0.94, 1.09, 0.07, wx, y, zz, frameC);
-          if (lit) glow.box(0.8, 0.95, 0.07, wx, y, zz + sign * 0.02, rng() < 0.8 ? f.window : '#5b667a');
-          else kit.box(0.8, 0.95, 0.07, wx, y, zz + sign * 0.02, PANE_DARK);
-          kit.box(1.0, 0.07, 0.16, wx, y - 0.58, zz + sign * 0.05, shade(f.wall, 0.65));
-          // Wall AC unit under an occasional upper window
+          opening('z', wx, f.z + (f.d / 2) * sign, sign, y, lit);
           if (fl > 0 && rng() < 0.1) {
-            kit.box(0.52, 0.36, 0.3, wx + 0.2, y - 0.85, zz + sign * 0.16, '#9aa0a5');
+            kit.box(0.52, 0.36, 0.3, wx + 0.5, y - 0.85, f.z + (f.d / 2 + 0.16) * sign, '#9aa0a5');
           }
         }
       }
+      // Side faces carry fewer openings: these are party walls in a real
+      // Seoul block, so leave some of them blank.
       for (let c = 0; c < colsD; c++) {
-        const wz = f.z + startD + c * 1.6;
+        if (rng() < 0.35) continue;
+        const wz = f.z + startD + c * pitch;
         const sign = rng() < 0.5 ? 1 : -1;
         const lit = rng() < chance * 0.8 && rng() < 0.75;
-        const xx = f.x + (f.w / 2 + 0.03) * sign;
-        kit.box(0.07, 1.09, 0.94, xx, y, wz, frameC);
-        if (lit) glow.box(0.07, 0.95, 0.8, xx + sign * 0.02, y, wz, rng() < 0.8 ? f.window : '#5b667a');
-        else kit.box(0.07, 0.95, 0.8, xx + sign * 0.02, y, wz, PANE_DARK);
-        kit.box(0.16, 0.07, 1.0, xx + sign * 0.05, y - 0.58, wz, shade(f.wall, 0.65));
+        opening('x', wz, f.x + (f.w / 2) * sign, sign, y, lit);
         if (fl > 0 && rng() < 0.08) {
-          kit.box(0.3, 0.36, 0.52, xx + sign * 0.16, y - 0.85, wz + 0.2, '#9aa0a5');
+          kit.box(0.3, 0.36, 0.52, f.x + (f.w / 2 + 0.16) * sign, y - 0.85, wz + 0.5, '#9aa0a5');
         }
       }
       // Balcony rows on the street face of wide apartment slabs
       if (balconyFloors && fl > 0) {
-        kit.box(f.w * 0.9, 0.1, 0.5, f.x, y - 0.75, f.z + f.d / 2 + 0.28, shade(f.wall, 0.8));
-        kit.box(f.w * 0.9, 0.4, 0.06, f.x, y - 0.5, f.z + f.d / 2 + 0.52, shade(f.wall, 0.7));
+        const bz = f.z + f.d / 2;
+        const bw = f.w * 0.9;
+        kit.box(bw, 0.1, 0.56, f.x, y - 0.78, bz + 0.28, shade(f.wall, 0.82));
+        // Railing: top rail and a mid rail on thin posts, open between.
+        kit.box(bw, 0.05, 0.05, f.x, y - 0.12, bz + 0.54, '#3b3f45');
+        kit.box(bw, 0.03, 0.03, f.x, y - 0.42, bz + 0.54, '#3b3f45');
+        for (let k = 0; k <= Math.round(bw / 1.2); k++) {
+          kit.box(0.04, 0.62, 0.04, f.x - bw / 2 + (bw / Math.round(bw / 1.2)) * k, y - 0.43, bz + 0.54, '#3b3f45');
+        }
       }
     }
   }
@@ -741,15 +791,6 @@ export function createFillerBlocks(
       spec: { w: f.w, h: f.floors * floorH, d: f.d, x: 0, y: (f.floors * floorH) / 2, z: 0 },
     })),
   };
-}
-
-/** Multiplies a hex color's value by `f` (cheap shade/tint). */
-function shade(hex: string, f: number): string {
-  const c = parseInt(hex.slice(1), 16);
-  const r = Math.min(255, Math.round(((c >> 16) & 255) * f));
-  const g = Math.min(255, Math.round(((c >> 8) & 255) * f));
-  const b = Math.min(255, Math.round((c & 255) * f));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
 function mulberry32(seed: number): () => number {

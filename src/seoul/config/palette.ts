@@ -1,5 +1,7 @@
 /**
- * The restrained palette for the whole diorama: a warm dusk over Seoul.
+ * The palette for the whole diorama, keyed to real Seoul materials: grey
+ * concrete, dark brick, slate roofs, worn asphalt. Saturation is kept for
+ * signage and neon, so the poro and the shopfronts carry the colour.
  * Everything in the world should pick from here so the city reads as one
  * handcrafted object.
  */
@@ -12,15 +14,15 @@ export const PALETTE = {
   sun: '#ffc9a0',
 
   // Ground
-  grass: '#5a8a58',
-  grassDark: '#4c774b',
-  asphalt: '#585d68',
-  asphaltLight: '#666b77',
-  sidewalk: '#8f8a80',
+  grass: '#5f8456',
+  grassDark: '#4d6e47',
+  asphalt: '#4f5258',
+  asphaltLight: '#5d6067',
+  sidewalk: '#9b958a',
   curb: '#6e7076',
   stone: '#9a948a',
-  plaza: '#b3a389',
-  plazaDark: '#a08f74',
+  plaza: '#b0a48f',
+  plazaDark: '#9a8d78',
   laneMark: '#d8d2c0',
   sand: '#c2b18c',
   water: '#3f6f8e',
@@ -29,18 +31,18 @@ export const PALETTE = {
   foam: '#dcebf2',
 
   // Architecture
-  concrete: '#a8a29a',
-  concreteDark: '#8b857c',
-  brick: '#a86f55',
-  brickDark: '#8f5c46',
-  glass: '#7fa8c9',
-  glassDark: '#5d84a6',
-  roof: '#5c6470',
+  concrete: '#a39d92',
+  concreteDark: '#878177',
+  brick: '#93604a',
+  brickDark: '#7a4e3c',
+  glass: '#6d8798',
+  glassDark: '#526a7a',
+  roof: '#55595f',
   roofTile: '#4b5563',
-  hanokWall: '#e8dcc3',
+  hanokWall: '#e3d8c2',
   hanokWood: '#7a5238',
   hanokRoof: '#3f4650',
-  woodLight: '#b98d5f',
+  woodLight: '#a8835d',
 
   // Life
   windowWarm: '#ffd98a',
@@ -53,8 +55,8 @@ export const PALETTE = {
 
   // Nature
   treeTrunk: '#6d4c33',
-  leaf: '#5f9e54',
-  leafDark: '#4e8746',
+  leaf: '#5c8f4f',
+  leafDark: '#4a7841',
   leafAutumn: '#d99a4e',
 } as const;
 

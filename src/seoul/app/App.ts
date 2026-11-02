@@ -250,6 +250,7 @@ export class App {
       this.followCam.update(dt);
       this.weather.update(dt, this.player.position.x, this.player.position.z, this.world.daylight);
       this.world.weatherDim = this.weather.dim;
+      this.world.followShadow(this.player.position.x, this.player.position.z);
       this.world.update(elapsed);
       this.minimapAccum += dt;
       if (this.minimapAccum >= 1 / 30) {
@@ -315,11 +316,11 @@ export class App {
     if (canStepPreset && this.quality.stepDown()) {
       this.applyQuality();
       this.ui.setQualityLabel(this.quality.current.label);
-      this.ui.showToast('그래픽 자동 조정', `Lowered to ${this.quality.current.label} for smoother play`);
+      this.ui.showToast('그래픽 자동 조정', `graphics lowered to ${this.quality.current.label.replace(/^\S+ /, '').toLowerCase()} to keep it smooth`);
     } else if (this.reduceRenderScale()) {
       if (!this.perfModeAnnounced) {
         this.perfModeAnnounced = true;
-        this.ui.showToast('성능 모드', 'Performance mode on for smoother play');
+        this.ui.showToast('성능 모드', 'performance mode on');
       }
     }
   }
@@ -367,15 +368,16 @@ export class App {
   }
 
   private travelTo(t: InteractionTarget): void {
-    // Land on the interaction ring (it is centered on the entrance point),
-    // facing the door, so the E prompt is live immediately.
-    const dist = 1.0;
+    // Land inside the interaction radius (3.4) facing the door, so the E
+    // prompt is live immediately, but far enough out that the camera has
+    // room for a normal shot instead of pressing against the facade.
+    const dist = 2.2;
     const x = t.entrance.x + t.approach.x * dist;
     const z = t.entrance.z + t.approach.z * dist;
     this.player.face(Math.atan2(-t.approach.x, -t.approach.z));
     this.teleport(x, z);
     this.player.frozen = false;
-    this.ui.showToast(t.koreanTitle, `${t.title} 앞 · at the door`);
+    this.ui.showToast(t.koreanTitle, `at the door of ${t.title}`);
   }
 
   /**

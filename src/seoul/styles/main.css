@@ -971,6 +971,11 @@ kbd {
   transform: translateY(3px) rotate(45deg);
 }
 
+/* A door prompt replaces the walk hint; they share the same spot. */
+#ui:has(.prompt:not(.hidden)) .controls-hint {
+  display: none;
+}
+
 /* The pads only belong to play: not over the title card or the fallback. */
 #ui:has(.hud.hidden) .joystick,
 #ui:has(.hud.hidden) .touch-action {
@@ -1035,9 +1040,9 @@ kbd {
   .hud-quality {
     padding: 0 10px;
   }
+  /* Toasts sit just under the HUD, clear of the prompt and the pads. */
   .toast {
-    top: auto;
-    bottom: calc(var(--edge-b) + 170px);
+    top: calc(var(--edge-t) + 110px);
   }
   .prompt {
     bottom: calc(var(--edge-b) + 170px);

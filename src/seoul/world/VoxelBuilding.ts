@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PALETTE as P } from '../config/palette';
 import type { BuildingType, Facing } from '../types';
 import { makeSign } from './SignTexture';
-import { MATERIALS, VoxelKit } from './voxel';
+import { MATERIALS, VoxelKit, shade } from './voxel';
 
 export interface ColliderSpec {
   w: number;
@@ -80,7 +80,7 @@ interface BodyStyle {
 function styleFor(type: BuildingType, accent: string): BodyStyle {
   switch (type) {
     case 'arcade':
-      return { wall: '#4a3d55', wallAlt: '#3c3145', window: accent, windowChance: 0.55, roof: '#352b3d' };
+      return { wall: '#47404a', wallAlt: '#38323b', window: accent, windowChance: 0.55, roof: '#302b33' };
     case 'creative-studio':
       return { wall: P.brick, wallAlt: P.brickDark, window: P.windowWarm, windowChance: 0.75, roof: P.roof };
     case 'tech-lab':
@@ -90,7 +90,7 @@ function styleFor(type: BuildingType, accent: string): BodyStyle {
     case 'server-facility':
       return { wall: '#7c8288', wallAlt: '#6b7176', window: '#9adf9f', windowChance: 0.35, roof: '#5a6066' };
     case 'office-tower':
-      return { wall: '#5f7285', wallAlt: '#526375', window: P.windowWarm, windowChance: 0.65, roof: P.roof };
+      return { wall: '#5d6772', wallAlt: '#4d5660', window: P.windowWarm, windowChance: 0.65, roof: P.roof };
     case 'workshop':
       return { wall: P.woodLight, wallAlt: '#a6794c', window: P.windowWarm, windowChance: 0.7, roof: '#8a5a3a' };
     default:
@@ -145,21 +145,40 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
         const off = wall / 2 - (f === 0 ? 0.12 : 0);
         const lit = rng() < style.windowChance && rng() < 0.8;
         const color = lit ? style.window : PANE_DARK;
+        // A window is an opening, not a sticker: the jamb frame sits flush
+        // and thin, the pane is set back inside it, a sill projects below
+        // and a lintel shadows the top. Panes are smaller than the frame on
+        // every side, so lit glass can never bleed past it.
+        const n = (t: number) => sign * (off + t); // offset out of the wall
+        const pw = winW - 0.16;
+        const ph = winH - 0.16;
+        const mullion = winW > 0.8;
         if (axis === 'x') {
-          kit.box(0.1, winH + 0.18, winW + 0.18, sign * (off + 0.02), y, along, FRAME);
-          if (lit) glow.box(0.08, winH, winW, sign * (off + 0.06), y, along, color);
-          else kit.box(0.08, winH, winW, sign * (off + 0.06), y, along, color);
-          // Occasional AC unit under a window
+          kit.box(0.06, winH + 0.08, 0.07, n(0.03), y, along - winW / 2, FRAME);
+          kit.box(0.06, winH + 0.08, 0.07, n(0.03), y, along + winW / 2, FRAME);
+          kit.box(0.06, 0.07, winW, n(0.03), y + winH / 2, along, FRAME);
+          kit.box(0.04, ph, pw, n(0.005), y, along, '#1e2229'); // reveal
+          if (lit) glow.box(0.02, ph - 0.04, pw - 0.04, n(0.02), y, along, color);
+          else kit.box(0.02, ph - 0.04, pw - 0.04, n(0.02), y, along, color);
+          if (mullion) kit.box(0.03, ph, 0.04, n(0.035), y, along, FRAME);
+          kit.box(0.16, 0.08, winW + 0.2, n(0.08), y - winH / 2 - 0.02, along, shade(style.wall, 0.82)); // sill
+          kit.box(0.08, 0.12, winW + 0.14, n(0.04), y + winH / 2 + 0.08, along, shade(style.wall, 0.7)); // lintel
           if (f > 0 && rng() < 0.12) {
-            kit.box(0.36, 0.34, 0.5, sign * (off + 0.2), y - winH / 2 - 0.26, along + 0.2, '#9aa0a5');
-            kit.box(0.05, 0.24, 0.4, sign * (off + 0.39), y - winH / 2 - 0.26, along + 0.2, '#7e858b');
+            kit.box(0.36, 0.34, 0.5, n(0.2), y - winH / 2 - 0.3, along + 0.2, '#9aa0a5');
+            kit.box(0.05, 0.24, 0.4, n(0.39), y - winH / 2 - 0.3, along + 0.2, '#7e858b');
           }
         } else {
-          kit.box(winW + 0.18, winH + 0.18, 0.1, along, y, sign * (off + 0.02), FRAME);
-          if (lit) glow.box(winW, winH, 0.08, along, y, sign * (off + 0.06), color);
-          else kit.box(winW, winH, 0.08, along, y, sign * (off + 0.06), color);
+          kit.box(0.07, winH + 0.08, 0.06, along - winW / 2, y, n(0.03), FRAME);
+          kit.box(0.07, winH + 0.08, 0.06, along + winW / 2, y, n(0.03), FRAME);
+          kit.box(winW, 0.07, 0.06, along, y + winH / 2, n(0.03), FRAME);
+          kit.box(pw, ph, 0.04, along, y, n(0.005), '#1e2229');
+          if (lit) glow.box(pw - 0.04, ph - 0.04, 0.02, along, y, n(0.02), color);
+          else kit.box(pw - 0.04, ph - 0.04, 0.02, along, y, n(0.02), color);
+          if (mullion) kit.box(0.04, ph, 0.03, along, y, n(0.035), FRAME);
+          kit.box(winW + 0.2, 0.08, 0.16, along, y - winH / 2 - 0.02, n(0.08), shade(style.wall, 0.82));
+          kit.box(winW + 0.14, 0.12, 0.08, along, y + winH / 2 + 0.08, n(0.04), shade(style.wall, 0.7));
           if (f > 0 && rng() < 0.12) {
-            kit.box(0.5, 0.34, 0.36, along - 0.2, y - winH / 2 - 0.26, sign * (off + 0.2), '#9aa0a5');
+            kit.box(0.5, 0.34, 0.36, along - 0.2, y - winH / 2 - 0.3, n(0.2), '#9aa0a5');
           }
         }
       }
@@ -174,10 +193,20 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
   // accent awning; the door slots into it.
   if (isShop) {
     const bx = (w - 0.24) / 2;
-    glow.box(0.08, FLOOR_H * 0.62, d - 1.6, bx + 0.02, FLOOR_H * 0.42, 0, style.window);
+    const gw = d - 1.6;
+    kit.box(0.05, FLOOR_H * 0.66, gw + 0.1, bx + 0.01, FLOOR_H * 0.44, 0, '#1e2229');
+    glow.box(0.02, FLOOR_H * 0.56, gw - 0.06, bx + 0.03, FLOOR_H * 0.46, 0, style.window);
     kit.box(0.12, FLOOR_H * 0.72, 0.16, bx + 0.04, FLOOR_H * 0.42, -(d - 1.5) / 2, FRAME);
     kit.box(0.12, FLOOR_H * 0.72, 0.16, bx + 0.04, FLOOR_H * 0.42, (d - 1.5) / 2, FRAME);
     kit.box(0.12, 0.16, d - 1.3, bx + 0.04, FLOOR_H * 0.78, 0, FRAME);
+    // Mullions every ~1.2 m, skipping the door bay, and a kick plate.
+    const bays = Math.max(2, Math.round(gw / 1.2));
+    for (let m = 1; m < bays; m++) {
+      const z = -gw / 2 + (gw / bays) * m;
+      if (Math.abs(z) < 0.9) continue;
+      kit.box(0.06, FLOOR_H * 0.58, 0.06, bx + 0.05, FLOOR_H * 0.46, z, FRAME);
+    }
+    kit.box(0.06, 0.3, gw, bx + 0.04, 0.15, 0, '#2d3035');
     // Awning: sloped slab standing off the wall
     kit.box(1.1, 0.09, d - 1.0, bx + 0.62, FLOOR_H * 0.92, 0, spec.accent);
     kit.box(1.0, 0.05, d - 1.2, bx + 0.6, FLOOR_H * 0.87, 0, '#efe7d8');
@@ -208,10 +237,10 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
   switch (spec.type) {
     case 'arcade': {
       // Neon frame stripes up the front corners + marquee
-      glow.box(0.18, h * 0.9, 0.18, w / 2 + 0.05, h * 0.45, d / 2 - 0.3, P.neonPink);
-      glow.box(0.18, h * 0.9, 0.18, w / 2 + 0.05, h * 0.45, -d / 2 + 0.3, P.neonCyan);
+      glow.box(0.07, h * 0.86, 0.07, w / 2 + 0.1, h * 0.47, d / 2 - 0.3, P.neonPink);
+      glow.box(0.07, h * 0.86, 0.07, w / 2 + 0.1, h * 0.47, -d / 2 + 0.3, P.neonCyan);
       // Marquee rides between the top window frames and the parapet
-      glow.box(0.15, 0.15, d, w / 2 + 0.08, h - 0.34, 0, P.neonYellow);
+      glow.box(0.07, 0.07, d - 0.4, w / 2 + 0.1, h - 0.34, 0, P.neonYellow);
       // Checkered entry tiles
       for (let i = 0; i < 4; i++) {
         for (let j = 0; j < 2; j++) {
@@ -276,8 +305,9 @@ function buildBlockBuilding(spec: BuildingSpec): BuiltStructure {
       const paneD = d * 0.35 - 1.3;
       for (const s of [-1, 1] as const) {
         const zc = s * (1.3 + paneD / 2);
-        kit.box(0.1, FLOOR_H * 0.62 + 0.18, paneD + 0.18, bx + 0.02, FLOOR_H * 0.42, zc, FRAME);
-        glow.box(0.08, FLOOR_H * 0.62, paneD, bx + 0.06, FLOOR_H * 0.42, zc, P.windowCool);
+        kit.box(0.06, FLOOR_H * 0.62 + 0.12, paneD + 0.12, bx + 0.02, FLOOR_H * 0.42, zc, FRAME);
+        glow.box(0.02, FLOOR_H * 0.62 - 0.08, paneD - 0.08, bx + 0.06, FLOOR_H * 0.42, zc, P.windowCool);
+        kit.box(0.04, FLOOR_H * 0.62, 0.05, bx + 0.08, FLOOR_H * 0.42, zc, FRAME);
       }
       break;
     }
@@ -384,7 +414,8 @@ function buildHanok(spec: BuildingSpec): BuiltStructure {
   kit.boxOn(0.4, 1.1, d * 0.7, w / 2 + 1.1, 0, -d / 2 - 0.6, P.hanokWall);
   kit.boxOn(0.5, 0.2, d * 0.7, w / 2 + 1.1, 1.1, -d / 2 - 0.6, P.roofTile);
 
-  group.add(kit.toMesh(MATERIALS.lit));
+  const bodyMesh = kit.toMesh(MATERIALS.lit);
+  group.add(bodyMesh);
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
 
   // Name plaque under the eave: kept below the roof slab (bottom at 2.9)
@@ -403,7 +434,6 @@ function buildHanok(spec: BuildingSpec): BuiltStructure {
   sign.rotation.y = Math.PI / 2;
   group.add(sign);
 
-  const bodyMesh = group.children[0] as THREE.Mesh;
   return {
     group,
     colliders: [
@@ -440,7 +470,8 @@ function buildPhoneBooth(spec: BuildingSpec): BuiltStructure {
   kit.boxOn(w + 0.2, 0.4, w + 0.2, 0, h + 0.15, 0, '#8f2f24');
   glow.boxOn(0.3, 0.2, 0.3, 0, h + 0.55, 0, P.lampGlow);
 
-  group.add(kit.toMesh(MATERIALS.lit));
+  const bodyMesh = kit.toMesh(MATERIALS.lit);
+  group.add(bodyMesh);
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
 
   const sign = makeSign({
@@ -459,7 +490,7 @@ function buildPhoneBooth(spec: BuildingSpec): BuiltStructure {
     group,
     colliders: [{ w, h: h + 0.5, d: w, x: 0, y: (h + 0.5) / 2, z: 0 }],
     entranceLocal: new THREE.Vector3(w / 2 + 1.1, 0, 0),
-    occluders: [],
+    occluders: [bodyMesh],
     highlight: makeHighlight(spec.accent, w / 2 + 1.1),
   };
 }
@@ -501,7 +532,8 @@ function buildSubwayStation(spec: BuildingSpec): BuiltStructure {
   kit.boxOn(0.12, 0.85, 0.12, 1.6, canopyY + 0.35, 0, '#3f4d5c');
   kit.box(4.4, 1.1, 0.08, 0, signY, 0, '#0d2545');
 
-  group.add(kit.toMesh(MATERIALS.lit));
+  const bodyMesh = kit.toMesh(MATERIALS.lit);
+  group.add(bodyMesh);
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
 
   // Line-1 style roundel sign on both faces of the board
@@ -529,7 +561,7 @@ function buildSubwayStation(spec: BuildingSpec): BuiltStructure {
     // the interaction happens at the entrance edge.
     colliders: [{ w: w - 1, h: 1.6, d: d - 0.6, x: 0, y: 0.35, z: 0 }],
     entranceLocal: new THREE.Vector3(w / 2 + 1.2, 0, 0),
-    occluders: [],
+    occluders: [bodyMesh],
     highlight: makeHighlight(spec.accent, w / 2 + 1.2),
   };
 }
@@ -549,17 +581,19 @@ function addDoor(kit: VoxelKit, glow: VoxelKit, faceX: number, accent: string, b
 function makeHighlight(accent: string, doorDist: number): THREE.Group {
   const group = new THREE.Group();
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.85, 1.1, 24),
-    new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+    new THREE.RingGeometry(0.95, 1.05, 48),
+    new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false })
   );
   ring.rotation.x = -Math.PI / 2;
   ring.position.set(doorDist, 0.06, 0);
   group.add(ring);
+  // A small marker over the doorway, kept above head height so a close
+  // camera never has it filling the frame.
   const beacon = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.22),
+    new THREE.OctahedronGeometry(0.14),
     new THREE.MeshBasicMaterial({ color: accent })
   );
-  beacon.position.set(doorDist, 2.1, 0);
+  beacon.position.set(doorDist, 2.6, 0);
   group.add(beacon);
   group.visible = false;
   return group;

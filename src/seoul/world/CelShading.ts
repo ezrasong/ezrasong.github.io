@@ -43,15 +43,21 @@ interface CelProfile {
    * shifts — without any real textures.
    */
   grain: number;
+  /**
+   * 0..1 strength of the world-space construction pattern: masonry courses
+   * and panel joints on walls, a coarser joint grid on flat tops. Gives
+   * surfaces a built scale next to the poro's painted texture.
+   */
+  detail: number;
 }
 
 const PROFILES: Record<CelProfileName, CelProfile> = {
-  concrete: { bands: 3, softness: 0.10, floor: 0.46, rim: 0.0, rimPower: 3, fresnel: 0, shadowTintAmount: 0.5, grain: 0.11 },
-  ground: { bands: 3, softness: 0.22, floor: 0.52, rim: 0.0, rimPower: 3, fresnel: 0, shadowTintAmount: 0.42, grain: 0.07 },
-  foliage: { bands: 2, softness: 0.24, floor: 0.55, rim: 0.14, rimPower: 2.6, fresnel: 0, shadowTintAmount: 0.4, grain: 0.12 },
-  metal: { bands: 4, softness: 0.05, floor: 0.38, rim: 0.10, rimPower: 3.4, fresnel: 0, shadowTintAmount: 0.55, grain: 0.06 },
-  character: { bands: 4, softness: 0.30, floor: 0.55, rim: 0.32, rimPower: 2.4, fresnel: 0, shadowTintAmount: 0.35, grain: 0 },
-  glass: { bands: 3, softness: 0.14, floor: 0.5, rim: 0.12, rimPower: 3, fresnel: 0.22, shadowTintAmount: 0.45, grain: 0.05 },
+  concrete: { bands: 4, softness: 0.26, floor: 0.5, rim: 0.1, rimPower: 3, fresnel: 0, shadowTintAmount: 0.45, grain: 0.09, detail: 1 },
+  ground: { bands: 3, softness: 0.22, floor: 0.52, rim: 0.0, rimPower: 3, fresnel: 0, shadowTintAmount: 0.42, grain: 0.07, detail: 0 },
+  foliage: { bands: 2, softness: 0.24, floor: 0.55, rim: 0.14, rimPower: 2.6, fresnel: 0, shadowTintAmount: 0.4, grain: 0.12, detail: 0 },
+  metal: { bands: 4, softness: 0.05, floor: 0.38, rim: 0.10, rimPower: 3.4, fresnel: 0, shadowTintAmount: 0.55, grain: 0.06, detail: 0 },
+  character: { bands: 4, softness: 0.30, floor: 0.55, rim: 0.32, rimPower: 2.4, fresnel: 0, shadowTintAmount: 0.35, grain: 0, detail: 0 },
+  glass: { bands: 3, softness: 0.14, floor: 0.5, rim: 0.12, rimPower: 3, fresnel: 0.22, shadowTintAmount: 0.45, grain: 0.05, detail: 0 },
 };
 
 /** Gradient ramps are shared: one texture per profile, generated once. */
@@ -147,6 +153,7 @@ export function patchCel(
     shader.uniforms.uFresnel = { value: profile.fresnel };
     shader.uniforms.uShadowTintAmt = { value: profile.shadowTintAmount };
     shader.uniforms.uGrain = { value: profile.grain };
+    shader.uniforms.uDetail = { value: profile.detail };
 
     if (profile.grain > 0) {
       // World-position varying for the albedo grain (instance-aware; kept
@@ -156,7 +163,8 @@ export function patchCel(
         .replace(
           '#include <common>',
           `#include <common>
-          varying vec3 vGrainW;`
+          varying vec3 vGrainW;
+          varying vec3 vGrainN;`
         )
         .replace(
           '#include <project_vertex>',
@@ -167,6 +175,7 @@ export function patchCel(
             grainP = instanceMatrix * grainP;
             #endif
             vGrainW = ( modelMatrix * grainP ).xyz;
+            vGrainN = normalize( mat3( modelMatrix ) * objectNormal );
           }`
         );
     }
@@ -183,8 +192,15 @@ export function patchCel(
         uniform float uFresnel;
         uniform float uShadowTintAmt;
         uniform float uGrain;
+        uniform float uDetail;
         ${profile.grain > 0
           ? `varying vec3 vGrainW;
+        varying vec3 vGrainN;
+        // Distance to the nearest joint line in a 1D repeating pattern.
+        float celJoint( float x, float period, float width ) {
+          float d = abs( fract( x / period + 0.5 ) - 0.5 ) * period;
+          return 1.0 - smoothstep( width * 0.5, width * 0.5 + fwidth( x ) * 1.2, d );
+        }
         float celGrainHash( vec2 q ) { return fract( sin( dot( q, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
         float celGrainNoise( vec2 q ) {
           vec2 i = floor( q );
@@ -207,6 +223,30 @@ export function patchCel(
           vec2 grainQ = vec2( vGrainW.x + vGrainW.y * 0.71, vGrainW.z - vGrainW.y * 0.53 );
           float celGrain = celGrainNoise( grainQ * 0.55 ) * 0.55 + celGrainNoise( grainQ * 2.6 ) * 0.45;
           diffuseColor.rgb *= 1.0 + ( celGrain - 0.5 ) * uGrain * 2.0;
+          if ( uDetail > 0.0 ) {
+            vec3 n = normalize( vGrainN );
+            vec3 w = vGrainW;
+            float joint = 0.0;
+            if ( abs( n.y ) < 0.5 ) {
+              // Walls: courses every 0.25 m, staggered blocks 0.5 m long,
+              // with a heavier floor line every 2.5 m (one storey).
+              float along = abs( n.x ) > abs( n.z ) ? w.z : w.x;
+              float course = floor( w.y / 0.25 );
+              float bed = celJoint( w.y, 0.25, 0.018 );
+              float head = celJoint( along + mod( course, 2.0 ) * 0.25, 0.5, 0.018 );
+              float storey = celJoint( w.y - 0.02, 2.5, 0.05 );
+              // Each block gets its own small tone shift.
+              float block = celGrainHash( vec2( floor( ( along + mod( course, 2.0 ) * 0.25 ) / 0.5 ), course ) );
+              diffuseColor.rgb *= 1.0 + ( block - 0.5 ) * 0.07 * uDetail;
+              joint = max( max( bed, head ) * 0.55, storey );
+            } else if ( n.y > 0.5 ) {
+              // Roofs, slabs and paving: a 1 m joint grid.
+              joint = max( celJoint( w.x, 1.0, 0.03 ), celJoint( w.z, 1.0, 0.03 ) ) * 0.6;
+            }
+            // Fade the pattern with distance so far walls don't moire.
+            float fade = 1.0 - smoothstep( 18.0, 46.0, length( vViewPosition ) );
+            diffuseColor.rgb *= 1.0 - joint * 0.16 * uDetail * fade;
+          }
         }`
           : ''}`
       )
@@ -237,7 +277,7 @@ export function patchCel(
   };
   // Distinct programs per profile+rim combination.
   mat.customProgramCacheKey = () =>
-    `cel|${profile.bands}|${profile.softness}|${profile.floor}|${rim}|${profile.fresnel}|${profile.shadowTintAmount}|${profile.grain}`;
+    `cel|${profile.bands}|${profile.softness}|${profile.floor}|${rim}|${profile.fresnel}|${profile.shadowTintAmount}|${profile.grain}|${profile.detail}`;
 }
 
 /**

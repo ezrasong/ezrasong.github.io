@@ -26,6 +26,8 @@ export class FollowCamera {
   private revealBoost = 0;
   private occluders: THREE.Object3D[] = [];
   private ray = new THREE.Raycaster();
+  /** 0..1, how far occlusion has pulled the camera in (damped). */
+  private blocked = 0;
   private reducedMotion: boolean;
 
   // Manual orbit (mouse / touch drag on the canvas)
@@ -147,7 +149,7 @@ export class FollowCamera {
 
     // Manual orbit relaxes back to the follow direction while moving.
     const s = clamp(this.player.speedRatio, 0, 1.2);
-    if (!this.dragging && s > 0.12) {
+    if (!this.dragging && s > 0.12 && this.blocked < 0.3) {
       this.orbitYaw = damp(this.orbitYaw, 0, 1.6, dt);
       this.orbitPitch = damp(this.orbitPitch, 0, 1.6, dt);
     }
@@ -161,7 +163,9 @@ export class FollowCamera {
     this.currentBaseY = damp(this.currentBaseY, p.y, posDamp, dt);
 
     const effYaw = this.followYaw + this.orbitYaw;
-    const pitch = this.pitchFor(dist, height);
+    // When a wall forces the camera in, raise it so the shot looks over the
+    // obstacle at the poro instead of straight into the wall behind it.
+    const pitch = Math.min(CFG.pitchMax, this.pitchFor(dist, height) + this.blocked * 0.5);
     const targetPos = new THREE.Vector3();
     this.composePosition(targetPos, effYaw, pitch, this.currentDist);
 
@@ -176,15 +180,35 @@ export class FollowCamera {
     this.currentLook.y = damp(this.currentLook.y, targetLook.y, posDamp * 1.6, dt);
     this.currentLook.z = damp(this.currentLook.z, targetLook.z, posDamp * 1.6, dt);
 
-    this.camera.position.copy(this.applyOcclusion(targetPos));
+    // Backed against a wall: slide the orbit toward whichever side has more
+    // room, the way a game camera rolls around a corner, instead of
+    // hovering straight above the poro.
+    if (this.blocked > 0.55 && !this.dragging) {
+      const probe = (yawOff: number): number => {
+        const q = new THREE.Vector3();
+        this.composePosition(q, effYaw + yawOff, pitch, this.currentDist);
+        return this.applyOcclusion(q).distanceTo(this.currentLook);
+      };
+      const left = probe(0.7);
+      const right = probe(-0.7);
+      if (Math.abs(left - right) > 0.4) this.orbitYaw += Math.sign(left - right) * Math.min(1.6 * dt, 0.05);
+    }
+
+    const safe = this.applyOcclusion(targetPos);
+    // Pull in fast (never show the inside of a wall), ease back out slowly.
+    const want = 1 - safe.distanceTo(this.currentLook) / Math.max(0.01, targetPos.distanceTo(this.currentLook));
+    this.blocked = want > this.blocked ? want : damp(this.blocked, want, 2.2, dt);
+    this.camera.position.copy(safe);
     this.camera.lookAt(this.currentLook);
   }
 
   /**
-   * Occlusion: if a building (or bridge pylon) sits between the look target
-   * and the camera, pull the camera in front of the hit so the view never
-   * fills with the inside of a mesh. Three rays — center plus two lateral
-   * offsets — so near-misses that would still fill the frame get caught.
+   * Occlusion: if solid geometry sits between the look target and the
+   * camera, put the camera in front of the nearest hit. Five rays (centre,
+   * both sides, above, below) approximate the near plane's footprint, so a
+   * wall the centre ray just misses still can't fill the frame. The camera
+   * keeps a clearance from the hit; if that leaves almost no room it rises
+   * above the look point instead of pressing into the poro.
    */
   private applyOcclusion(pos: THREE.Vector3): THREE.Vector3 {
     if (this.occluders.length === 0) return pos;
@@ -192,18 +216,25 @@ export class FollowCamera {
     const len = dir.length();
     if (len < 1e-4) return pos;
     dir.normalize();
-    const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize().multiplyScalar(0.55);
+    const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize().multiplyScalar(0.6);
+    const up = new THREE.Vector3(0, 0.45, 0);
     let nearest = Infinity;
     const origin = new THREE.Vector3();
-    for (const off of [0, 1, -1]) {
-      origin.copy(this.currentLook).addScaledVector(side, off);
+    for (const [s, u] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      origin.copy(this.currentLook).addScaledVector(side, s).addScaledVector(up, u);
       this.ray.set(origin, dir);
-      this.ray.far = len;
+      this.ray.far = len + 0.6;
       const hits = this.ray.intersectObjects(this.occluders, false);
       if (hits.length > 0) nearest = Math.min(nearest, hits[0].distance);
     }
     if (!isFinite(nearest)) return pos;
-    return this.currentLook.clone().addScaledVector(dir, Math.max(1.6, nearest - 0.4));
+    const d = nearest - 0.6;
+    if (d >= 2.4) return this.currentLook.clone().addScaledVector(dir, Math.min(len, d));
+    // Too little room behind the poro (backed against a wall): lift the
+    // camera over it and look down, instead of pressing into the fur.
+    const lifted = this.currentLook.clone().addScaledVector(dir, Math.max(0.9, d));
+    lifted.y = this.currentLook.y + 3.4 - Math.max(0, d) * 0.6;
+    return lifted;
   }
 
   resize(aspect: number): void {

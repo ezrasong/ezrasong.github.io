@@ -18,15 +18,17 @@ function makeBlobShadow(): THREE.Mesh {
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
-  const g = ctx.createRadialGradient(size / 2, size / 2, 6, size / 2, size / 2, size / 2);
-  g.addColorStop(0, 'rgba(20,24,40,0.42)');
-  g.addColorStop(0.7, 'rgba(20,24,40,0.22)');
-  g.addColorStop(1, 'rgba(20,24,40,0)');
+  // A tight contact occlusion right under the body; the sun casts the real
+  // shadow. Warm-neutral so it reads on paving rather than as a blue stain.
+  const g = ctx.createRadialGradient(size / 2, size / 2, 4, size / 2, size / 2, size / 2);
+  g.addColorStop(0, 'rgba(26,22,18,0.5)');
+  g.addColorStop(0.45, 'rgba(26,22,18,0.28)');
+  g.addColorStop(1, 'rgba(26,22,18,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
   const tex = new THREE.CanvasTexture(canvas);
   const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.5, 1.5),
+    new THREE.PlaneGeometry(1.15, 1.15),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
   );
   mesh.rotation.x = -Math.PI / 2;

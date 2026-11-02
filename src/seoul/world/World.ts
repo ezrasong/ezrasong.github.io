@@ -48,6 +48,7 @@ export class World {
   readonly scene = new THREE.Scene();
   readonly targets: InteractionTarget[] = [];
   readonly occluders: THREE.Object3D[] = [];
+  private shadowFocus = new THREE.Vector3();
   readonly highlights = new Map<string, THREE.Group>();
 
   /** 0..1 gloom from the weather system; mutes sun, sky, and fog. */
@@ -119,15 +120,19 @@ export class World {
     this.sun.position.set(-48, 55, 30);
     this.sun.target.position.set(0, 0, 0);
     this.sun.castShadow = true;
+    // The shadow map follows the player (see followShadow) and covers only
+    // the neighbourhood around them. Spreading one map over the whole city
+    // made each texel ~14 cm, so the poro's shadow smeared into a second
+    // offset blob beside the contact shadow.
     const cam = this.sun.shadow.camera;
-    cam.left = -145;
-    cam.right = 145;
-    cam.top = 145;
-    cam.bottom = -145;
-    cam.near = 10;
-    cam.far = 500;
-    this.sun.shadow.bias = -0.0006;
-    this.sun.shadow.normalBias = 0.02;
+    cam.left = -SHADOW_HALF;
+    cam.right = SHADOW_HALF;
+    cam.top = SHADOW_HALF;
+    cam.bottom = -SHADOW_HALF;
+    cam.near = 1;
+    cam.far = 400;
+    this.sun.shadow.bias = -0.0004;
+    this.sun.shadow.normalBias = 0.03;
     this.scene.add(this.sun, this.sun.target);
 
     // Visible sun + moon discs riding the same arc as the light.
@@ -165,11 +170,11 @@ export class World {
     const daylight = smoothstep(-0.06, 0.18, e);
     this.daylight = daylight;
     if (e > -0.06) {
-      this.sun.position.copy(sunPos);
+      this.sun.position.copy(sunPos).add(this.shadowFocus);
       this.sun.intensity = 0.3 + daylight * 2.3;
       this.sun.color.lerpColors(SUN_HORIZON, SUN_NOON, smoothstep(0.02, 0.55, e));
     } else {
-      this.sun.position.copy(moonPos);
+      this.sun.position.copy(moonPos).add(this.shadowFocus);
       this.sun.intensity = 0.5;
       this.sun.color.set('#8fa3d8');
     }
@@ -189,7 +194,7 @@ export class World {
     this.hemi.intensity = (0.68 + smoothstep(-0.12, 0.45, e) * 0.85) * (1 - gloom * 0.28);
 
     // --- Feed the shared shader uniforms (sky dome, water, grass, cel rims)
-    ENV.sunDir.value.copy(this.sun.position).normalize();
+    ENV.sunDir.value.copy(this.sun.position).sub(this.shadowFocus).normalize();
     ENV.sunColor.value.copy(this.sun.color);
     ENV.daylight.value = daylight;
     ENV.gloom.value = gloom;
@@ -391,9 +396,11 @@ export class World {
   private addFiller(): void {
     const filler: FillerSpec[] = [
       // --- Hongdae west column (between the west street and the edge)
-      { x: -72, z: -26, w: 7, d: 8, floors: 3, wall: '#b06a5a', window: P.windowWarm },
-      { x: -72, z: -14, w: 7, d: 7, floors: 2, wall: '#7a6a8f', window: P.neonPink, windowChance: 0.8 },
-      { x: -72, z: -1, w: 7, d: 9, floors: 3, wall: '#5f7a6a', window: P.windowWarm },
+      // Set back 0.6 m from the west street's sidewalk (x -68.6) and kept
+      // inside the arterial sidewalks (z -29.4 .. 3.4), shoulder to shoulder.
+      { x: -73.2, z: -24.6, w: 8, d: 8.4, floors: 3, wall: '#93604a', window: P.windowWarm },
+      { x: -73.2, z: -14.2, w: 8, d: 10, floors: 2, wall: '#6a5f6b', window: P.neonPink, windowChance: 0.8 },
+      { x: -73.2, z: -3.4, w: 8, d: 10.4, floors: 4, wall: '#8a8279', window: P.windowWarm },
       // --- Hongdae backs, north of Namsan-ro
       { x: -44, z: -44, w: 8, d: 6, floors: 2, wall: P.brick, window: P.windowWarm },
       { x: -56, z: -44, w: 8, d: 6, floors: 3, wall: '#8f6a50', window: P.windowWarm },
@@ -403,23 +410,23 @@ export class World {
       { x: 54, z: -24, w: 9, d: 7, floors: 4, wall: P.concrete, window: P.windowWarm },
       { x: 41.5, z: -6, w: 8, d: 8, floors: 3, wall: '#8f7a68', window: P.windowWarm },
       { x: 54, z: -6, w: 9, d: 8, floors: 2, wall: '#9a8a76', window: P.windowWarm },
-      { x: 74, z: -24, w: 8, d: 7, floors: 5, wall: '#54667c', window: P.windowCool },
-      { x: 74, z: -6, w: 8, d: 8, floors: 4, wall: '#5b6d84', window: P.windowWarm, windowChance: 0.7 },
+      { x: 74, z: -24, w: 8, d: 7, floors: 5, wall: '#8a8279', window: P.windowCool },
+      { x: 74, z: -6, w: 8, d: 8, floors: 4, wall: '#7b5a4a', window: P.windowWarm, windowChance: 0.7 },
       // --- Hanok alley neighbours (low traditional blocks)
       { x: 28, z: -51, w: 7, d: 6, floors: 1, wall: P.hanokWall, window: P.windowWarm },
       { x: 54, z: -51, w: 7, d: 6, floors: 1, wall: P.hanokWall, window: P.windowWarm },
       { x: 63, z: -50, w: 6, d: 6, floors: 1, wall: '#dcd0b6', window: P.windowWarm },
       { x: 74, z: -50, w: 7, d: 6, floors: 1, wall: P.hanokWall, window: P.windowWarm },
       // --- Gangnam second row, south of Teheran-ro: glass towers
-      { x: 12, z: 90, w: 7, d: 7, floors: 6, wall: '#4e6076', window: P.windowCool, windowChance: 0.75 },
-      { x: 28, z: 90, w: 8, d: 8, floors: 5, wall: '#54667c', window: P.windowCool },
-      { x: 60, z: 90, w: 8, d: 7, floors: 6, wall: '#5b6d84', window: P.windowWarm, windowChance: 0.7 },
-      { x: 76, z: 90, w: 9, d: 8, floors: 7, wall: '#4e6076', window: P.windowCool, windowChance: 0.75 },
+      { x: 12, z: 90, w: 7, d: 7, floors: 6, wall: '#a49c90', window: P.windowCool, windowChance: 0.75 },
+      { x: 28, z: 90, w: 8, d: 8, floors: 5, wall: '#6c6f72', window: P.windowCool },
+      { x: 60, z: 90, w: 8, d: 7, floors: 6, wall: '#93705c', window: P.windowWarm, windowChance: 0.7 },
+      { x: 76, z: 90, w: 9, d: 8, floors: 7, wall: '#bab2a3', window: P.windowCool, windowChance: 0.75 },
       // --- Yeouido skyline (south bank west): the gold tower + neighbours
       { x: -58, z: 68, w: 9, d: 9, floors: 12, wall: '#b8934a', window: P.windowWarm, windowChance: 0.8 },
-      { x: -72, z: 67, w: 8, d: 8, floors: 9, wall: '#5b6d84', window: P.windowCool, windowChance: 0.7 },
-      { x: -58, z: 90, w: 9, d: 8, floors: 10, wall: '#4e6076', window: P.windowCool, windowChance: 0.7 },
-      { x: -72, z: 90, w: 8, d: 8, floors: 8, wall: '#61748c', window: P.windowWarm, windowChance: 0.7 },
+      { x: -72, z: 67, w: 8, d: 8, floors: 9, wall: '#5f6266', window: P.windowCool, windowChance: 0.7 },
+      { x: -58, z: 90, w: 9, d: 8, floors: 10, wall: '#866b58', window: P.windowCool, windowChance: 0.7 },
+      { x: -72, z: 90, w: 8, d: 8, floors: 8, wall: '#9c968c', window: P.windowWarm, windowChance: 0.7 },
       // --- Riverside apartment slabs (the classic Korean 아파트 rows)
       { x: -20, z: 65, w: 12, d: 5, floors: 5, wall: '#c9c2b4', window: P.windowWarm },
       { x: -33, z: 65, w: 10, d: 5, floors: 5, wall: '#bdb6a8', window: P.windowWarm },
@@ -434,23 +441,23 @@ export class World {
     const backdrop: FillerSpec[] = [
       // Kept clear of the four arterial corridors, which now run past the
       // boundary under the gantry signs.
-      { x: -97, z: -22, w: 8, d: 8, floors: 4, wall: '#6b6a7a', window: P.windowWarm, windowChance: 0.4 },
+      { x: -97, z: -22, w: 8, d: 8, floors: 4, wall: '#70584b', window: P.windowWarm, windowChance: 0.4 },
       { x: -97, z: -12, w: 8, d: 8, floors: 3, wall: '#7a6a5f', window: P.windowWarm, windowChance: 0.4 },
-      { x: -97, z: -2, w: 8, d: 8, floors: 5, wall: '#5b6d84', window: P.windowWarm, windowChance: 0.4 },
-      { x: -97, z: 68, w: 8, d: 9, floors: 8, wall: '#54667c', window: P.windowCool, windowChance: 0.4 },
-      { x: -97, z: 90, w: 8, d: 9, floors: 7, wall: '#61748c', window: P.windowWarm, windowChance: 0.4 },
+      { x: -97, z: -2, w: 8, d: 8, floors: 5, wall: '#8a8279', window: P.windowWarm, windowChance: 0.4 },
+      { x: -97, z: 68, w: 8, d: 9, floors: 8, wall: '#7b5a4a', window: P.windowCool, windowChance: 0.4 },
+      { x: -97, z: 90, w: 8, d: 9, floors: 7, wall: '#a49c90', window: P.windowWarm, windowChance: 0.4 },
       { x: 97, z: -24, w: 8, d: 8, floors: 4, wall: '#7a6a5f', window: P.windowWarm, windowChance: 0.4 },
-      { x: 97, z: -8, w: 8, d: 9, floors: 6, wall: '#6b6a7a', window: P.windowWarm, windowChance: 0.4 },
-      { x: 97, z: 68, w: 8, d: 9, floors: 9, wall: '#4e6076', window: P.windowCool, windowChance: 0.4 },
-      { x: 97, z: 91, w: 8, d: 8, floors: 7, wall: '#5b6d84', window: P.windowWarm, windowChance: 0.4 },
-      { x: -76, z: 101, w: 10, d: 8, floors: 6, wall: '#54667c', window: P.windowWarm, windowChance: 0.4 },
-      { x: -56, z: 101, w: 9, d: 8, floors: 8, wall: '#4e6076', window: P.windowCool, windowChance: 0.4 },
-      { x: -34, z: 101, w: 10, d: 8, floors: 5, wall: '#61748c', window: P.windowWarm, windowChance: 0.4 },
-      { x: -10, z: 101, w: 10, d: 8, floors: 6, wall: '#5b6d84', window: P.windowWarm, windowChance: 0.4 },
-      { x: 12, z: 101, w: 9, d: 8, floors: 8, wall: '#4e6076', window: P.windowCool, windowChance: 0.4 },
-      { x: 34, z: 101, w: 10, d: 8, floors: 7, wall: '#54667c', window: P.windowWarm, windowChance: 0.4 },
-      { x: 58, z: 101, w: 9, d: 8, floors: 9, wall: '#4e6076', window: P.windowCool, windowChance: 0.4 },
-      { x: 80, z: 101, w: 10, d: 8, floors: 6, wall: '#61748c', window: P.windowWarm, windowChance: 0.4 },
+      { x: 97, z: -8, w: 8, d: 9, floors: 6, wall: '#6c6f72', window: P.windowWarm, windowChance: 0.4 },
+      { x: 97, z: 68, w: 8, d: 9, floors: 9, wall: '#93705c', window: P.windowCool, windowChance: 0.4 },
+      { x: 97, z: 91, w: 8, d: 8, floors: 7, wall: '#bab2a3', window: P.windowWarm, windowChance: 0.4 },
+      { x: -76, z: 101, w: 10, d: 8, floors: 6, wall: '#5f6266', window: P.windowWarm, windowChance: 0.4 },
+      { x: -56, z: 101, w: 9, d: 8, floors: 8, wall: '#866b58', window: P.windowCool, windowChance: 0.4 },
+      { x: -34, z: 101, w: 10, d: 8, floors: 5, wall: '#9c968c', window: P.windowWarm, windowChance: 0.4 },
+      { x: -10, z: 101, w: 10, d: 8, floors: 6, wall: '#70584b', window: P.windowWarm, windowChance: 0.4 },
+      { x: 12, z: 101, w: 9, d: 8, floors: 8, wall: '#8a8279', window: P.windowCool, windowChance: 0.4 },
+      { x: 34, z: 101, w: 10, d: 8, floors: 7, wall: '#7b5a4a', window: P.windowWarm, windowChance: 0.4 },
+      { x: 58, z: 101, w: 9, d: 8, floors: 9, wall: '#a49c90', window: P.windowCool, windowChance: 0.4 },
+      { x: 80, z: 101, w: 10, d: 8, floors: 6, wall: '#6c6f72', window: P.windowWarm, windowChance: 0.4 },
     ];
 
     const built = createFillerBlocks([...filler, ...backdrop]);
@@ -620,9 +627,12 @@ export class World {
     // Concrete utility poles with sagging wire runs — Euljiro / hanok-alley
     // texture along the older streets.
     const utilityRuns: { x: number; z: number }[][] = [
+      // Behind the hanok row, not in front of it: the houses face south, so
+      // a run along the alley's south edge strung wires between every door
+      // and the camera.
       [
-        { x: 24, z: -41.4 }, { x: 33, z: -41.7 }, { x: 42, z: -41.2 },
-        { x: 51, z: -41.7 }, { x: 60, z: -41.3 }, { x: 69, z: -41.6 },
+        { x: 24, z: -57.4 }, { x: 33, z: -57.7 }, { x: 42, z: -57.2 },
+        { x: 51, z: -57.7 }, { x: 60, z: -57.3 }, { x: 69, z: -57.6 },
       ],
       [
         { x: 35.7, z: -27 }, { x: 35.7, z: -18 }, { x: 35.7, z: -9 }, { x: 35.7, z: -1 },
@@ -690,60 +700,31 @@ export class World {
   /* ---------------------------------------------------------------- */
 
   private addPlazaDressing(): void {
-    // Controls tutorial painted on the plaza stones near spawn: the full
-    // WASD cluster (S included), the three action keys, and the extras.
-    const tutorial = makeDecal(
+    // A small inscription set into the plaza stones in front of spawn, like
+    // a dedication plate. The controls themselves live in the UI (title card
+    // and walk hint), so the ground carries no keyboard diagram.
+    const plate = makeDecal(
       (ctx, w, h) => {
-        // All sizes are proportional to the canvas so the layout survives
-        // resolution changes.
-        const s = h / 275;
-        ctx.fillStyle = 'rgba(29,31,42,0.55)';
-        roundRect(ctx, 0, 0, w, h, 16 * s);
-        ctx.fill();
-        ctx.fillStyle = '#f5ead2';
+        ctx.fillStyle = 'rgba(58,52,46,0.32)';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(58,52,46,0.55)';
+        ctx.lineWidth = h * 0.04;
+        ctx.strokeRect(h * 0.06, h * 0.06, w - h * 0.12, h - h * 0.12);
+        ctx.fillStyle = 'rgba(64,58,52,0.85)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const key = (x: number, y: number, label: string) => {
-          const size = 46 * s;
-          ctx.strokeStyle = '#f5ead2';
-          ctx.lineWidth = 3 * s;
-          roundRect(ctx, x - size / 2, y - size / 2, size, size, 8 * s);
-          ctx.stroke();
-          ctx.font = `700 ${Math.round(26 * s)}px "IBM Plex Sans KR", sans-serif`;
-          ctx.fillText(label, x, y + s);
-        };
-        const label = (x: number, y: number, text: string, px = 26) => {
-          ctx.font = `700 ${Math.round(px * s)}px "IBM Plex Sans KR", sans-serif`;
-          ctx.fillText(text, x, y);
-        };
-        // Movement cluster, laid out like a real keyboard (S included)
-        label(w * 0.16, h * 0.14, 'MOVE · 움직이기', 24);
-        key(w * 0.16, h * 0.37, 'W');
-        key(w * 0.095, h * 0.61, 'A');
-        key(w * 0.16, h * 0.61, 'S');
-        key(w * 0.225, h * 0.61, 'D');
-        // Action keys: short header, key, Korean caption
-        label(w * 0.47, h * 0.14, 'ENTER', 24);
-        key(w * 0.47, h * 0.42, 'E');
-        label(w * 0.47, h * 0.67, '들어가기', 19);
-        label(w * 0.64, h * 0.14, 'MAP', 24);
-        key(w * 0.64, h * 0.42, 'M');
-        label(w * 0.64, h * 0.67, '지도', 19);
-        label(w * 0.81, h * 0.14, 'RESET', 24);
-        key(w * 0.81, h * 0.42, 'R');
-        label(w * 0.81, h * 0.67, '리셋', 19);
-        // Everything else
-        ctx.globalAlpha = 0.85;
-        label(w * 0.5, h * 0.885, 'SHIFT sprint · SPACE jump · drag to look around', 22);
-        ctx.globalAlpha = 1;
+        ctx.font = `600 ${Math.round(h * 0.34)}px ${KOREAN_FONT}`;
+        ctx.fillText('미니 서울', w / 2, h * 0.4);
+        ctx.font = `500 ${Math.round(h * 0.17)}px ${KOREAN_FONT}`;
+        ctx.fillText('MINI SEOUL · EST. 2026', w / 2, h * 0.72);
       },
-      11.5,
-      4.3,
-      96,
+      3.2,
+      1.1,
+      128,
       true
     );
-    tutorial.position.set(0, 0.05, -5.2);
-    this.scene.add(tutorial);
+    plate.position.set(0, 0.05, -2.2);
+    this.scene.add(plate);
   }
 
   /**
@@ -770,21 +751,28 @@ export class World {
             ctx.rotate(Math.PI);
             ctx.translate(-w / 2, -h / 2);
           }
-          // Soft dark plate so the lettering pops off any road tone
-          ctx.fillStyle = 'rgba(22,25,34,0.42)';
-          roundRect(ctx, h * 0.1, h * 0.1, w - h * 0.2, h * 0.8, h * 0.24);
-          ctx.fill();
-          ctx.fillStyle = '#f5efdc';
+          // Road paint, not a sticker: off-white, slightly worn, no plate.
+          ctx.fillStyle = 'rgba(236,230,214,0.78)';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          let size = h * 0.5;
-          ctx.font = `700 ${size}px ${KOREAN_FONT}`;
+          let size = h * 0.46;
+          ctx.font = `600 ${size}px ${KOREAN_FONT}`;
           const tw = ctx.measureText(label.text).width;
-          if (tw > w * 0.88) {
-            size *= (w * 0.88) / tw;
-            ctx.font = `700 ${size}px ${KOREAN_FONT}`;
+          if (tw > w * 0.9) {
+            size *= (w * 0.9) / tw;
+            ctx.font = `600 ${size}px ${KOREAN_FONT}`;
           }
           ctx.fillText(label.text, w / 2, h * 0.52);
+          // Wear: knock tiny flecks out of the paint.
+          ctx.globalCompositeOperation = 'destination-out';
+          let seed = label.text.length * 97 + Math.round(label.x * 13);
+          const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+          for (let i = 0; i < (w * h) / 900; i++) {
+            ctx.globalAlpha = 0.25 + rnd() * 0.5;
+            ctx.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 3, 1 + rnd() * 2);
+          }
+          ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = 'source-over';
         },
         label.w,
         H,
@@ -806,16 +794,29 @@ export class World {
     return null;
   }
 
+  /**
+   * Centre the sun's shadow map on the player. The focus snaps to whole
+   * shadow texels so the map doesn't shimmer as it slides.
+   */
+  followShadow(x: number, z: number): void {
+    const texel = (SHADOW_HALF * 2) / this.sun.shadow.mapSize.x;
+    const fx = Math.round(x / texel) * texel;
+    const fz = Math.round(z / texel) * texel;
+    this.shadowFocus.set(fx, 0, fz);
+    this.sun.target.position.copy(this.shadowFocus);
+    this.sun.target.updateMatrixWorld();
+  }
+
   update(elapsed: number): void {
     ENV.time.value = elapsed;
     this.updateDayNight();
     // Pulse whichever highlight is visible
     for (const h of this.highlights.values()) {
       if (!h.visible) continue;
-      const s = 1 + Math.sin(elapsed * 4) * 0.12;
+      const s = 1 + Math.sin(elapsed * 3) * 0.05;
       h.children[0]?.scale.setScalar(s);
       const beacon = h.children[1];
-      if (beacon) beacon.position.y = 2.1 + Math.sin(elapsed * 3) * 0.15;
+      if (beacon) beacon.position.y = 2.6 + Math.sin(elapsed * 3) * 0.08;
     }
   }
 }
@@ -860,24 +861,10 @@ function seoulDayFraction(): number {
   return seoulCached;
 }
 
+/** Half-width of the area the sun's shadow map covers, in metres. */
+const SHADOW_HALF = 42;
+
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
 }
