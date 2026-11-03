@@ -25,6 +25,8 @@ export interface BuiltStructure {
   occluders: THREE.Mesh[];
   /** Pulsing marker shown when the player is close enough to interact. */
   highlight: THREE.Group;
+  /** Local x/z outlines where this structure opens below street level. */
+  groundOpenings?: THREE.Vector2[][];
 }
 
 export interface BuildingSpec {
@@ -257,22 +259,18 @@ function buildSubwayStation(spec: BuildingSpec): BuiltStructure {
   const GRANITE = '#a19c92';
   const LINE = '#0d3692'; // Line 1 blue
 
-  // Parapet walls along both sides and the far end, granite cap on top
+  const bottom = -1.8;
+  // Retaining walls continue below the street to enclose the actual well.
   for (const s of [-1, 1]) {
-    kit.boxOn(w, 0.95, 0.3, 0, 0, s * (d / 2 - 0.15), '#8b8780');
+    kit.boxOn(w, 0.95 - bottom, 0.3, 0, bottom, s * (d / 2 - 0.15), '#8b8780');
     kit.boxOn(w + 0.04, 0.08, 0.38, 0, 0.95, s * (d / 2 - 0.15), GRANITE);
   }
-  kit.boxOn(0.3, 0.95, d, -w / 2 + 0.15, 0, 0, '#8b8780');
+  kit.boxOn(0.3, 0.95 - bottom, d, -w / 2 + 0.15, bottom, 0, '#8b8780');
   kit.boxOn(0.38, 0.08, d + 0.04, -w / 2 + 0.15, 0.95, 0, GRANITE);
-  // The street is one flat plane, so the stair can't actually cut into it.
-  // Instead the well is raised: the parapet stands 0.95 m tall, and the
-  // flight is modelled inside it as solid treads stepping DOWN from the
-  // parapet top toward a dark landing, with lit risers so every step reads.
-  // From street level and from the follow camera it reads as a stair
-  // dropping into the concourse.
+  // The entry landing is flush with the pavement; every tread descends
+  // below it. World cuts this well out of both visible ground layers.
   const steps = 9;
-  const top = 0.92;
-  const bottom = -0.02;
+  const top = 0;
   const inner = d - 0.7;
   const run = (w - 1.2) / steps;
   for (let i = 0; i < steps; i++) {
@@ -281,16 +279,16 @@ function buildSubwayStation(spec: BuildingSpec): BuiltStructure {
     const t = i / (steps - 1);
     const tread = '#' + new THREE.Color('#9a9c98').lerp(new THREE.Color('#4a4e52'), t).getHexString();
     // Solid step down to the well floor so no gap shows under any tread
-    kit.boxOn(run + 0.02, y + 0.02, inner, x, -0.02, 0, '#3a3d40');
-    kit.box(run + 0.02, 0.06, inner, x, y, 0, tread);
-    kit.box(0.08, 0.03, inner, x + run / 2 - 0.04, y + 0.035, 0, '#d1ac3e'); // anti-slip nosing
+    kit.boxOn(run + 0.02, y - bottom + 0.12, inner, x, bottom - 0.12, 0, '#3a3d40');
+    kit.box(run + 0.02, 0.06, inner, x, y - 0.03, 0, tread);
+    kit.box(0.08, 0.015, inner, x + run / 2 - 0.04, y + 0.008, 0, '#d1ac3e');
   }
   // Entry: a short landing at street level in front of the first step,
   // then the dark opening at the bottom with the concourse light.
-  kit.box(0.5, 0.94, inner, w / 2 - 0.25, 0.45, 0, '#8e918f');
-  kit.box(0.6, 0.04, inner, w / 2 - 0.3, 0.94, 0, '#a7a9a5');
-  kit.boxOn(0.5, 0.9, inner, -w / 2 + 0.55, -0.02, 0, '#16181b');
-  glow.box(0.04, 0.6, inner - 0.2, -w / 2 + 0.81, 0.35, 0, '#ffedbe');
+  kit.box(0.55, 0.04, inner, w / 2 - 0.25, 0, 0, '#a7a9a5');
+  kit.box(w - 0.5, 0.12, inner, 0, bottom - 0.06, 0, '#3a3d40');
+  kit.boxOn(0.08, 1.3, inner, -w / 2 + 0.35, bottom, 0, '#16181b');
+  glow.box(0.04, 0.6, inner - 0.2, -w / 2 + 0.4, bottom + 0.45, 0, '#ffedbe');
   // Stainless handrails following the flight on both sides
   for (const sd of [-1, 1]) {
     const z = sd * (inner / 2 - 0.08);
@@ -361,10 +359,16 @@ function buildSubwayStation(spec: BuildingSpec): BuiltStructure {
 
   return {
     group,
+    groundOpenings: [[
+      new THREE.Vector2(-w / 2 + 0.3, -d / 2 + 0.3),
+      new THREE.Vector2(w / 2 - 0.5, -d / 2 + 0.3),
+      new THREE.Vector2(w / 2 - 0.5, d / 2 - 0.3),
+      new THREE.Vector2(-w / 2 + 0.3, d / 2 - 0.3),
+    ]],
     // Solid block over the stair well so the player can't fall in; the
     // interaction happens at the entry edge.
     colliders: [
-      { w: w - 1, h: 1.6, d: d - 0.6, x: 0, y: 0.35, z: 0 },
+      { w: w - 0.8, h: 1.6, d: d - 0.6, x: -0.1, y: 0.15, z: 0 },
       { w: 0.3, h: 3.2, d: 0.3, x: px, y: 1.6, z: pz },
     ],
     entranceLocal: new THREE.Vector3(w / 2 + 1.2, 0, 0),

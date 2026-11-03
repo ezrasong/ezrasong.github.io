@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { celMaterial } from './CelShading';
 
 /**
@@ -103,20 +104,55 @@ export interface TerrainResult {
   apron: THREE.Mesh;
 }
 
+/** Cut actual openings into the flat city while retaining its displaced grid. */
+function createGroundGeometry(openings: readonly THREE.Vector2[][]): THREE.BufferGeometry {
+  const geo = new THREE.PlaneGeometry(WORLD_W, WORLD_D, 104, 104);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) pos.setY(i, terrainHeight(pos.getX(i), pos.getZ(i)));
+  const patches = openings.map((outline) => {
+    const box = new THREE.Box2().setFromPoints(outline);
+    // Boundaries on the original 2 m grid; the extra cell keeps the hole
+    // strictly inside the replacement patch, including rotated entrances.
+    box.min.set(Math.floor(box.min.x / 2) * 2 - 2, Math.floor(box.min.y / 2) * 2 - 2);
+    box.max.set(Math.ceil(box.max.x / 2) * 2 + 2, Math.ceil(box.max.y / 2) * 2 + 2);
+    const shape = new THREE.Shape([
+      new THREE.Vector2(box.min.x, -box.min.y), new THREE.Vector2(box.max.x, -box.min.y),
+      new THREE.Vector2(box.max.x, -box.max.y), new THREE.Vector2(box.min.x, -box.max.y),
+    ]);
+    shape.holes.push(new THREE.Path(outline.map((p) => new THREE.Vector2(p.x, -p.y))));
+    const patch = new THREE.ShapeGeometry(shape);
+    patch.rotateX(-Math.PI / 2);
+    const p = patch.attributes.position;
+    const uv = patch.attributes.uv;
+    for (let i = 0; i < p.count; i++) {
+      if (Math.abs(terrainHeight(p.getX(i), p.getZ(i))) > 0.001) throw new Error('Ground openings must lie in the flat city');
+      uv.setXY(i, p.getX(i) / WORLD_W + 0.5, 0.5 - p.getZ(i) / WORLD_D);
+    }
+    return { box, geometry: patch };
+  });
+  const index = geo.getIndex()!;
+  const kept: number[] = [];
+  for (let i = 0; i < index.count; i += 3) {
+    const a = index.getX(i), b = index.getX(i + 1), c = index.getX(i + 2);
+    const center = new THREE.Vector2((pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3, (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3);
+    if (!patches.some((patch) => patch.box.containsPoint(center))) kept.push(a, b, c);
+  }
+  geo.setIndex(kept);
+  geo.computeVertexNormals();
+  if (!patches.length) return geo;
+  const parts = [geo, ...patches.map((p) => p.geometry)];
+  const merged = mergeGeometries(parts, false);
+  for (const part of parts) part.dispose();
+  return merged;
+}
+
 /**
  * Builds the displaced inner terrain (painted canvas texture) plus the
  * surrounding apron of hills.
  */
-export function createTerrain(canvas: HTMLCanvasElement): TerrainResult {
-  // --- Inner: 2m grid over the painted 208×208 world.
-  const seg = 104;
-  const geo = new THREE.PlaneGeometry(WORLD_W, WORLD_D, seg, seg);
-  geo.rotateX(-Math.PI / 2);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    pos.setY(i, terrainHeight(pos.getX(i), pos.getZ(i)));
-  }
-  geo.computeVertexNormals();
+export function createTerrain(canvas: HTMLCanvasElement, openings: readonly THREE.Vector2[][] = []): TerrainResult {
+  const geo = createGroundGeometry(openings);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -158,6 +194,15 @@ export function createTerrain(canvas: HTMLCanvasElement): TerrainResult {
     colors[i * 3 + 2] = tmp.b * m;
   }
   ageo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  // This is an outer ring. A second ground layer beneath the entire city
+  // would cover basement/stair openings again a quarter-metre down.
+  const apronIndex = ageo.getIndex()!;
+  const outer: number[] = [];
+  for (let i = 0; i < apronIndex.count; i += 3) {
+    const triangle = [apronIndex.getX(i), apronIndex.getX(i + 1), apronIndex.getX(i + 2)];
+    if (!triangle.every((v) => Math.abs(apos.getX(v)) < WORLD_W / 2 && Math.abs(apos.getZ(v)) < WORLD_D / 2)) outer.push(...triangle);
+  }
+  ageo.setIndex(outer);
   ageo.computeVertexNormals();
   const apron = new THREE.Mesh(ageo, celMaterial({ profile: 'ground', vertexColors: true }));
   apron.receiveShadow = true;

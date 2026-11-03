@@ -53,6 +53,7 @@ export class World {
   readonly targets: InteractionTarget[] = [];
   readonly occluders: THREE.Object3D[] = [];
   private shadowFocus = new THREE.Vector3();
+  private readonly groundOpenings: THREE.Vector2[][] = [];
   readonly highlights = new Map<string, THREE.Group>();
 
   /** 0..1 gloom from the weather system; mutes sun, sky, and fog. */
@@ -79,13 +80,14 @@ export class World {
     // disc filling the whole intro camera view as a featureless blob.
     this.updateDayNight();
     this.scene.add(createSky());
-    const terrain = createTerrain(paintGroundCanvas());
-    this.scene.add(terrain.inner, terrain.apron);
+    const ground = paintGroundCanvas();
     const grass = createGrass();
     this.scene.add(grass.object);
     this.grassDensity = grass.setDensity;
     this.addLandmarks();
     this.addStructures();
+    const terrain = createTerrain(ground, this.groundOpenings);
+    this.scene.add(terrain.inner, terrain.apron);
     this.addFiller();
     this.addProps();
     this.addBoundaries();
@@ -242,6 +244,9 @@ export class World {
 
     const cos = Math.cos(yaw);
     const sin = Math.sin(yaw);
+    for (const outline of built.groundOpenings ?? []) {
+      this.groundOpenings.push(outline.map((p) => new THREE.Vector2(x + p.x * cos + p.y * sin, z - p.x * sin + p.y * cos)));
+    }
     for (const c of built.colliders) {
       const wx = x + c.x * cos + c.z * sin;
       const wz = z - c.x * sin + c.z * cos;
@@ -262,6 +267,7 @@ export class World {
         signText: project.koreanTitle,
         signSubtext: project.title.toUpperCase(),
       });
+      built.group.name = project.id;
       this.place(built, project.position.x, project.position.z, yaw);
 
       built.highlight.position.copy(built.group.position);
@@ -297,6 +303,7 @@ export class World {
         signText: placeData.koreanTitle,
         signSubtext: placeData.title.toUpperCase(),
       });
+      built.group.name = placeData.id;
       this.place(built, placeData.position.x, placeData.position.z, yaw);
 
       built.highlight.position.copy(built.group.position);

@@ -3,6 +3,44 @@ import { buildOrca } from '../src/ocean/orca-model';
 import { OrcaMotion } from '../src/ocean/orca-motion';
 import { PreyField } from '../src/ocean/prey';
 import { createRoadMarkings } from '../src/seoul/world/RoadMarkings';
+import * as THREE from 'three';
+import { createTerrain } from '../src/seoul/world/Terrain';
+import { createNamsan } from '../src/seoul/world/Landmarks';
+
+test('ground openings stay clear through both terrain layers with paving intact outside', () => {
+  for (const angle of [0, Math.PI / 4, Math.PI / 2]) {
+    const points = [[-2.7, -1.7], [2.5, -1.7], [2.5, 1.7], [-2.7, 1.7]];
+    const opening = points.map(([x, z]) => new THREE.Vector2(9 + x * Math.cos(angle) + z * Math.sin(angle), 64 - x * Math.sin(angle) + z * Math.cos(angle)));
+    const terrain = createTerrain({ width: 1, height: 1 } as HTMLCanvasElement, [opening]);
+    for (const x of [-1, 0, 1]) {
+      const ray = new THREE.Raycaster(new THREE.Vector3(9 + x, 0.1, 64), new THREE.Vector3(0, -1, 0));
+      expect(ray.intersectObjects([terrain.inner, terrain.apron])).toHaveLength(0);
+    }
+    const ray = new THREE.Raycaster(new THREE.Vector3(14, 0.1, 64), new THREE.Vector3(0, -1, 0));
+    const hits = ray.intersectObject(terrain.inner);
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].point.y).toBeCloseTo(0);
+    for (const mesh of [terrain.inner, terrain.apron]) {
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    }
+  }
+});
+
+test('Namsan has continuous summit ground around the tower foundation', () => {
+  const hill = createNamsan(0, 0).object;
+  hill.updateMatrixWorld(true);
+  const heights = [];
+  for (let i = 0; i < 32; i++) {
+    const angle = i * Math.PI / 16;
+    const ray = new THREE.Raycaster(new THREE.Vector3(Math.cos(angle) * 3.5, 40, Math.sin(angle) * 3.5), new THREE.Vector3(0, -1, 0));
+    const hits = ray.intersectObject(hill, true);
+    expect(hits.length).toBeGreaterThan(0);
+    heights.push(hits[0].point.y);
+  }
+  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(0.05);
+  hill.traverse((object) => { if (object instanceof THREE.Mesh) object.geometry.dispose(); });
+});
 
 test('orca turns back on the frame its boundary avoidance changes target', () => {
   const motion = new OrcaMotion(buildOrca(200, 8, 12));

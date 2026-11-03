@@ -77,7 +77,7 @@ export function rangeHeight(o: RangeOptions, x: number, z: number): number {
   const u = (x - o.x) / o.hx;
   const v = (z - o.z) / o.hz;
   const r = Math.sqrt(u * u + v * v);
-  if (r >= 1) return 0;
+  if (r >= 1) return -0.4;
   const fall = Math.pow(Math.cos((r * Math.PI) / 2), 1.4);
   const nx = u * 2.4 + o.seed * 3.1;
   const nz = v * 2.4 - o.seed * 1.7;
@@ -90,22 +90,15 @@ export function createRange(o: RangeOptions): THREE.BufferGeometry {
   const FOREST = new THREE.Color(o.forest ?? '#4a7445');
   const FOREST_DARK = new THREE.Color(o.forestDark ?? '#3a5f3a');
   const GRANITE = new THREE.Color(o.granite ?? '#8c8a80');
-  const heightAt = (u: number, v: number) => {
-    const r = Math.sqrt(u * u + v * v);
-    if (r >= 1) return 0;
-    const fall = Math.pow(Math.cos((r * Math.PI) / 2), 1.4);
-    const nx = u * 2.4 + o.seed * 3.1;
-    const nz = v * 2.4 - o.seed * 1.7;
-    const shape = (1 - o.rock) * fbm(nx, nz) * 1.4 + o.rock * ridged(nx * 0.8, nz * 0.8) * 1.5;
-    return o.height * fall * (0.35 + shape);
-  };
   const pos: number[] = [];
   const col: number[] = [];
   const c = new THREE.Color();
   const pt = (i: number, j: number): [number, number, number] => {
     const u = (i / res) * 2 - 1;
     const v = (j / res) * 2 - 1;
-    return [o.x + u * o.hx, heightAt(u, v) - 0.4, o.z + v * o.hz];
+    const x = o.x + u * o.hx;
+    const z = o.z + v * o.hz;
+    return [x, rangeHeight(o, x, z), z];
   };
   const shadeTri = (a: number[], b: number[], d: number[]) => {
     const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];

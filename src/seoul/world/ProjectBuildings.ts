@@ -125,9 +125,12 @@ class Ctx {
       kit.boxOn(w + 0.1, ht, t, 0, y, s * (d / 2 - t / 2 + 0.05), color);
       kit.boxOn(t, ht, d + 0.1, s * (w / 2 - t / 2 + 0.05), y, 0, color);
     }
-    kit.box(w + 0.2, 0.06, d + 0.2, 0, y + ht + 0.03, 0, shade(color, 1.12));
-    // Cap is a frame, so cut its middle back out with the roof colour
-    kit.box(w - 0.38, 0.065, d - 0.38, 0, y + ht + 0.035, 0, roof);
+    // Four real coping strips leave the roof membrane recessed. Painting
+    // another box on a solid lid hid the bottoms of rooftop assemblies.
+    for (const s of [-1, 1]) {
+      kit.box(w + 0.2, 0.06, 0.32, 0, y + ht + 0.03, s * (d / 2 - 0.06), shade(color, 1.12));
+      kit.box(0.32, 0.06, d + 0.2, s * (w / 2 - 0.06), y + ht + 0.03, 0, shade(color, 1.12));
+    }
   }
 
   /** Floor slab edges showing as thin bands across every face. */
@@ -217,7 +220,10 @@ function studio(c: Ctx, spec: BuildingSpec): Partial<Body> {
   }
   // Yellow gas line along the wall with risers to each floor, a Seoul tell
   c.fb(kit, '+z', w - 0.6, 0.07, 0.07, 0, 2.2, 0.12, '#d9b23a');
-  for (let f = 1; f < floors; f++) c.fb(kit, '+z', 0.07, FLOOR_H, 0.07, w / 2 - 0.5 - f * 0.25, 2.2 + (f - 0.5) * FLOOR_H, 0.12, '#d9b23a');
+  c.fb(kit, '+z', 0.07, h - 2, 0.07, w / 2 - 0.5, 1.6 + (h - 2) / 2, 0.12, '#d9b23a');
+  for (let f = 0; f < floors; f++) c.fb(kit, '+z', 0.16, 0.09, 0.24, w / 2 - 0.5, 2.2 + f * FLOOR_H, 0.035, '#777d80');
+  for (const s of [-1, 0, 1]) c.fb(kit, '+z', 0.12, 0.12, 0.24, s * (w / 2 - 0.7), 2.2, 0.035, '#777d80');
+  c.fb(kit, '+z', 0.4, 0.48, 0.26, w / 2 - 0.6, 1.6, 0.035, '#777d80');
   c.fb(kit, '+z', 0.3, 0.4, 0.18, w / 2 - 0.6, 1.6, 0.14, '#9aa0a5'); // meter box
   // Back
   for (let f = 1; f < floors; f++) c.row('-x', f * FLOOR_H + 1.35, 2.4, 0.9, 1.0, { sill: TRIM });
@@ -334,7 +340,11 @@ function arcade(c: Ctx, spec: BuildingSpec): Partial<Body> {
   kit.box(0.02, 1.4, 4.4, bx + 0.11, h + 2.6, 0, '#e2588f');
   kit.box(0.025, 0.45, 3.2, bx + 0.12, h + 2.75, 0, '#ffe6f0');
   kit.box(0.025, 0.2, 2.2, bx + 0.12, h + 2.25, 0, '#2a1a3a');
-  for (let i = 0; i < 4; i++) glow.box(0.18, 0.06, 0.1, bx + 0.4, h + 3.45, -1.6 + i * 1.07, P.lampGlow);
+  for (let i = 0; i < 4; i++) {
+    const z = -1.6 + i * 1.07;
+    kit.bar(bx + 0.08, h + 3.3, z, bx + 0.4, h + 3.45, z, 0.05, '#4a5058');
+    glow.box(0.18, 0.06, 0.1, bx + 0.4, h + 3.45, z, P.lampGlow);
+  }
   return { signW, signY: FLOOR_H + 1.1, mount: true };
 }
 
@@ -448,6 +458,7 @@ function techLab(c: Ctx, spec: BuildingSpec): Partial<Body> {
   kit.cylinder(0.05, 0.08, 3.4, -w / 2 + 1, h + 1.7, -d / 2 + 1, '#4d565f', 6);
   glow.box(0.16, 0.16, 0.16, -w / 2 + 1, h + 3.45, -d / 2 + 1, '#ff5d5d');
   // Accent line along the street-side parapet only
+  c.fb(kit, '+x', d - 0.4, 0.12, 0.28, 0, h + 0.62, -0.02, '#6a7078');
   c.fb(glow, '+x', d - 0.4, 0.06, 0.04, 0, h + 0.62, 0.06, spec.accent);
   return { signW, signY: FLOOR_H + 1.15, mount: true };
 }
@@ -497,6 +508,7 @@ function serverHall(c: Ctx, spec: BuildingSpec): Partial<Body> {
     }
   }
   kit.box(0.4, 0.12, d - 1.2, w / 2 - 0.8, h + 0.7, 0, '#6a7078');
+  for (const zz of [-(d / 2 - 0.8), d / 2 - 0.8]) kit.boxOn(0.1, 0.64, 0.1, w / 2 - 0.8, h, zz, '#6a7078');
   for (const zz of [-1.5, 1.5]) kit.cylinder(0.18, 0.18, 1.6, w / 4, h + 0.8, zz, '#9aa0a6', 8);
   return { signW: Math.min(d * 0.7, 5.2), signY: FLOOR_H + 0.75, mount: true };
 }
@@ -547,7 +559,11 @@ function officeTower(c: Ctx, spec: BuildingSpec): Partial<Body> {
   kit.box(0.25, 0.02, 1.8, -0.6, top + 0.68, 0, '#e6e2d6');
   kit.box(0.25, 0.02, 1.8, 0.6, top + 0.68, 0, '#e6e2d6');
   kit.box(1.0, 0.02, 0.25, 0, top + 0.68, 0, '#e6e2d6');
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) glow.box(0.14, 0.14, 0.14, sx * (tw / 2 - 0.2), top + 0.75, sz * (td / 2 - 0.2), '#ff5d5d');
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const x = sx * (tw / 2 - 0.2), z = sz * (td / 2 - 0.2);
+    kit.boxOn(0.08, 0.14, 0.08, x, top + 0.58, z, '#59616a');
+    glow.box(0.14, 0.14, 0.14, x, top + 0.75, z, '#ff5d5d');
+  }
   // Podium: tall glass lobby between stone piers on the street face
   const lob = d - 1.4;
   c.fb(kit, '+x', lob, 2.4, 0.04, 0, 1.25, 0.0, REVEAL);

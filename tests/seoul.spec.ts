@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import resume from '../src/content/resume.json' with { type: 'json' };
+import * as THREE from 'three';
 
 // The 3D city is heavy under software rendering: one run per width is plenty.
 test.describe.configure({ mode: "serial" });
@@ -10,6 +11,41 @@ const ready = async (page: import("@playwright/test").Page) => {
   await page.goto("/seoul.html");
   await page.locator(".title-start").waitFor({ state: "visible", timeout: 90_000 });
 };
+
+test('seoul: station treads descend below the street and its entrance still opens', async ({ page }) => {
+  await ready(page);
+  await page.locator('.title-start').click();
+  const data = await page.evaluate(() => {
+    const v = (window as any).__voxelSeoul;
+    const station = v.app.world.scene.getObjectByName('links');
+    station.updateMatrixWorld(true);
+    const mesh = station.children[0];
+    return { positions: Array.from(mesh.geometry.attributes.position.array) as number[], matrix: mesh.matrixWorld.elements as number[] };
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3));
+  const material = new THREE.MeshBasicMaterial();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.matrixAutoUpdate = false;
+  mesh.matrix.fromArray(data.matrix);
+  mesh.updateMatrixWorld(true);
+  for (let i = 0; i < 9; i++) {
+    const point = new THREE.Vector3(2.5 - (i + 0.5) * (4.8 / 9), 0.05, 0).applyMatrix4(mesh.matrixWorld);
+    const hits = new THREE.Raycaster(point, new THREE.Vector3(0, -1, 0)).intersectObject(mesh);
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].point.y).toBeCloseTo(-0.2 * (i + 1), 2);
+  }
+  geometry.dispose();
+  material.dispose();
+  await page.evaluate(() => {
+    const v = (window as any).__voxelSeoul;
+    const station = v.targets.find((t: any) => t.id === 'links');
+    v.teleport(station.entrance.x + station.approach.x * 0.8, station.entrance.z + station.approach.z * 0.8);
+  });
+  await expect(page.locator('.prompt')).toContainText('Portfolio Station');
+  await page.keyboard.press('e');
+  await expect(page.locator('#panel-title')).toHaveText('Portfolio Station');
+});
 
 test("seoul: title, HUD, directory, panel and map all work and fit", async ({ page }, info) => {
   const problems: string[] = [];
