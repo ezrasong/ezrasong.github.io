@@ -6,6 +6,7 @@ import { createRoadMarkings } from '../src/seoul/world/RoadMarkings';
 import * as THREE from 'three';
 import { createTerrain } from '../src/seoul/world/Terrain';
 import { createNamsan } from '../src/seoul/world/Landmarks';
+import { rangeHeight } from '../src/seoul/world/Hills';
 
 test('ground openings stay clear through both terrain layers with paving intact outside', () => {
   for (const angle of [0, Math.PI / 4, Math.PI / 2]) {
@@ -27,7 +28,7 @@ test('ground openings stay clear through both terrain layers with paving intact 
   }
 });
 
-test('Namsan has continuous summit ground around the tower foundation', () => {
+test('Namsan keeps its uneven summit and its foundation embeds into the slope', () => {
   const hill = createNamsan(0, 0).object;
   hill.updateMatrixWorld(true);
   const heights = [];
@@ -38,7 +39,21 @@ test('Namsan has continuous summit ground around the tower foundation', () => {
     expect(hits.length).toBeGreaterThan(0);
     heights.push(hits[0].point.y);
   }
-  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(0.05);
+  expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan(1);
+  const mesh = hill.children[0] as THREE.Mesh;
+  const positions = mesh.geometry.attributes.position;
+  const colors = mesh.geometry.attributes.color;
+  const stone = new THREE.Color('#858176');
+  let embedded = 0;
+  for (let i = 0; i < positions.count; i++) {
+    if (Math.abs(colors.getX(i) - stone.r) > 0.001 || Math.abs(colors.getY(i) - stone.g) > 0.001 || Math.abs(colors.getZ(i) - stone.b) > 0.001) continue;
+    const x = positions.getX(i), z = positions.getZ(i);
+    if (Math.hypot(x, z) < 3.3) continue; // Plaza top is narrower than the footing.
+    const ground = rangeHeight({ x: 0, z: 0, hx: 16.6, hz: 16.6, height: 9.1, rock: 0, seed: 4.2 }, x, z);
+    expect(positions.getY(i)).toBeLessThan(ground - 0.5);
+    embedded++;
+  }
+  expect(embedded).toBeGreaterThanOrEqual(32);
   hill.traverse((object) => { if (object instanceof THREE.Mesh) object.geometry.dispose(); });
 });
 

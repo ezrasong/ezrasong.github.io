@@ -113,25 +113,15 @@ export function createNamsan(x: number, z: number): LandmarkResult {
 
   // Dome terrain with a gentle noisy surface
   const hillOpts = { x: 0, z: 0, hx: R + 0.6, hz: R + 0.6, height: H * 0.7, rock: 0, seed: 4.2, res: 40 };
-  const summit = rangeHeight(hillOpts, 0, 0);
-  // Grade a small summit terrace into the hillside before placing the
-  // plaza. Share this surface with the forest and foundation placement.
-  const ground = (px: number, pz: number) => {
-    const blend = THREE.MathUtils.smoothstep(Math.hypot(px, pz), 4.5, 10.5);
-    return THREE.MathUtils.lerp(summit, rangeHeight(hillOpts, px, pz), blend);
-  };
-  const hill = createRange(hillOpts);
-  const vertices = hill.attributes.position;
-  for (let i = 0; i < vertices.count; i++) vertices.setY(i, ground(vertices.getX(i), vertices.getZ(i)));
-  hill.computeVertexNormals();
-  kit.add(hill);
+  kit.add(createRange(hillOpts));
   // Sink crowns into the surface: a clump floating above a hollow in the
   // noise read as a stray ball hanging in the air.
+  const ground = (px: number, pz: number) => rangeHeight(hillOpts, px, pz);
   // Forest cover: tree clumps following the dome surface
   const rng = mulberry32(99);
   for (let i = 0; i < 70; i++) {
     const ang = rng() * Math.PI * 2;
-    const rr = 4.8 + Math.sqrt(rng()) * (R - 5.8);
+    const rr = 2.5 + Math.sqrt(rng()) * (R - 3.5);
     const tx = Math.cos(ang) * rr;
     const tz = Math.sin(ang) * rr;
     const r = 0.7 + rng() * 0.6;
@@ -141,11 +131,21 @@ export function createNamsan(x: number, z: number): LandmarkResult {
   }
   // Summit plaza and the tower
   const top = ground(0, 0) - 0.1;
-  // The foundation embeds 0.6 m into the graded terrace and supports the
-  // plaza 0.3 m above it, with no exposed gap on the downhill side.
-  const foundationBase = summit - 0.6;
-  const plazaTop = summit + 0.3;
-  kit.cylinder(3.0, 3.4, plazaTop - foundationBase, 0, (plazaTop + foundationBase) / 2, 0, '#a8a397', 32);
+  // Fit the retaining wall to the original uneven ground. Its lower edge
+  // follows the slope and embeds into it; the hill itself is never graded.
+  const plazaTop = ground(0, 0) + 0.3;
+  const foundation = new THREE.CylinderGeometry(3.0, 3.4, 1, 32, 1, true);
+  const foot = foundation.attributes.position;
+  for (let i = 0; i < foot.count; i++) {
+    const y = foot.getY(i) > 0 ? plazaTop : ground(foot.getX(i), foot.getZ(i)) - 0.6;
+    foot.setY(i, y);
+  }
+  foundation.computeVertexNormals();
+  kit.add(foundation, '#858176');
+  const plaza = new THREE.CircleGeometry(3.0, 32);
+  plaza.rotateX(-Math.PI / 2);
+  plaza.translate(0, plazaTop, 0);
+  kit.add(plaza, '#a8a397');
   kit.cylinder(1.3, 1.7, 2.4, 0, top + 1.6, 0, '#c4c6c8', 12);
   kit.cylinder(0.55, 0.85, 9, 0, top + 7.3, 0, '#e2e3e1', 12);
   // Observation deck: stacked drums, the lower one glazed
