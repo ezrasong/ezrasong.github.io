@@ -98,24 +98,38 @@ test('fish and squid turn and accelerate away from an approaching orca', () => {
   }
 });
 
-test('prey spawn throughout the water, including the centre and every quadrant', () => {
+test('fish and squid start fully offscreen at every edge and swim inward', () => {
   const random = Math.random;
   try {
     let seed = 12345;
     Math.random = () => ((seed = seed * 16807 % 2147483647) / 2147483647);
-    const quadrants = new Set<number>();
-    let interior = 0;
+    const edges = new Set<number>();
+    const kinds = new Set<number>();
     for (let i = 0; i < 60; i++) {
       const field = new PreyField();
       field.resize(1440, 900);
+      field.resize(1440, 900); // Resizing must not pull entrants onto the screen.
       for (const p of field.list) {
-        quadrants.add((p.x > 720 ? 1 : 0) + (p.y > 450 ? 2 : 0));
-        if (p.x > 288 && p.x < 1152 && p.y > 180 && p.y < 720) interior++;
+        kinds.add(p.kind);
+        const edge = p.x < 0 ? 0 : p.x > 1440 ? 1 : p.y < 0 ? 2 : p.y > 900 ? 3 : -1;
+        expect(edge).not.toBe(-1);
+        edges.add(edge);
+        if (edge === 0) { expect(p.x).toBeLessThanOrEqual(-32); expect(p.vx).toBeGreaterThan(0); }
+        if (edge === 1) { expect(p.x).toBeGreaterThanOrEqual(1472); expect(p.vx).toBeLessThan(0); }
+        if (edge === 2) { expect(p.y).toBeLessThanOrEqual(-32); expect(p.vy).toBeGreaterThan(0); }
+        if (edge === 3) { expect(p.y).toBeGreaterThanOrEqual(932); expect(p.vy).toBeLessThan(0); }
       }
       field.update(1 / 60, [], 200); // No predator is also a valid state.
     }
-    expect(quadrants.size).toBe(4);
-    expect(interior).toBeGreaterThan(30);
+    expect(edges.size).toBe(4);
+    expect(kinds.size).toBe(2);
+    for (const [w, h] of [[390, 800], [1440, 900]]) {
+      const field = new PreyField();
+      field.resize(w, h);
+      const arrivals = [...field.list];
+      for (let i = 0; i < 15 * 60; i++) field.update(1 / 60, [], 200);
+      expect(arrivals.some((p) => p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h)).toBe(true);
+    }
   } finally { Math.random = random; }
 });
 

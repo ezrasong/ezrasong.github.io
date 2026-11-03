@@ -407,7 +407,7 @@ export class AsciiRenderer {
     ctx.save(); ctx.scale(this.dpr, this.dpr);
     for (const p of prey) {
       const cell = this.cellAt(p.x, p.y);
-      const fade = Math.min(1, 0.2 + p.age * 2, Math.max(0, (p.life + 2 - p.age) / 2));
+      const fade = Math.min(1, Math.max(0, (p.life + 2 - p.age) / 2));
       ctx.globalAlpha = this.intensity * (cell >= 0 && mask[cell] ? maskAlpha : 1) * fade;
       drawPrey(ctx, p, this.cssW < 640 ? 0.8 : 1.1, this.palette);
     }

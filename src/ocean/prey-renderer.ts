@@ -1,66 +1,63 @@
 import { PREY_SQUID, type Prey } from './prey';
 
-/** Connected silhouettes at the prey's actual position, with continuous
- * tail beats / squid jets. Small scale marks echo the orca's pixel texture.
- */
+// A compact character lattice keeps the fins and arms attached to the body.
+const FISH = ['   /\\   ', '><((o)> ', '   \\/   '];
+const SQUID = [' ~\\ /\\  ', '~~(o##> ', ' ~/ \\/  '];
+const GLYPHS = '<>/\\()o#~';
+const atlases = new Map<string, HTMLCanvasElement>();
+
+/** Cache transparent glyphs once, as with the orca's character atlas. */
+function glyphAtlas(colors: { prey: string; preyBright: string }): HTMLCanvasElement {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const key = `${dpr}:${colors.prey}:${colors.preyBright}`;
+  const cached = atlases.get(key);
+  if (cached) return cached;
+  const width = Math.ceil(8 * dpr), height = Math.ceil(12 * dpr);
+  const canvas = document.createElement('canvas');
+  canvas.width = width * GLYPHS.length;
+  canvas.height = height * 2;
+  const ctx = canvas.getContext('2d')!;
+  ctx.font = `500 ${7.5 * dpr}px "Geist Mono Variable", ui-monospace, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let row = 0; row < 2; row++) {
+    ctx.fillStyle = row ? colors.preyBright : colors.prey;
+    for (let col = 0; col < GLYPHS.length; col++) {
+      ctx.fillText(GLYPHS[col]!, (col + 0.5) * width, (row + 0.5) * height);
+    }
+  }
+  atlases.set(key, canvas);
+  return canvas;
+}
+
+/** ASCII anatomy moving continuously with the animal, without filled shapes. */
 export function drawPrey(
   ctx: CanvasRenderingContext2D, p: Prey, scale: number,
-  colors: { bg: string; prey: string; preyBright: string },
+  colors: { prey: string; preyBright: string },
 ): void {
+  const atlas = glyphAtlas(colors);
+  const width = atlas.width / GLYPHS.length, height = atlas.height / 2;
   ctx.save();
   ctx.translate(p.x, p.y);
   ctx.rotate(p.heading);
   const size = scale * (0.9 + (p.school % 3) * 0.08);
   ctx.scale(size, size);
+  const squid = p.kind === PREY_SQUID;
+  const rows = squid ? SQUID : FISH;
   const beat = p.age * (6 + p.fear * 7) + p.school;
-  ctx.fillStyle = colors.prey;
-  ctx.strokeStyle = colors.preyBright;
-  ctx.lineWidth = 0.7;
-  if (p.kind === PREY_SQUID) {
-    // Paired mantle fins and a pointed, pulsing mantle lead the animal.
-    const pulse = 1 + Math.sin(beat) * 0.09;
-    ctx.beginPath();
-    ctx.moveTo(11, 0); ctx.lineTo(1, -7 * pulse); ctx.lineTo(-2, 0); ctx.lineTo(1, 7 * pulse);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(13, 0); ctx.bezierCurveTo(5, -6 * pulse, -4, -5 * pulse, -5, 0);
-    ctx.bezierCurveTo(-4, 5 * pulse, 5, 6 * pulse, 13, 0);
-    ctx.fill(); ctx.stroke();
-    // Five arms trail from the head, rather than unattached text glyphs.
-    for (let arm = -2; arm <= 2; arm++) {
-      ctx.beginPath(); ctx.moveTo(-4, arm * 1.2);
-      ctx.bezierCurveTo(-9, arm * 1.6, -12, arm * 2 + Math.sin(beat + arm) * 2, -19 + Math.abs(arm), arm * 2 + Math.sin(beat - 1 + arm) * 2.5);
-      ctx.stroke();
+  for (let row = 0; row < rows.length; row++) {
+    const line = rows[row]!;
+    for (let col = 0; col < line.length; col++) {
+      const glyph = line[col]!;
+      if (glyph === ' ') continue;
+      // Tail and trailing arms flex without flipping the whole sprite or
+      // replacing a fleeing fish with a different symbol.
+      const flex = squid ? Math.max(0, (3 - col) / 3) : col < 2 ? 1 : 0;
+      const wave = Math.sin(beat - col * 0.5 + row * 0.6) * flex * 1.3;
+      const bright = glyph === 'o' || glyph === '#';
+      ctx.drawImage(atlas, GLYPHS.indexOf(glyph) * width, bright ? height : 0, width, height,
+        (col - 3.5) * 4.5 - 4, (row - 1) * 7 + wave - 6, 8, 12);
     }
-    ctx.fillStyle = colors.preyBright;
-    ctx.beginPath(); ctx.arc(-2, -1, 1.7, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = colors.bg;
-    ctx.beginPath(); ctx.arc(-2, -1, 0.9, 0, Math.PI * 2); ctx.fill();
-  } else {
-    const tail = Math.sin(beat) * 2.5;
-    ctx.beginPath();
-    ctx.moveTo(-8, 0); ctx.lineTo(-16, -5 + tail); ctx.lineTo(-14, tail); ctx.lineTo(-16, 5 + tail);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    // Dorsal and ventral fins remain joined to the body.
-    ctx.beginPath();
-    ctx.moveTo(-3, -3); ctx.lineTo(-1, -7); ctx.lineTo(3, -3);
-    ctx.moveTo(-1, 3); ctx.lineTo(-3, 6); ctx.lineTo(4, 3);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(11, 0); ctx.bezierCurveTo(4, -6, -5, -6, -10, 0);
-    ctx.bezierCurveTo(-5, 6, 4, 6, 11, 0);
-    ctx.fill(); ctx.stroke();
-    // Lateral line, gill and scale glints give a readable head and flank.
-    ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(3, 0);
-    ctx.moveTo(3, -3); ctx.quadraticCurveTo(1, 0, 3, 3); ctx.stroke();
-    for (let x = -5; x < 1; x += 3) {
-      ctx.fillStyle = colors.preyBright;
-      ctx.fillRect(x, -2, 1, 1); ctx.fillRect(x + 1, 1, 1, 1);
-    }
-    ctx.fillStyle = colors.bg;
-    ctx.beginPath(); ctx.arc(6, -1, 1.3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = colors.preyBright;
-    ctx.fillRect(6, -2, 0.7, 0.7);
   }
   ctx.restore();
 }

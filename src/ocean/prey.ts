@@ -1,5 +1,5 @@
 /**
- * Schools of fish and solitary squid appear throughout the water, scatter
+ * Schools of fish and solitary squid swim in from any edge, scatter
  * from nearby orca bodies, and are removed on a catch. Screen CSS px, y down.
  */
 
@@ -16,7 +16,7 @@ export interface Prey {
   kind: number;
   /** School id: fish of one school steer together. */
   school: number;
-  /** Seconds since spawn; prey fades in and wanders off when old. */
+  /** Seconds since offscreen spawn; also drives the swimming animation. */
   age: number;
   life: number;
   /** 0..1, set while fleeing; renderer quickens the tail/arm animation. */
@@ -36,6 +36,7 @@ export class PreyField {
   private speedScale = 1;
 
   resize(w: number, h: number, hunterLength = Math.min(w / 900, h / 600) * 490): void {
+    const oldW = this.w, oldH = this.h;
     this.w = w;
     this.h = h;
     // Orcas shrink with the viewport. Prey must slow down with them, or a
@@ -43,25 +44,29 @@ export class PreyField {
     this.speedScale = Math.max(0.35, Math.min(1, hunterLength / 490));
     this.cap = Math.round(Math.min(26, Math.max(10, (w * h) / 60000)));
     for (const p of this.list) {
-      p.x = Math.min(Math.max(p.x, -20), w + 20);
-      p.y = Math.min(Math.max(p.y, -20), h + 20);
+      // Preserve offscreen entry distances when resizing; do not pull a
+      // waiting school into view by clamping it to the viewport edge.
+      p.x = p.x < 0 ? p.x : p.x > oldW ? w + p.x - oldW : Math.min(p.x, w - 16);
+      p.y = p.y < 0 ? p.y : p.y > oldH ? h + p.y - oldH : Math.min(p.y, h - 16);
     }
     if (!this.list.length) { this.spawn(); this.spawn(); }
   }
 
-  /** Fade in a school or squid anywhere in the viewport, including its interior. */
+  /** Start fully outside a random edge, already swimming into the water. */
   private spawn(): void {
     const { w, h } = this;
-    const x = rand(20, w - 20), y = rand(20, h - 20);
-    const heading = rand(-Math.PI, Math.PI);
+    const edge = Math.floor(Math.random() * 4);
+    const x = edge === 0 ? -32 : edge === 1 ? w + 32 : rand(24, w - 24);
+    const y = edge === 2 ? -32 : edge === 3 ? h + 32 : rand(24, h - 24);
+    const heading = Math.atan2(rand(h * 0.3, h * 0.7) - y, rand(w * 0.3, w * 0.7) - x);
     const squid = Math.random() < 0.24;
     const n = squid ? 1 : Math.floor(rand(3, 6));
     const speed = (squid ? 22 : 34) * this.speedScale;
     const school = this.nextSchool++;
     for (let i = 0; i < n && this.list.length < this.cap; i++) {
       this.list.push({
-        x: Math.max(16, Math.min(w - 16, x + rand(-42, 42))),
-        y: Math.max(16, Math.min(h - 16, y + rand(-26, 26))),
+        x: edge === 0 ? x - rand(0, 12) : edge === 1 ? x + rand(0, 12) : Math.max(24, Math.min(w - 24, x + rand(-26, 26))),
+        y: edge === 2 ? y - rand(0, 12) : edge === 3 ? y + rand(0, 12) : Math.max(24, Math.min(h - 24, y + rand(-26, 26))),
         vx: Math.cos(heading) * speed,
         vy: Math.sin(heading) * speed,
         heading,
