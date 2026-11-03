@@ -14,7 +14,7 @@ import {
 } from "./orca-model";
 import type { Pose } from "./orca-motion";
 import type { Prey } from "./prey";
-import { PREY_GLYPHS, preySprite } from "./prey-sprite";
+import { drawPrey } from "./prey-renderer";
 
 const RAMP = "  .,:;t%SX8#@";
 const LEVELS = RAMP.length;
@@ -24,12 +24,9 @@ const T_SHADOW = LEVELS + 1;
 const T_SPECK0 = LEVELS + 2;
 const SPECKS = ["'", ",", "`", ".", "·"];
 const T_FOOD = T_SPECK0 + SPECKS.length;
-const T_PREY0 = T_FOOD + 1;
-const TILE_COUNT = T_PREY0 + PREY_GLYPHS.length;
+const TILE_COUNT = T_FOOD + 1;
 /** Kind code for food pellets in the overlay list. */
 export const K_FOOD = SPECKS.length;
-/** Overlay kind codes for prey: K_PREY + glyph index. */
-const K_PREY = K_FOOD + 1;
 
 export interface Palette {
   bg: string;
@@ -68,7 +65,7 @@ const hz = HZ0 / HN;
 
 export class AsciiRenderer {
   readonly canvas: HTMLCanvasElement;
-  /** Sharp target frame; the visible canvas eases toward it between updates. */
+  /** Complete current frame; presented opaquely so old silhouettes cannot linger. */
   private readonly surface: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly output: CanvasRenderingContext2D;
@@ -91,9 +88,6 @@ export class AsciiRenderer {
   private kind = new Int16Array(0);
   /** Whole-animal ownership prevents two crossing point clouds interleaving. */
   private owner = new Int16Array(0);
-  /** Cells drawn last frame, so they can be cleared without a full clear. */
-  private drawn = new Int32Array(0);
-  private drawnCount = 0;
   private stamp = new Uint32Array(0);
   private frame = 1;
 
@@ -142,10 +136,8 @@ export class AsciiRenderer {
     this.lum = new Float32Array(n);
     this.kind = new Int16Array(n);
     this.owner = new Int16Array(n);
-    this.drawn = new Int32Array(n);
     this.stamp = new Uint32Array(n);
     this.mask = new Uint8Array(n);
-    this.drawnCount = 0;
     this.buildAtlas();
     this.clearAll();
   }
@@ -187,10 +179,9 @@ export class AsciiRenderer {
       tile(i, fill, RAMP[i]!, ink);
     }
     tile(T_EYE, "rgb(10,10,9)", "o", p.eye);
-    tile(T_SHADOW, p.shadow, " ", p.speck);
+    tile(T_SHADOW, p.bg, " ", p.speck);
     SPECKS.forEach((s, i) => tile(T_SPECK0 + i, null, s, p.speck));
     tile(T_FOOD, null, "*", p.food);
-    PREY_GLYPHS.forEach((g2, i) => tile(T_PREY0 + i, null, g2, g2 === 'o' || g2 === '=' ? p.preyBright : p.prey));
     this.atlas = a;
   }
 
@@ -216,17 +207,11 @@ export class AsciiRenderer {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.output.fillStyle = this.palette.bg;
     this.output.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.drawnCount = 0;
   }
 
-  /**
-   * Temporal antialiasing on the fixed character grid. Native compositing
-   * crossfades changing glyphs and silhouette cells without blurring their
-   * edges. A short, frame-rate-independent response avoids lingering trails.
-   * Zero dt presents immediately for layout and reduced-motion snapshots.
-   */
-  present(dt = 0): void {
-    this.output.globalAlpha = dt > 0 ? -Math.expm1(-dt * 36) : 1;
+  /** Copy a fully cleared frame. Smoothness comes from motion, never frame ghosts. */
+  present(_dt = 0): void {
+    this.output.globalAlpha = 1;
     this.output.drawImage(this.surface, 0, 0);
     this.output.globalAlpha = 1;
   }
@@ -247,7 +232,7 @@ export class AsciiRenderer {
     bodies: ReadonlyArray<{ tpl: OrcaTemplate; pose: Pose }>,
     yToScreen: (y: number) => number,
     snow: ReadonlyArray<{ x: number; y: number; k: number }>,
-    t: number,
+    _t: number,
     dt = 0,
     prey: ReadonlyArray<Prey> = [],
   ): void {
@@ -256,6 +241,7 @@ export class AsciiRenderer {
     const { stamp, depth, lum, kind, owner, cols } = this;
     const touched: number[] = [];
     let animal = 0;
+    const offsetX = [0], offsetY = [0];
 
     const mark = (cell: number, z: number, l: number, k: number): void => {
       if (stamp[cell] !== f) {
@@ -279,6 +265,12 @@ export class AsciiRenderer {
     })).sort((a, b) => a.z - b.z);
     for (const { tpl, pose } of layers) {
     animal++;
+    // Anchor the character lattice to the moving animal. Translating by a
+    // fraction of a cell moves the entire silhouette, instead of making it
+    // sit still then jump to the next screen-grid column.
+    const ox = ((pose.cx[0]! % this.cssCw) + this.cssCw) % this.cssCw;
+    const oy = ((yToScreen(pose.cy[0]!) % this.cssCh) + this.cssCh) % this.cssCh;
+    offsetX.push(ox * this.dpr); offsetY.push(oy * this.dpr);
     const cosF = Math.cos(pose.fluke);
     const sinF = Math.sin(pose.fluke);
     const cosP = Math.cos(pose.pec);
@@ -325,7 +317,7 @@ export class AsciiRenderer {
         wy = -wy;
         wz = -wz;
       } else if (g === 0 && wz < -0.25) continue; // back face of the body
-      const cell = this.cellAt(x, yToScreen(y));
+      const cell = this.cellAt(x - ox, yToScreen(y) - oy);
       if (cell < 0) continue;
       const diff = Math.max(0, wx * lx + wy * ly + wz * lz);
       const spec = Math.pow(Math.max(0, wx * hx + wy * hy + wz * hz), 28);
@@ -352,7 +344,7 @@ export class AsciiRenderer {
       const x = pose.cx[ek]! + pose.ux[ek]! * tpl.eyeU + pose.lx[ek]! * tpl.eyeL * side;
       const y = pose.cy[ek]! + pose.uy[ek]! * tpl.eyeU + pose.ly[ek]! * tpl.eyeL * side;
       const z = pose.cz[ek]! + pose.uz[ek]! * tpl.eyeU + pose.lz[ek]! * tpl.eyeL * side;
-      const cell = this.cellAt(x, yToScreen(y));
+      const cell = this.cellAt(x - ox, yToScreen(y) - oy);
       // The eye sits on the head's flank; a cell that also holds the snout
       // reports the snout's depth, which is nearer by up to the head radius.
       // Allow that much, so a head-on view shows both eyes steadily.
@@ -372,85 +364,33 @@ export class AsciiRenderer {
       if (neighbors.some((n) => n >= 0 && n < stamp.length && stamp[n] === f && owner[n]! > owner[c]!)) kind[c] = 3;
     }
 
-    // Shadow cast down-right, and loose specks where the body meets water.
-    const body = touched.length;
-    const rows = this.rows;
-    for (let j = 0; j < body; j++) {
-      const c = touched[j]!;
-      const col = c % cols;
-      const row = (c - col) / cols;
-      for (const [dc, dr] of [[1, 1], [2, 2], [1, 2]] as const) {
-        if (col + dc >= cols || row + dr >= rows) continue;
-        const s = c + dr * cols + dc;
-        if (stamp[s] !== f) {
-          stamp[s] = f;
-          depth[s] = -Infinity;
-          lum[s] = 0;
-          kind[s] = 3;
-          touched.push(s);
-        }
-      }
-      // Hash the cell with a slow clock so specks flicker, not crawl.
-      const h = Math.imul(c ^ (Math.floor(t * 1.6) * 2654435761), 2246822519) >>> 0;
-      if (h % 23 === 0) {
-        const s = c + ((h >>> 8) % 3 - 1) * 2 + (((h >>> 12) % 3) - 1) * cols * 2;
-        if (s >= 0 && s < stamp.length && stamp[s] !== f) {
-          stamp[s] = f;
-          depth[s] = -Infinity;
-          kind[s] = 4 + ((h >>> 16) % SPECKS.length);
-          touched.push(s);
-        }
-      }
-    }
-    // Prey occupy several character cells but stay behind every orca. Centre
-    // the sprite on the simulation's catch point, so bites match the visual.
-    for (const p of prey) {
-      const sprite = preySprite(p);
-      for (let row = 0; row < sprite.length; row++) {
-        const line = sprite[row]!;
-        for (let col = 0; col < line.length; col++) {
-          const glyph = PREY_GLYPHS.indexOf(line[col]!);
-          if (glyph < 0) continue;
-          const c = this.cellAt(p.x + (col - (line.length - 1) / 2) * this.cssCw, p.y + (row - 1) * this.cssCh);
-          if (c < 0 || stamp[c] === f) continue;
-          stamp[c] = f;
-          kind[c] = 4 + K_PREY + glyph;
-          touched.push(c);
-        }
-      }
-    }
     for (const p of snow) {
       const c = this.cellAt(p.x, p.y);
       if (c >= 0 && stamp[c] !== f) {
         stamp[c] = f;
         depth[c] = -Infinity;
+        owner[c] = 0;
         kind[c] = 4 + p.k;
         touched.push(c);
       }
     }
 
-    // Clear last frame's cells that are now empty, then draw this frame.
+    // Full opaque clear also removes the previous sub-cell position exactly.
     const { ctx, cw, ch, atlas } = this;
-    ctx.fillStyle = this.palette.bg;
-    for (let j = 0; j < this.drawnCount; j++) {
-      const c = this.drawn[j]!;
-      if (stamp[c] === f) continue;
-      const col = c % cols;
-      ctx.fillRect(col * cw, ((c - col) / cols) * ch, cw, ch);
-    }
-    const { mask, maskAlpha } = this;
     ctx.globalAlpha = 1;
-    let n = 0;
-    for (const c of touched) {
+    ctx.fillStyle = this.palette.bg;
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    const { mask, maskAlpha } = this;
+    const paintCell = (c: number): void => {
       const dim = mask[c] ? this.intensity * maskAlpha : this.intensity;
       const col = c % cols;
-      const x = col * cw;
-      const y = ((c - col) / cols) * ch;
+      const x = col * cw + offsetX[owner[c]!]!;
+      const y = ((c - col) / cols) * ch + offsetY[owner[c]!]!;
       const k = kind[c]!;
       let tileIdx: number;
       if (k === 2) tileIdx = T_EYE;
       else if (k === 3) tileIdx = T_SHADOW;
-      else if (k >= 4) tileIdx = k - 4 >= K_PREY ? T_PREY0 + (k - 4 - K_PREY) : k - 4 === K_FOOD ? T_FOOD : T_SPECK0 + (k - 4);
+      else if (k >= 4) tileIdx = k - 4 === K_FOOD ? T_FOOD : T_SPECK0 + (k - 4);
       else {
         const l = lum[c]! * (k === 1 ? 1 : 0.92);
         tileIdx = Math.max(1, Math.min(LEVELS - 1, Math.round(l * (LEVELS - 1))));
@@ -462,9 +402,18 @@ export class AsciiRenderer {
       }
       ctx.drawImage(atlas!, tileIdx * cw, 0, cw, ch, x, y, cw, ch);
       if (dim < 1) ctx.globalAlpha = 1;
-      this.drawn[n++] = c;
+    };
+    for (const c of touched) if (owner[c] === 0) paintCell(c);
+    ctx.save(); ctx.scale(this.dpr, this.dpr);
+    for (const p of prey) {
+      const cell = this.cellAt(p.x, p.y);
+      const fade = Math.min(1, 0.2 + p.age * 2, Math.max(0, (p.life + 2 - p.age) / 2));
+      ctx.globalAlpha = this.intensity * (cell >= 0 && mask[cell] ? maskAlpha : 1) * fade;
+      drawPrey(ctx, p, this.cssW < 640 ? 0.8 : 1.1, this.palette);
     }
-    this.drawnCount = n;
+    ctx.restore();
+    touched.sort((a, b) => owner[a]! - owner[b]!);
+    for (const c of touched) if (owner[c]! > 0) paintCell(c);
     this.present(dt);
   }
 

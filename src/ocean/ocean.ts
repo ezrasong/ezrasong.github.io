@@ -9,7 +9,7 @@
 import { AsciiRenderer, K_FOOD, type Palette } from "./ascii-renderer";
 import { buildOrca, type OrcaTemplate } from "./orca-model";
 import { OrcaMotion } from "./orca-motion";
-import { PreyField } from "./prey";
+import { PreyField, type Prey } from "./prey";
 import { steerPod } from "./pod-motion";
 
 export interface OceanOptions {
@@ -53,7 +53,6 @@ interface Food {
 
 export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () => void {
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-  const coarse = window.matchMedia("(pointer: coarse)").matches;
   const renderer = new AsciiRenderer(canvas, PALETTE);
 
   let tpl: OrcaTemplate | null = null;
@@ -65,6 +64,7 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     stay: number;
     leaving: boolean;
     fullFor: number;
+    target: Prey | null;
   }
   const pod: Orca[] = [];
   const MAX_POD = 3;
@@ -75,20 +75,15 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
   let h = 0;
   let raf = 0;
   let last = 0;
-  let lastStep = 0;
-  let nextStep = 0;
   let clock = 0;
   let running = false;
   const snow: Snow[] = [];
   const food: Food[] = [];
   let feeder: Orca | null = null;
   let meal: Food | null = null;
+  let huntLeader: Orca | null = null;
+  let catches = 0;
   const prey = new PreyField();
-
-  // Keep simulation/rasterization light on low-power devices. The final
-  // glyph transitions still composite at the display's refresh rate.
-  const lowPower = coarse || (navigator.hardwareConcurrency ?? 8) <= 4;
-  const frameDt = lowPower ? 1 / 30 : 1 / 60;
 
   const yToScreen = (y: number): number => h - y;
 
@@ -105,7 +100,7 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
     const small = w < 640;
-    renderer.resize(w, h, small ? 8 : 11, small ? 12 : 16);
+    renderer.resize(w, h, small ? 6 : 9, small ? 9 : 13);
     const L = opts.length(w, h);
     const prev = motion;
     tpl = buildOrca(L, renderer.cssCw, renderer.cssCh);
@@ -116,8 +111,9 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     pod.length = 0;
     feeder = null;
     meal = null;
-    pod.push({ tpl, motion, stay: Infinity, leaving: false, fullFor: 6 });
-    prey.resize(w, h);
+    huntLeader = null;
+    pod.push({ tpl, motion, stay: Infinity, leaving: false, fullFor: 0.5, target: null });
+    prey.resize(w, h, L);
     for (const f of food) {
       f.x = clamp(f.x, renderer.cssCw, w - renderer.cssCw);
       f.y = clamp(f.y, renderer.cssCh, h - renderer.cssCh);
@@ -152,7 +148,7 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     if (!motion || !tpl) return;
     clock += dt;
     if (!meal || !food.includes(meal) || !feeder || !pod.includes(feeder) || feeder.leaving) {
-      feeder?.motion.finishFeeding();
+      feeder?.motion.finishPursuit();
       meal = food[food.length - 1] ?? null;
       feeder = null;
       if (meal) {
@@ -164,8 +160,41 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
         }
       }
     }
+    // Keep a target until it is caught or leaves, and spread hunters across
+    // different prey. Re-selecting the nearest fish every frame caused the
+    // orcas to hesitate between members of a scattering school.
+    const claimed = new Set<Prey>();
+    for (const o of pod) {
+      if (o.leaving || o === feeder || o.fullFor > 0) continue;
+      if (!o.target || !prey.list.includes(o.target) || claimed.has(o.target)
+        || o.target.x < 0 || o.target.x > w || o.target.y < 0 || o.target.y > h) {
+        const hadTarget = o.target !== null;
+        o.target = prey.nearest(o.motion.x, yToScreen(o.motion.y), claimed);
+        if (!o.target && hadTarget) o.motion.finishPursuit();
+      }
+      if (o.target) claimed.add(o.target);
+    }
+    if (!huntLeader?.target || !prey.list.includes(huntLeader.target) || huntLeader.leaving || huntLeader.fullFor > 0 || huntLeader === feeder) {
+      huntLeader = null;
+      let closest = Infinity;
+      for (const o of pod) {
+        if (!o.target || o.leaving || o === feeder || o.fullFor > 0) continue;
+        const distance = Math.hypot(o.target.x - o.motion.x, o.target.y - yToScreen(o.motion.y));
+        if (distance < closest) { closest = distance; huntLeader = o; }
+      }
+    }
+    const priority = feeder ?? huntLeader;
+    for (const o of pod) {
+      if (o.leaving || o === feeder || !o.target || o.fullFor > 0) continue;
+      const p = o.target;
+      const lead = clamp(Math.hypot(p.x - o.motion.x, p.y - yToScreen(o.motion.y)) / Math.max(o.motion.speed, 1) * 0.25, 0.15, 0.7);
+      const x = clamp(p.x + p.vx * lead, 8, w - 8);
+      const y = h - clamp(p.y + p.vy * lead, 8, h - 8);
+      if (o === priority) o.motion.feed(x, y);
+      else o.motion.chase(x, y);
+    }
     if (feeder && meal) feeder.motion.feed(meal.x, h - meal.y);
-    steerPod(pod, feeder?.motion);
+    steerPod(pod, priority?.motion);
     for (const o of pod) o.motion.update(dt);
     // Visitors: a smaller orca (a female or a juvenile) swims in from a side
     // edge every half minute or so, stays a while, then leaves the way it came.
@@ -180,7 +209,7 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
       const y = vm.zone.y0 + (vm.zone.y1 - vm.zone.y0) * (0.2 + Math.random() * 0.6);
       vm.place(fromLeft ? -vt.length * 0.4 : w + vt.length * 0.4, y, fromLeft ? 0 : Math.PI);
       vm.call(fromLeft ? vm.zone.x0 + (vm.zone.x1 - vm.zone.x0) * 0.4 : vm.zone.x0 + (vm.zone.x1 - vm.zone.x0) * 0.6, y);
-      pod.push({ tpl: vt, motion: vm, stay: 35 + Math.random() * 30, leaving: false, fullFor: 3 });
+      pod.push({ tpl: vt, motion: vm, stay: 35 + Math.random() * 30, leaving: false, fullFor: 0.3, target: null });
     }
     for (let i = pod.length - 1; i >= 1; i--) {
       const o = pod[i]!;
@@ -206,8 +235,7 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     }
     // Head positions in screen space
     const heads = pod.map((o) => {
-      const ek = o.tpl.eyeStation;
-      return { o, x: o.motion.pose.cx[ek]!, y: yToScreen(o.motion.pose.cy[ek]!) };
+      return { o, x: o.motion.pose.cx[0]!, y: yToScreen(o.motion.pose.cy[0]!) };
     });
     // Food stays available through a long turn and settles at the viewport
     // floor. Test bites at the snout, where the feeding target actually is.
@@ -218,46 +246,43 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
       f.x = clamp(f.x + Math.sin(f.t * 1.7 + i) * 3 * dt, renderer.cssCw, w - renderer.cssCw);
       const eater = pod.find((o) => Math.hypot(f.x - o.motion.pose.cx[0]!, f.y - yToScreen(o.motion.pose.cy[0]!)) < o.tpl.length * 0.09);
       if (eater) {
-        eater.fullFor = 8;
+        eater.fullFor = 1;
         eater.motion.poke();
         food.splice(i, 1);
       }
     }
     // Prey flee the nearest head and get hunted by any hungry orca. Food
     // the visitor dropped takes priority over fullness and prey hunting.
-    prey.update(dt, heads, tpl.length * 0.6);
+    const threats = pod.flatMap((o) => [0, 0.25, 0.5, 0.75].map((s) => {
+      const k = Math.round(s * (o.motion.pose.cx.length - 1));
+      return { x: o.motion.pose.cx[k]!, y: yToScreen(o.motion.pose.cy[k]!) };
+    }));
+    prey.update(dt, threats, tpl.length * 0.45);
     for (const { o, x, y } of heads) {
       o.fullFor -= dt;
-      if (prey.eatNear(x, y, o.tpl.length * 0.09) > 0) {
-        o.fullFor = 5 + Math.random() * 6;
+      const eaten = prey.eatNear(x, y, o.tpl.length * 0.09);
+      if (eaten > 0) {
+        catches += eaten;
+        o.fullFor = 0.65;
+        o.target = null;
+        if (o !== feeder) o.motion.finishPursuit();
         o.motion.poke();
-      }
-      if (o.leaving || o === feeder) continue;
-      const zn = o.motion.zone;
-      if (o.fullFor <= 0) {
-        const p = prey.nearest(x, y);
-        // Lead the target a little, the way a hunter cuts off a fleeing
-        // fish, and only hunt inside the water the orca may swim in.
-        if (p) o.motion.chase(clamp(p.x + p.vx * 0.5, zn.x0, zn.x1), clamp(h - (p.y + p.vy * 0.5), zn.y0, zn.y1));
       }
     }
   };
 
   const loop = (now: number): void => {
     raf = requestAnimationFrame(loop);
-    const dt = last ? Math.min(0.1, (now - last) / 1000) : frameDt;
+    const dt = last ? Math.min(0.05, (now - last) / 1000) : 1 / 60;
     last = now;
-    if (lowPower && now < nextStep) {
-      renderer.present(dt);
-      return;
+    // Update motion on every display frame, including phones. Substeps keep
+    // a delayed frame from stretching body trails or skipping through prey.
+    let remaining = dt;
+    while (remaining > 0.000001) {
+      const slice = Math.min(remaining, 1 / 60);
+      step(slice);
+      remaining -= slice;
     }
-    const elapsed = lastStep ? Math.min(0.1, (now - lastStep) / 1000) : dt;
-    lastStep = now;
-    // Retain the cadence's phase instead of dropping the fractional frame
-    // on 90/144 Hz displays. Fine-pointer devices draw every animation frame.
-    const interval = frameDt * 1000;
-    nextStep = now + interval - ((now - nextStep) % interval);
-    step(elapsed);
     render(dt);
   };
 
@@ -265,8 +290,6 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     if (running || reduce.matches) return;
     running = true;
     last = 0;
-    lastStep = 0;
-    nextStep = 0;
     raf = requestAnimationFrame(loop);
   };
   const stop = (): void => {
@@ -409,6 +432,9 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     /** Feeding state for deterministic interaction checks. */
     food: () => food.map((f) => ({ x: f.x, y: f.y, age: f.t })),
     get feeder() { return feeder ? pod.indexOf(feeder) : -1; },
+    prey: () => prey.list.map((p) => ({ ...p })),
+    get catches() { return catches; },
+    hunters: () => pod.map((o) => o.target ? { x: o.target.x, y: o.target.y } : null),
   };
 
   return () => {

@@ -15,7 +15,10 @@ async function displayClock(page: Page, hz = 144): Promise<void> {
     window.cancelAnimationFrame = (id) => { callbacks.delete(id); };
     const drawImage = CanvasRenderingContext2D.prototype.drawImage;
     CanvasRenderingContext2D.prototype.drawImage = function (...args: any[]) {
-      if (this.canvas.hasAttribute('data-ocean')) presented = true;
+      if (this.canvas.hasAttribute('data-ocean')) {
+        presented = true;
+        (window as any).__currentOceanFrame = args[0];
+      }
       return (drawImage as any).apply(this, args);
     };
     (window as any).__displayFrames = {
@@ -38,11 +41,20 @@ test('ocean presents every display frame at 144 Hz, including low-power mode', a
   await expect(page.locator('[data-ocean]')).toHaveAttribute('data-ready', 'true');
   const result = await page.evaluate(() => {
     const frames = (window as any).__displayFrames;
-    let presented = 0;
-    for (let i = 0; i < 144; i++) if (frames.step()) presented++;
-    return presented;
+    const m = (window as any).__ocean.motion;
+    let presented = 0, advanced = 0;
+    for (let i = 0; i < 144; i++) {
+      const before = [m.x, m.y, m.z];
+      if (frames.step()) presented++;
+      if (Math.hypot(m.x - before[0], m.y - before[1], m.z - before[2]) > 0) advanced++;
+    }
+    const output = document.querySelector<HTMLCanvasElement>('[data-ocean]')!;
+    const source = (window as any).__currentOceanFrame as HTMLCanvasElement;
+    const a = output.getContext('2d')!.getImageData(0, 0, output.width, output.height).data;
+    const b = source.getContext('2d')!.getImageData(0, 0, source.width, source.height).data;
+    return { presented, advanced, exactFrame: a.every((v, i) => v === b[i]) };
   });
-  expect(result).toBe(144);
+  expect(result).toEqual({ presented: 144, advanced: 144, exactFrame: true });
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   // MediaQueryList dispatches its change event after the CDP command returns.
@@ -55,6 +67,27 @@ test('ocean presents every display frame at 144 Hz, including low-power mode', a
     return { presented, unchanged: before === canvas.toDataURL() };
   });
   expect(stopped).toEqual({ presented: 0, unchanged: true });
+});
+
+test('live pod pursues and catches prey while schools visibly flee', async ({ page }) => {
+  test.setTimeout(60_000);
+  await displayClock(page, 60);
+  await page.goto('/portfolio.html');
+  await expect(page.locator('[data-ocean]')).toHaveAttribute('data-ready', 'true');
+  const result = await page.evaluate(() => {
+    const o = (window as any).__ocean, clock = (window as any).__displayFrames;
+    o.visit(); clock.step(); o.visit(); clock.step();
+    let chasing = 0, fleeing = 0;
+    for (let frame = 0; frame < 30 * 60; frame++) {
+      clock.step();
+      if (o.hunters().some(Boolean)) chasing++;
+      if (o.prey().some((p: any) => p.fear > 0.45 && Math.hypot(p.vx, p.vy) > 20)) fleeing++;
+    }
+    return { catches: o.catches, chasing, fleeing };
+  });
+  expect(result.catches).toBeGreaterThanOrEqual(3);
+  expect(result.chasing).toBeGreaterThan(600);
+  expect(result.fleeing).toBeGreaterThan(300);
 });
 
 for (const path of ['/', '/portfolio.html']) {

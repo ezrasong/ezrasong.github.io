@@ -6,9 +6,9 @@ import type { OrcaMotion } from './orca-motion';
  * reverse its yielding direction every frame. Motion eases into these lanes;
  * positions and the recorded swimming trails are never moved discontinuously.
  */
-export function steerPod(pod: ReadonlyArray<{ tpl: OrcaTemplate; motion: OrcaMotion }>, feeding?: OrcaMotion): void {
+export function steerPod(pod: ReadonlyArray<{ tpl: OrcaTemplate; motion: OrcaMotion }>, priority?: OrcaMotion): void {
   const yielding = new Set<number>();
-  const others = feeding ? pod.filter((o) => o.motion !== feeding) : pod;
+  const others = priority ? pod.filter((o) => o.motion !== priority) : pod;
   const length = Math.max(...pod.map((o) => o.tpl.length));
   for (let i = 0; i < pod.length; i++) {
     const a = pod[i]!;
@@ -34,7 +34,7 @@ export function steerPod(pod: ReadonlyArray<{ tpl: OrcaTemplate; motion: OrcaMot
           const dx = ap.cx[ak]! - bp.cx[bk]!;
           const dy = ap.cy[ak]! - bp.cy[bk]!;
           const dz = ap.cz[ak]! - bp.cz[bk]!;
-          const ahead = vv > 0.01 ? Math.max(0, Math.min(3, -(dx * vx + dy * vy + dz * vz) / vv)) : 0;
+          const ahead = vv > 0.01 ? Math.max(0, Math.min(priority ? 1.5 : 3, -(dx * vx + dy * vy + dz * vz) / vv)) : 0;
           if (Math.hypot(dx + vx * ahead, dy + vy * ahead, dz + vz * ahead) < clearance) {
             conflict = true;
             break;
@@ -42,18 +42,17 @@ export function steerPod(pod: ReadonlyArray<{ tpl: OrcaTemplate; motion: OrcaMot
         }
       }
       if (conflict) {
-        // One animal approaches the dropped food at a time. Pod mates give
-        // it room, instead of steering it away from the meal indefinitely.
-        if (a.motion !== feeding) yielding.add(i);
-        if (b.motion !== feeding) yielding.add(j);
+        // Give the closest active hunter (or the animal taking dropped food)
+        // room to attack without steering it away from its target.
+        if (a.motion !== priority) yielding.add(i);
+        if (b.motion !== priority) yielding.add(j);
       }
     }
   }
   for (const i of yielding) {
     const m = pod[i]!.motion;
-    // The meal is at z=0. Reserve that lane for its feeder, even when a
-    // visitor rather than the resident is the one taking the food.
-    const lane = feeding ? (others.indexOf(pod[i]!) === 0 ? -1 : 1) : i - (pod.length - 1) / 2;
+    // Reserve the prey/food plane (z=0) for the hunter with right of way.
+    const lane = priority ? (others.indexOf(pod[i]!) === 0 ? -1 : 1) : i - (pod.length - 1) / 2;
     const z = m.zone;
     const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
     m.avoid(

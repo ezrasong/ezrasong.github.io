@@ -72,7 +72,7 @@ export class OrcaMotion {
   private tgtTimer = 0;
   private urgent = 0;
   private hunting = false;
-  private feeding = false;
+  private pursuing = false;
   private avoidFor = 0;
   private avoidX = 0;
   private avoidY = 0;
@@ -105,7 +105,7 @@ export class OrcaMotion {
   private boutScale = 1;
   /** Seconds the head has made little progress; triggers a fresh heading. */
   private stall = 0;
-  /** Seconds left in which chase steering is ignored (after a give-up). */
+  /** Seconds left to hold a fresh cruise heading after overshooting. */
   private commit = 0;
   private stallX = 0;
   private stallY = 0;
@@ -148,7 +148,7 @@ export class OrcaMotion {
     this.z = 0;
     this.yaw = yaw;
     this.pitch = 0;
-    this.feeding = false;
+    this.pursuing = false;
     this.avoidFor = 0;
     this.speed = this.cruise();
     this.filled = 0;
@@ -164,7 +164,7 @@ export class OrcaMotion {
 
   /** Steer to a point now. */
   call(x: number, y: number): void {
-    this.feeding = false;
+    this.pursuing = false;
     this.hunting = true;
     this.tgtX = x;
     this.tgtY = y;
@@ -174,40 +174,39 @@ export class OrcaMotion {
     this.idle = 0;
   }
 
-  /** Dropped food may be outside the cruising zone; follow it until eaten. */
+  /** Priority pursuit of food or prey, with pod mates making room. */
   feed(x: number, y: number): void {
     this.call(x, y);
-    this.feeding = true;
+    this.pursuing = true;
     this.avoidFor = 0; // Pod mates yield to the animal taking this meal.
   }
 
-  finishFeeding(): void {
-    this.feeding = false;
+  finishPursuit(): void {
+    this.pursuing = false;
     this.pickTarget();
   }
 
   /**
-   * Hunt: steer at a moving point. Called every frame while prey is near,
-   * so it only nudges urgency up instead of resetting it.
+   * Hunt moving prey throughout the viewport. Cruise commitments must not
+   * delay an attack or redirect it at the old cruising-zone boundary.
    */
   chase(x: number, y: number): void {
-    if (this.commit > 0) return;
-    this.feeding = false;
+    this.pursuing = true;
     this.hunting = true;
     this.tgtX = x;
     this.tgtY = y;
     this.tgtZ = 0;
     this.tgtTimer = Math.max(this.tgtTimer, 2);
-    this.urgent = Math.max(this.urgent, 0.6);
+    this.urgent = Math.max(this.urgent, 0.9);
     this.idle = 0;
   }
 
-  /** Collision steering takes priority over food, hunting, and cruise turns. */
+  /** Yield briefly to a nearby pod mate. */
   avoid(x: number, y: number, z: number): void {
     this.avoidX = x;
     this.avoidY = y;
     this.avoidZ = z;
-    this.avoidFor = 1.8;
+    this.avoidFor = 0.65;
   }
 
   /** A fast pointer passing close to the head: veer away briefly. */
@@ -268,7 +267,7 @@ export class OrcaMotion {
     const arrival = L * (this.hunting ? 0.04 : 0.25);
     const arrived = Math.hypot(this.tgtX - this.x, this.tgtZ - this.z) < arrival
       && Math.abs(this.tgtY - this.y) < (this.hunting ? arrival : L * 0.6);
-    if (!this.feeding && (arrived || this.tgtTimer <= 0)) this.pickTarget();
+    if (!this.pursuing && (arrived || this.tgtTimer <= 0)) this.pickTarget();
     // Stall guard: if the head has covered less than half a body length in
     // four seconds, it's circling something it can't reach. Pick anew.
     this.stall += dt;
@@ -287,12 +286,12 @@ export class OrcaMotion {
     const look = Math.min(L * 0.45, (z.x1 - z.x0) * 0.3);
     const ax = this.x + Math.cos(this.yaw) * look;
     const ay = this.y + Math.sin(this.pitch) * look;
-    if (!this.feeding && (ax < z.x0 || ax > z.x1)) {
+    if (!this.pursuing && (ax < z.x0 || ax > z.x1)) {
       this.tgtX = clamp(ax < z.x0 ? z.x0 + (z.x1 - z.x0) * 0.6 : z.x0 + (z.x1 - z.x0) * 0.4, z.x0, z.x1);
       this.tgtY = clamp(this.tgtY, z.y0, z.y1);
       this.tgtTimer = Math.max(this.tgtTimer, 3);
     }
-    if (!this.feeding && (ay < z.y0 || ay > z.y1)) {
+    if (!this.pursuing && (ay < z.y0 || ay > z.y1)) {
       this.tgtY = (z.y0 + z.y1) / 2;
       // Without forward room the pitch limit can't climb back; aim ahead too.
       if (Math.abs(this.tgtX - this.x) < L) this.tgtX = clamp(this.x + Math.cos(this.yaw) * L * 1.5, z.x0, z.x1);
@@ -318,17 +317,17 @@ export class OrcaMotion {
     const dz = (avoiding ? this.avoidZ : this.tgtZ) - this.z;
     const flat = Math.hypot(dx, dz);
     let err = wrap(Math.atan2(dz, dx) - this.yaw);
-    // A turn rate limited by speed keeps the turning circle at least about
-    // half a body length; any tighter and the trailing body coils on itself.
+    // A speed-limited turn lets the spine follow a smooth arc instead of
+    // coiling tightly around a small moving target.
     const maxRate = Math.min(0.9, this.speed / (L * (0.45 - urgency * 0.1)));
     const wantRate = clamp(err * 1.1, -maxRate, maxRate);
     this.yawRate = approach(this.yawRate, wantRate, 2.2, dt);
     this.yaw = wrap(this.yaw + this.yawRate * dt);
 
     // Pitch: climb or dive gently; level out while turning hard.
-    const pitchLimit = this.feeding ? 0.65 : 0.42;
-    const wantPitch = clamp(Math.atan2(dy, Math.max(flat, L * (this.feeding ? 0.2 : 0.6))), -pitchLimit, pitchLimit)
-      * (this.feeding ? 1 : 1 - Math.min(1, Math.abs(this.yawRate) * 0.9));
+    const pitchLimit = this.pursuing ? 0.65 : 0.42;
+    const wantPitch = clamp(Math.atan2(dy, Math.max(flat, L * (this.pursuing ? 0.2 : 0.6))), -pitchLimit, pitchLimit)
+      * (this.pursuing ? 1 : 1 - Math.min(1, Math.abs(this.yawRate) * 0.9));
     this.pitch = approach(this.pitch, wantPitch, 1.1, dt);
 
     // Stroke bouts and glides. Thrust tracks stroke amplitude; drag is

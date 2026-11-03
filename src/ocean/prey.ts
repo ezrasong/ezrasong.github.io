@@ -1,9 +1,6 @@
 /**
- * Prey for the orca: small schools of fish and the odd squid that drift in
- * from the edges, mill about, and scatter when the orca comes close. The
- * orca hunts whichever is nearest once it gets hungry, and a catch removes
- * it. Everything is in screen CSS px (y down), drawn as glyphs by the
- * renderer's overlay pass.
+ * Schools of fish and solitary squid appear throughout the water, scatter
+ * from nearby orca bodies, and are removed on a catch. Screen CSS px, y down.
  */
 
 export const PREY_FISH = 0;
@@ -14,6 +11,8 @@ export interface Prey {
   y: number;
   vx: number;
   vy: number;
+  /** Smoothed facing angle, independent of a single-frame velocity change. */
+  heading: number;
   kind: number;
   /** School id: fish of one school steer together. */
   school: number;
@@ -30,48 +29,46 @@ export class PreyField {
   readonly list: Prey[] = [];
   private w = 0;
   private h = 0;
-  private spawnIn = 2;
+  private spawnIn = 1;
   private nextSchool = 1;
   /** Cap scales with the screen so phones stay calm. */
   private cap = 18;
   private speedScale = 1;
 
-  resize(w: number, h: number): void {
+  resize(w: number, h: number, hunterLength = Math.min(w / 900, h / 600) * 490): void {
     this.w = w;
     this.h = h;
     // Orcas shrink with the viewport. Prey must slow down with them, or a
     // phone-sized hunter can never catch a fish fleeing at desktop speed.
-    this.speedScale = Math.max(0.35, Math.min(1, w / 900, h / 600));
+    this.speedScale = Math.max(0.35, Math.min(1, hunterLength / 490));
     this.cap = Math.round(Math.min(26, Math.max(10, (w * h) / 60000)));
     for (const p of this.list) {
       p.x = Math.min(Math.max(p.x, -20), w + 20);
       p.y = Math.min(Math.max(p.y, -20), h + 20);
     }
+    if (!this.list.length) { this.spawn(); this.spawn(); }
   }
 
-  /** Spawn a school (or a squid) just outside a random edge, heading in. */
+  /** Fade in a school or squid anywhere in the viewport, including its interior. */
   private spawn(): void {
     const { w, h } = this;
-    const edge = Math.floor(Math.random() * 4);
-    const x = edge === 0 ? -16 : edge === 1 ? w + 16 : rand(w * 0.1, w * 0.9);
-    const y = edge === 2 ? -16 : edge === 3 ? h + 16 : rand(h * 0.12, h * 0.88);
-    const tx = rand(w * 0.2, w * 0.8);
-    const ty = rand(h * 0.2, h * 0.8);
-    const d = Math.hypot(tx - x, ty - y) || 1;
-    const squid = Math.random() < 0.18;
-    const n = squid ? 1 : Math.floor(rand(4, 9));
+    const x = rand(20, w - 20), y = rand(20, h - 20);
+    const heading = rand(-Math.PI, Math.PI);
+    const squid = Math.random() < 0.24;
+    const n = squid ? 1 : Math.floor(rand(3, 6));
     const speed = (squid ? 22 : 34) * this.speedScale;
     const school = this.nextSchool++;
     for (let i = 0; i < n && this.list.length < this.cap; i++) {
       this.list.push({
-        x: x + rand(-18, 18),
-        y: y + rand(-12, 12),
-        vx: ((tx - x) / d) * speed,
-        vy: ((ty - y) / d) * speed,
+        x: Math.max(16, Math.min(w - 16, x + rand(-42, 42))),
+        y: Math.max(16, Math.min(h - 16, y + rand(-26, 26))),
+        vx: Math.cos(heading) * speed,
+        vy: Math.sin(heading) * speed,
+        heading,
         kind: squid ? PREY_SQUID : PREY_FISH,
         school,
         age: 0,
-        life: rand(26, 44),
+        life: rand(24, 40),
         fear: 0,
       });
     }
@@ -86,7 +83,7 @@ export class PreyField {
     this.spawnIn -= dt;
     if (this.spawnIn <= 0 && this.list.length < this.cap - 3) {
       this.spawn();
-      this.spawnIn = rand(5, 11);
+      this.spawnIn = rand(2, 4);
     }
     // School centres and mean headings
     const sx = new Map<number, [number, number, number, number, number]>();
@@ -108,13 +105,13 @@ export class PreyField {
       let ax = 0;
       let ay = 0;
       if (n > 1) {
-        ax += (s[0] / n - p.x) * 0.6 + (s[2] / n - p.vx) * 0.9;
-        ay += (s[1] / n - p.y) * 0.6 + (s[3] / n - p.vy) * 0.9;
+        ax += ((s[0] / n - p.x) * 0.6 + (s[2] / n - p.vx) * 0.9) * (1 - p.fear);
+        ay += ((s[1] / n - p.y) * 0.6 + (s[3] / n - p.vy) * 0.9) * (1 - p.fear);
       }
       // Leave room for the multi-cell silhouettes, rather than schooling
       // directly on top of one another. Weaker cohesion still keeps a school
       // together while this short-range force opens gaps between fish.
-      const spacing = this.w < 600 ? 34 : 48;
+      const spacing = this.w < 600 ? 24 : 34;
       for (const other of this.list) {
         if (other === p) continue;
         const dx = p.x - other.x, dy = (p.y - other.y) * 1.4;
@@ -130,7 +127,7 @@ export class PreyField {
       ax += Math.cos(t) * 8;
       ay += Math.sin(t * 1.3) * 6;
       // Flee the nearest orca's head
-      let near = heads[0]!;
+      let near: { x: number; y: number } | undefined;
       let nd = Infinity;
       for (const hd of heads) {
         const q = (p.x - hd.x) ** 2 + (p.y - hd.y) ** 2;
@@ -139,29 +136,27 @@ export class PreyField {
           near = hd;
         }
       }
-      const dx = p.x - near.x;
-      const dy = p.y - near.y;
+      const dx = near ? p.x - near.x : 0;
+      const dy = near ? p.y - near.y : 0;
       const d = Math.hypot(dx, dy) || 1;
-      const fear = Math.max(0, 1 - d / scare);
+      const fear = near ? Math.max(0, 1 - d / scare) : 0;
       p.fear += (fear - p.fear) * Math.min(1, dt * 6);
       ax += (dx / d) * 260 * fear;
       ay += (dy / d) * 260 * fear;
-      // Keep schools in open water until old, then let them swim off.
-      // A weak edge force lets fleeing fish collect beyond the orca's
-      // turning room, where they are visible but permanently unreachable.
+      // Gently turn schools at the edge; hunters can now follow them there.
       const old = p.age > p.life;
       if (!old) {
-        const m = Math.min(w * 0.25, h * 0.2, scare * 0.75);
-        if (p.x < m) ax += (m - p.x) * 12;
-        if (p.x > w - m) ax -= (p.x - (w - m)) * 12;
-        if (p.y < m) ay += (m - p.y) * 12;
-        if (p.y > h - m) ay -= (p.y - (h - m)) * 12;
+        const m = 28;
+        if (p.x < m) ax += (m - p.x) * 3;
+        if (p.x > w - m) ax -= (p.x - (w - m)) * 3;
+        if (p.y < m) ay += (m - p.y) * 3;
+        if (p.y > h - m) ay -= (p.y - (h - m)) * 3;
       }
       p.vx += ax * dt;
       p.vy += ay * dt;
       // Squid jet in pulses; fish cruise, sprint when scared
       const base = p.kind === PREY_SQUID ? 18 + 30 * Math.max(0, Math.sin(p.age * 2.2)) : 30;
-      const max = (base + 45 * p.fear) * this.speedScale;
+      const max = (base + 65 * p.fear) * this.speedScale;
       const sp = Math.hypot(p.vx, p.vy) || 1;
       if (sp > max) {
         p.vx *= max / sp;
@@ -169,15 +164,19 @@ export class PreyField {
       }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      if (old && (p.x < -40 || p.x > w + 40 || p.y < -40 || p.y > h + 40)) this.list.splice(i, 1);
+      const angle = Math.atan2(p.vy, p.vx) - p.heading;
+      const turn = Math.atan2(Math.sin(angle), Math.cos(angle));
+      p.heading += turn * -Math.expm1(-dt * 9);
+      if (p.age > p.life + 2 || (old && (p.x < -40 || p.x > w + 40 || p.y < -40 || p.y > h + 40))) this.list.splice(i, 1);
     }
   }
 
   /** Nearest prey to (x, y), or null. */
-  nearest(x: number, y: number): Prey | null {
+  nearest(x: number, y: number, claimed?: ReadonlySet<Prey>): Prey | null {
     let best: Prey | null = null;
     let bd = Infinity;
     for (const p of this.list) {
+      if (claimed?.has(p)) continue;
       if (p.x < 0 || p.x > this.w || p.y < 0 || p.y > this.h) continue;
       const d = (p.x - x) ** 2 + (p.y - y) ** 2;
       if (d < bd) {

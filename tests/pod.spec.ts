@@ -2,8 +2,7 @@ import { expect, test } from '@playwright/test';
 import { buildOrca } from '../src/ocean/orca-model';
 import { OrcaMotion } from '../src/ocean/orca-motion';
 import { steerPod } from '../src/ocean/pod-motion';
-import { PREY_FISH, PREY_SQUID, type Prey } from '../src/ocean/prey';
-import { preySprite } from '../src/ocean/prey-sprite';
+import { PreyField, PREY_FISH, PREY_SQUID } from '../src/ocean/prey';
 import { AsciiRenderer, type Palette } from '../src/ocean/ascii-renderer';
 
 function separation(a: OrcaMotion, b: OrcaMotion): number {
@@ -56,9 +55,13 @@ test('body avoidance notices a trailing flank and releases once the pod clears',
   a.call(1200, 450);
   a.update(1 / 60);
   expect(a.yaw).toBeLessThan(0);
-  // Avoidance expires and normal input can steer back onto the food plane.
-  for (let i = 0; i < 1200; i++) { a.call(1200, 450); a.update(1 / 60); }
-  expect(Math.abs(a.z)).toBeLessThan(tpl.length * 0.1);
+  // Once this animal takes the meal, yielding must not trap it in a lane.
+  let reached = false;
+  for (let i = 0; i < 1200; i++) {
+    a.feed(1200, 450); a.update(1 / 60);
+    if (Math.hypot(a.x - 1200, a.y - 450, a.z) < tpl.length * 0.09) { reached = true; break; }
+  }
+  expect(reached).toBe(true);
 });
 
 test('coincident animals separate without NaNs or position jumps', () => {
@@ -81,23 +84,42 @@ test('coincident animals separate without NaNs or position jumps', () => {
   }
 });
 
-test('prey retain distinct anatomy and direction during escape animation', () => {
-  const prey: Prey = { x: 0, y: 0, vx: 1, vy: 0, kind: PREY_FISH, school: 0, age: 0, life: 40, fear: 0 };
+test('fish and squid turn and accelerate away from an approaching orca', () => {
   for (const kind of [PREY_FISH, PREY_SQUID]) {
-    prey.kind = kind;
-    const right = preySprite(prey);
-    const left = preySprite({ ...prey, vx: -1 });
-    expect(left).not.toEqual(right);
-    expect(right.join('')).toContain('o');
-    const fleeing = preySprite({ ...prey, fear: 1, age: 0.1 });
-    expect(fleeing).not.toEqual(right);
-    expect(fleeing.join('')).toContain('o');
-    expect(fleeing.join('').replace(/\s/g, '').length).toBeGreaterThan(8);
-    expect(fleeing.join('')).toContain(kind === PREY_SQUID ? '#' : '=');
+    const field = new PreyField();
+    field.resize(390, 800);
+    field.list.length = 0;
+    const p = { x: 250, y: 300, vx: -10, vy: 0, heading: Math.PI, kind, school: 1, age: 1, life: 40, fear: 0 };
+    field.list.push(p);
+    for (let i = 0; i < 45; i++) field.update(1 / 60, [{ x: 220, y: 300 }], 130);
+    expect(p.fear).toBeGreaterThan(0.4);
+    expect(p.vx).toBeGreaterThan(10);
+    expect(p.x).toBeGreaterThan(260);
   }
 });
 
-test('a crossing keeps the foreground silhouette and its eyes intact in either input order', () => {
+test('prey spawn throughout the water, including the centre and every quadrant', () => {
+  const random = Math.random;
+  try {
+    let seed = 12345;
+    Math.random = () => ((seed = seed * 16807 % 2147483647) / 2147483647);
+    const quadrants = new Set<number>();
+    let interior = 0;
+    for (let i = 0; i < 60; i++) {
+      const field = new PreyField();
+      field.resize(1440, 900);
+      for (const p of field.list) {
+        quadrants.add((p.x > 720 ? 1 : 0) + (p.y > 450 ? 2 : 0));
+        if (p.x > 288 && p.x < 1152 && p.y > 180 && p.y < 720) interior++;
+      }
+      field.update(1 / 60, [], 200); // No predator is also a valid state.
+    }
+    expect(quadrants.size).toBe(4);
+    expect(interior).toBeGreaterThan(30);
+  } finally { Math.random = random; }
+});
+
+test('layered silhouettes keep their foreground and translate smoothly at every angle', () => {
   // Record the renderer's atlas tile choices, avoiding font and GPU differences.
   const palette: Palette = { bg: '#171615', lo: [36, 34, 31], hi: [236, 232, 222], speck: '#4a4640', eye: '#f1ede4', shadow: '#121110', food: '#d9774b', prey: '#8fa7b0', preyBright: '#c9dde3' };
   const created: any[] = [];
@@ -105,7 +127,9 @@ test('a crossing keeps the foreground silhouette and its eyes intact in either i
     const tiles = new Map<string, number>();
     const fills: any[] = [];
     const context = {
-      fillStyle: '', fillText() {},
+      fillStyle: '',
+      save() {}, restore() {}, scale() {},
+      fillText(glyph: string, x: number) { fills.push({ x, glyph }); },
       fillRect(x: number) { fills.push({ x, color: this.fillStyle }); },
       drawImage(...args: any[]) {
         if (args.length === 9) tiles.set(`${args[5]},${args[6]}`, args[1] / args[3]);
@@ -128,7 +152,7 @@ test('a crossing keeps the foreground silhouette and its eyes intact in either i
       const renderer = new AsciiRenderer(canvas() as unknown as HTMLCanvasElement, palette);
       renderer.resize(800, 400, 11, 16);
       renderer.draw(bodies, (y) => 400 - y, [], 0);
-      const shadow = created[1].fills.find((f: any) => f.color === palette.shadow).x / 11;
+      const shadow = Math.floor(created[1].fills.find((f: any) => f.glyph === 'o').x / 11) + 1;
       return { tiles: created[0].tiles as Map<string, number>, shadow };
     };
     const alone = render([near]);
@@ -141,6 +165,17 @@ test('a crossing keeps the foreground silhouette and its eyes intact in either i
       checked++;
     }
     expect(checked).toBeGreaterThan(100);
+    for (const yaw of [0, 0.7, Math.PI / 2, 2.4]) {
+      front.place(351.8, 210, yaw); // Half-pixel move crosses a grid boundary.
+      const before = render([near]);
+      for (let k = 0; k < front.pose.cx.length; k++) front.pose.cx[k] += 0.5;
+      const after = render([near]);
+      expect(after.tiles.size).toBe(before.tiles.size);
+      for (const [cell, tile] of before.tiles) {
+        const [x, y] = cell.split(',').map(Number);
+        expect(after.tiles.get(`${x + 0.5},${y}`), `sub-cell movement at ${yaw}`).toBe(tile);
+      }
+    }
   } finally {
     (globalThis as any).document = savedDocument;
     (globalThis as any).window = savedWindow;
