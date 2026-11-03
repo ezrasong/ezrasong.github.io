@@ -72,6 +72,7 @@ export class OrcaMotion {
   private tgtTimer = 0;
   private urgent = 0;
   private hunting = false;
+  private feeding = false;
   private avoidFor = 0;
   private avoidX = 0;
   private avoidY = 0;
@@ -147,6 +148,7 @@ export class OrcaMotion {
     this.z = 0;
     this.yaw = yaw;
     this.pitch = 0;
+    this.feeding = false;
     this.avoidFor = 0;
     this.speed = this.cruise();
     this.filled = 0;
@@ -160,8 +162,9 @@ export class OrcaMotion {
     this.solve();
   }
 
-  /** Steer to a point now (a tap on the water). */
+  /** Steer to a point now. */
   call(x: number, y: number): void {
+    this.feeding = false;
     this.hunting = true;
     this.tgtX = x;
     this.tgtY = y;
@@ -171,12 +174,25 @@ export class OrcaMotion {
     this.idle = 0;
   }
 
+  /** Dropped food may be outside the cruising zone; follow it until eaten. */
+  feed(x: number, y: number): void {
+    this.call(x, y);
+    this.feeding = true;
+    this.avoidFor = 0; // Pod mates yield to the animal taking this meal.
+  }
+
+  finishFeeding(): void {
+    this.feeding = false;
+    this.pickTarget();
+  }
+
   /**
    * Hunt: steer at a moving point. Called every frame while prey is near,
    * so it only nudges urgency up instead of resetting it.
    */
   chase(x: number, y: number): void {
     if (this.commit > 0) return;
+    this.feeding = false;
     this.hunting = true;
     this.tgtX = x;
     this.tgtY = y;
@@ -250,7 +266,9 @@ export class OrcaMotion {
     // A cruising waypoint can be rounded off; prey and dropped food must
     // be reached within biting distance before selecting another target.
     const arrival = L * (this.hunting ? 0.04 : 0.25);
-    if ((Math.hypot(this.tgtX - this.x, this.tgtZ - this.z) < arrival && Math.abs(this.tgtY - this.y) < (this.hunting ? arrival : L * 0.6)) || this.tgtTimer <= 0) this.pickTarget();
+    const arrived = Math.hypot(this.tgtX - this.x, this.tgtZ - this.z) < arrival
+      && Math.abs(this.tgtY - this.y) < (this.hunting ? arrival : L * 0.6);
+    if (!this.feeding && (arrived || this.tgtTimer <= 0)) this.pickTarget();
     // Stall guard: if the head has covered less than half a body length in
     // four seconds, it's circling something it can't reach. Pick anew.
     this.stall += dt;
@@ -269,12 +287,12 @@ export class OrcaMotion {
     const look = Math.min(L * 0.45, (z.x1 - z.x0) * 0.3);
     const ax = this.x + Math.cos(this.yaw) * look;
     const ay = this.y + Math.sin(this.pitch) * look;
-    if (ax < z.x0 || ax > z.x1) {
+    if (!this.feeding && (ax < z.x0 || ax > z.x1)) {
       this.tgtX = clamp(ax < z.x0 ? z.x0 + (z.x1 - z.x0) * 0.6 : z.x0 + (z.x1 - z.x0) * 0.4, z.x0, z.x1);
       this.tgtY = clamp(this.tgtY, z.y0, z.y1);
       this.tgtTimer = Math.max(this.tgtTimer, 3);
     }
-    if (ay < z.y0 || ay > z.y1) {
+    if (!this.feeding && (ay < z.y0 || ay > z.y1)) {
       this.tgtY = (z.y0 + z.y1) / 2;
       // Without forward room the pitch limit can't climb back; aim ahead too.
       if (Math.abs(this.tgtX - this.x) < L) this.tgtX = clamp(this.x + Math.cos(this.yaw) * L * 1.5, z.x0, z.x1);
@@ -308,7 +326,9 @@ export class OrcaMotion {
     this.yaw = wrap(this.yaw + this.yawRate * dt);
 
     // Pitch: climb or dive gently; level out while turning hard.
-    const wantPitch = clamp(Math.atan2(dy, Math.max(flat, L * 0.6)), -0.42, 0.42) * (1 - Math.min(1, Math.abs(this.yawRate) * 0.9));
+    const pitchLimit = this.feeding ? 0.65 : 0.42;
+    const wantPitch = clamp(Math.atan2(dy, Math.max(flat, L * (this.feeding ? 0.2 : 0.6))), -pitchLimit, pitchLimit)
+      * (this.feeding ? 1 : 1 - Math.min(1, Math.abs(this.yawRate) * 0.9));
     this.pitch = approach(this.pitch, wantPitch, 1.1, dt);
 
     // Stroke bouts and glides. Thrust tracks stroke amplitude; drag is

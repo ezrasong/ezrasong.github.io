@@ -6,8 +6,9 @@ import type { OrcaMotion } from './orca-motion';
  * reverse its yielding direction every frame. Motion eases into these lanes;
  * positions and the recorded swimming trails are never moved discontinuously.
  */
-export function steerPod(pod: ReadonlyArray<{ tpl: OrcaTemplate; motion: OrcaMotion }>): void {
+export function steerPod(pod: ReadonlyArray<{ tpl: OrcaTemplate; motion: OrcaMotion }>, feeding?: OrcaMotion): void {
   const yielding = new Set<number>();
+  const others = feeding ? pod.filter((o) => o.motion !== feeding) : pod;
   const length = Math.max(...pod.map((o) => o.tpl.length));
   for (let i = 0; i < pod.length; i++) {
     const a = pod[i]!;
@@ -40,12 +41,19 @@ export function steerPod(pod: ReadonlyArray<{ tpl: OrcaTemplate; motion: OrcaMot
           }
         }
       }
-      if (conflict) { yielding.add(i); yielding.add(j); }
+      if (conflict) {
+        // One animal approaches the dropped food at a time. Pod mates give
+        // it room, instead of steering it away from the meal indefinitely.
+        if (a.motion !== feeding) yielding.add(i);
+        if (b.motion !== feeding) yielding.add(j);
+      }
     }
   }
   for (const i of yielding) {
     const m = pod[i]!.motion;
-    const lane = i - (pod.length - 1) / 2;
+    // The meal is at z=0. Reserve that lane for its feeder, even when a
+    // visitor rather than the resident is the one taking the food.
+    const lane = feeding ? (others.indexOf(pod[i]!) === 0 ? -1 : 1) : i - (pod.length - 1) / 2;
     const z = m.zone;
     const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
     m.avoid(

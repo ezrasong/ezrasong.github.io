@@ -81,6 +81,8 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
   let running = false;
   const snow: Snow[] = [];
   const food: Food[] = [];
+  let feeder: Orca | null = null;
+  let meal: Food | null = null;
   const prey = new PreyField();
 
   // Keep simulation/rasterization light on low-power devices. The final
@@ -112,8 +114,14 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     // World y is up from the bottom of the viewport.
     motion.zone = { x0: z.x0, x1: z.x1, y0: h - z.y1, y1: h - z.y0 };
     pod.length = 0;
+    feeder = null;
+    meal = null;
     pod.push({ tpl, motion, stay: Infinity, leaving: false, fullFor: 6 });
     prey.resize(w, h);
+    for (const f of food) {
+      f.x = clamp(f.x, renderer.cssCw, w - renderer.cssCw);
+      f.y = clamp(f.y, renderer.cssCh, h - renderer.cssCh);
+    }
     if (prev) {
       const px = Math.min(Math.max(prev.x, z.x0), z.x1);
       motion.place(px, (motion.zone.y0 + motion.zone.y1) / 2, prev.yaw);
@@ -143,7 +151,21 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
   const step = (dt: number): void => {
     if (!motion || !tpl) return;
     clock += dt;
-    steerPod(pod);
+    if (!meal || !food.includes(meal) || !feeder || !pod.includes(feeder) || feeder.leaving) {
+      feeder?.motion.finishFeeding();
+      meal = food[food.length - 1] ?? null;
+      feeder = null;
+      if (meal) {
+        let closest = Infinity;
+        for (const o of pod) {
+          if (o.leaving) continue;
+          const distance = Math.hypot(o.motion.x - meal.x, yToScreen(o.motion.y) - meal.y);
+          if (distance < closest) { closest = distance; feeder = o; }
+        }
+      }
+    }
+    if (feeder && meal) feeder.motion.feed(meal.x, h - meal.y);
+    steerPod(pod, feeder?.motion);
     for (const o of pod) o.motion.update(dt);
     // Visitors: a smaller orca (a female or a juvenile) swims in from a side
     // edge every half minute or so, stays a while, then leaves the way it came.
@@ -163,7 +185,7 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     for (let i = pod.length - 1; i >= 1; i--) {
       const o = pod[i]!;
       o.stay -= dt;
-      if (o.stay <= 0 && !o.leaving) {
+      if (o.stay <= 0 && !o.leaving && o !== feeder) {
         // Head out past the nearest side edge.
         o.leaving = true;
         o.motion.zone = { x0: -w, x1: 2 * w, y0: o.motion.zone.y0, y1: o.motion.zone.y1 };
@@ -187,16 +209,22 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
       const ek = o.tpl.eyeStation;
       return { o, x: o.motion.pose.cx[ek]!, y: yToScreen(o.motion.pose.cy[ek]!) };
     });
-    // Food sinks slowly and is eaten when any head reaches it.
+    // Food stays available through a long turn and settles at the viewport
+    // floor. Test bites at the snout, where the feeding target actually is.
     for (let i = food.length - 1; i >= 0; i--) {
       const f = food[i]!;
       f.t += dt;
-      f.y += 6 * dt;
-      f.x += Math.sin(f.t * 1.7 + i) * 3 * dt;
-      if (f.t > 14 || heads.some((hd) => Math.hypot(f.x - hd.x, f.y - hd.y) < hd.o.tpl.length * 0.09)) food.splice(i, 1);
+      f.y = Math.min(h - renderer.cssCh, f.y + 6 * dt);
+      f.x = clamp(f.x + Math.sin(f.t * 1.7 + i) * 3 * dt, renderer.cssCw, w - renderer.cssCw);
+      const eater = pod.find((o) => Math.hypot(f.x - o.motion.pose.cx[0]!, f.y - yToScreen(o.motion.pose.cy[0]!)) < o.tpl.length * 0.09);
+      if (eater) {
+        eater.fullFor = 8;
+        eater.motion.poke();
+        food.splice(i, 1);
+      }
     }
     // Prey flee the nearest head and get hunted by any hungry orca. Food
-    // the visitor dropped always comes first, for the resident.
+    // the visitor dropped takes priority over fullness and prey hunting.
     prey.update(dt, heads, tpl.length * 0.6);
     for (const { o, x, y } of heads) {
       o.fullFor -= dt;
@@ -204,12 +232,9 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
         o.fullFor = 5 + Math.random() * 6;
         o.motion.poke();
       }
-      if (o.leaving) continue;
+      if (o.leaving || o === feeder) continue;
       const zn = o.motion.zone;
-      if (o === pod[0] && food.length) {
-        const f = food[0]!;
-        o.motion.call(clamp(f.x, zn.x0, zn.x1), h - f.y);
-      } else if (o.fullFor <= 0) {
+      if (o.fullFor <= 0) {
         const p = prey.nearest(x, y);
         // Lead the target a little, the way a hunter cuts off a fleeing
         // fish, and only hunt inside the water the orca may swim in.
@@ -284,20 +309,29 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     lastScroll = y;
   };
 
-  // Open water only: anything inside the page's content is left alone.
+  // Links and copy are left alone; empty section padding is open water too.
   const isWater = (t: EventTarget | null): boolean => {
     const el = t as Element | null;
     if (!el || !(el instanceof Element)) return false;
-    return !el.closest("a, button, input, textarea, select, label, [data-content], p, h1, h2, h3, li, dd, dt");
+    return !el.closest("a, button, input, textarea, select, label, p, h1, h2, h3, li, dd, dt");
   };
 
+  const dropFood = (x: number, y: number): void => {
+    // Keep two older drops plus this one, even during repeated tapping.
+    food.splice(0, Math.max(0, food.length - 6));
+    for (let i = 0; i < 3; i++) {
+      food.push({
+        x: clamp(x + (i - 1) * renderer.cssCw * 1.6, renderer.cssCw, w - renderer.cssCw),
+        y: clamp(y - (i % 2) * renderer.cssCh, renderer.cssCh, h - renderer.cssCh),
+        t: 0,
+      });
+    }
+    meal = null; // A new tap gets an immediate response, ahead of older food.
+  };
   const onPointerDown = (e: PointerEvent): void => {
     motion?.poke();
     if (!running || !isWater(e.target) || e.button !== 0) return;
-    if (food.length > 6) food.shift();
-    for (let i = 0; i < 3; i++) {
-      food.push({ x: e.clientX + (i - 1) * renderer.cssCw * 1.6, y: e.clientY - (i % 2) * renderer.cssCh, t: 0 });
-    }
+    dropFood(e.clientX, e.clientY);
   };
 
   let px = 0;
@@ -362,6 +396,7 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     get cells() {
       return { cols: renderer.cols, rows: renderer.rows };
     },
+    get length() { return tpl?.length ?? 0; },
     stop,
     start,
     /** Freeze a pose for inspection: head at (x, y) CSS px, heading yaw. */
@@ -370,7 +405,10 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
       motion?.place(x, h - y, yaw);
       render();
     },
-    feed: (x: number, y: number) => food.push({ x, y, t: 0 }),
+    feed: dropFood,
+    /** Feeding state for deterministic interaction checks. */
+    food: () => food.map((f) => ({ x: f.x, y: f.y, age: f.t })),
+    get feeder() { return feeder ? pod.indexOf(feeder) : -1; },
   };
 
   return () => {

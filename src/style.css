@@ -1,7 +1,7 @@
 /* Ezra Song: chooser + portfolio.
    One monospace face, one warm near-black, two greys and one accent.
-   The orca canvas sits fixed behind everything; content opts out of the
-   water with [data-content] so taps there never feed it. */
+   The orca canvas sits fixed behind everything; [data-content] identifies
+   copy to dim it beneath. Blank section padding remains tappable water. */
 
 @import "./fonts.css";
 

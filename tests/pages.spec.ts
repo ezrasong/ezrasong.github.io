@@ -130,8 +130,11 @@ test("feeding: a tap on open water drops food the orca goes after", async ({ pag
   await expect(page.locator("[data-ocean]")).toHaveAttribute("data-ready", "true");
   const w = info.project.use.viewport!.width;
   const target = { x: w - 40, y: 160 };
+  await page.locator('#name').click();
+  expect(await page.evaluate(() => (window as any).__ocean.food().length)).toBe(0);
   const before = await page.evaluate(() => (window as any).__ocean.motion.x);
   await page.mouse.click(target.x, target.y);
+  await expect.poll(() => page.evaluate(() => (window as any).__ocean.food().length)).toBe(3);
   await page.waitForTimeout(2500);
   const after = await page.evaluate(() => (window as any).__ocean.motion.x);
   expect(after).toBeGreaterThan(before - 20);
