@@ -135,3 +135,43 @@ export function createRange(o: RangeOptions): THREE.BufferGeometry {
   geo.computeVertexNormals();
   return geo;
 }
+
+/** Namsan's close-up wooded slopes need continuous shading, rather than the
+ * distant granite ranges' individually coloured, flat-shaded triangles.
+ * Share the height function with trees and the tower's embedded foundation.
+ */
+export function createNamsanHill(radius: number): {
+  geometry: THREE.BufferGeometry;
+  heightAt: (x: number, z: number) => number;
+} {
+  const extent = radius + 0.6;
+  const summit = 8.7;
+  const heightAt = (x: number, z: number): number => {
+    const u = x / extent, v = z / extent;
+    const r = Math.min(1, Math.hypot(u, v));
+    const dome = Math.pow(Math.cos(r * Math.PI / 2), 1.4);
+    // Broad uneven shoulders keep the silhouette organic without the small
+    // sharp peaks of the mountain range's four-octave ridged surface.
+    const shoulder = 1 + 0.1 * Math.sin(u * 3 + v) * Math.sin(v * 2 + 0.7)
+      + 0.06 * (noise(u * 2.1 + 13, v * 2.1 - 7) - 0.5);
+    const natural = (summit + 0.4) * dome * shoulder - 0.4;
+    // Only the ground immediately under the 3.4 m foundation is level.
+    return THREE.MathUtils.lerp(summit, natural, THREE.MathUtils.smoothstep(Math.hypot(x, z), 3.8, 6));
+  };
+  const geometry = new THREE.PlaneGeometry(extent * 2, extent * 2, 56, 56);
+  geometry.rotateX(-Math.PI / 2);
+  const positions = geometry.attributes.position;
+  const colors = new Float32Array(positions.count * 3);
+  const dark = new THREE.Color('#3f6a3d'), light = new THREE.Color('#4a7745');
+  const color = new THREE.Color();
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i), z = positions.getZ(i);
+    positions.setY(i, heightAt(x, z));
+    color.copy(dark).lerp(light, noise(x * 0.16 + 4, z * 0.16 + 8));
+    color.toArray(colors, i * 3);
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  // Indexed vertices share normals and colours across every triangle edge.
+  geometry.computeVertexNormals();
+  return { geometry, heightAt };
+}

@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { PALETTE as P } from '../config/palette';
 import { MATERIALS, VoxelKit } from './voxel';
 import { makeSign } from './SignTexture';
-import { createRange, rangeHeight } from './Hills';
+import { createRange, createNamsanHill } from './Hills';
 import { hanokRoof, roofRidges, type RoofOptions } from './Hanok';
+import { celMaterial } from './CelShading';
 import type { ColliderSpec } from './VoxelBuilding';
 
 export interface LandmarkResult {
@@ -98,6 +99,8 @@ export function createGate(x: number, z: number): LandmarkResult {
   };
 }
 
+const NAMSAN_GROUND = celMaterial({ profile: 'ground', vertexColors: true });
+
 /**
  * Namsan: a rounded forested hill (no terraces; the real one is a soft
  * wooded dome) with clustered tree crowns over its slopes, the summit
@@ -109,29 +112,19 @@ export function createNamsan(x: number, z: number): LandmarkResult {
   const glow = new VoxelKit();
   const group = new THREE.Group();
   const R = NAMSAN_BASE_RADIUS;
-  const H = 13;
-
-  // Dome terrain with a gentle noisy surface
-  const hillOpts = { x: 0, z: 0, hx: R + 0.6, hz: R + 0.6, height: H * 0.7, rock: 0, seed: 4.2, res: 40 };
-  const summit = rangeHeight(hillOpts, 0, 0);
-  // Grade a small summit terrace into the hillside before placing the
-  // plaza. Share this surface with the forest and foundation placement.
-  const ground = (px: number, pz: number) => {
-    const blend = THREE.MathUtils.smoothstep(Math.hypot(px, pz), 4.5, 10.5);
-    return THREE.MathUtils.lerp(summit, rangeHeight(hillOpts, px, pz), blend);
-  };
-  const hill = createRange(hillOpts);
-  const vertices = hill.attributes.position;
-  for (let i = 0; i < vertices.count; i++) vertices.setY(i, ground(vertices.getX(i), vertices.getZ(i)));
-  hill.computeVertexNormals();
-  kit.add(hill);
+  const { geometry: hill, heightAt: ground } = createNamsanHill(R);
+  const summit = ground(0, 0);
+  const hillMesh = new THREE.Mesh(hill, NAMSAN_GROUND);
+  hillMesh.name = 'namsan-ground';
+  hillMesh.castShadow = true;
+  hillMesh.receiveShadow = true;
   // Sink crowns into the surface: a clump floating above a hollow in the
   // noise read as a stray ball hanging in the air.
   // Forest cover: tree clumps following the dome surface
   const rng = mulberry32(99);
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 100; i++) {
     const ang = rng() * Math.PI * 2;
-    const rr = 4.8 + Math.sqrt(rng()) * (R - 5.8);
+    const rr = Math.sqrt(4.8 ** 2 + rng() * ((R - 1) ** 2 - 4.8 ** 2));
     const tx = Math.cos(ang) * rr;
     const tz = Math.sin(ang) * rr;
     const r = 0.7 + rng() * 0.6;
@@ -161,6 +154,7 @@ export function createNamsan(x: number, z: number): LandmarkResult {
 
   group.add(kit.toMesh(MATERIALS.lit));
   group.add(new THREE.Mesh(glow.merge(), MATERIALS.glow));
+  group.add(hillMesh);
   group.position.set(x, 0, z);
 
   const bodyMesh = group.children[0] as THREE.Mesh;
@@ -169,7 +163,7 @@ export function createNamsan(x: number, z: number): LandmarkResult {
     // Blocking is intentional (the hill is scenery, not walkable); the
     // cylinder collider is added by World so it matches the base radius.
     colliders: [],
-    occluders: [bodyMesh],
+    occluders: [bodyMesh, hillMesh],
   };
 }
 
