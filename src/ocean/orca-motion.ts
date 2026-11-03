@@ -72,6 +72,10 @@ export class OrcaMotion {
   private tgtTimer = 0;
   private urgent = 0;
   private hunting = false;
+  private avoidFor = 0;
+  private avoidX = 0;
+  private avoidY = 0;
+  private avoidZ = 0;
   zone: Zone = { x0: 0, x1: 1, y0: 0, y1: 1 };
   private idle = 0;
   private rollShow = 0;
@@ -100,7 +104,7 @@ export class OrcaMotion {
   private boutScale = 1;
   /** Seconds the head has made little progress; triggers a fresh heading. */
   private stall = 0;
-  /** Seconds left in which chase/avoid steering is ignored (after a give-up). */
+  /** Seconds left in which chase steering is ignored (after a give-up). */
   private commit = 0;
   private stallX = 0;
   private stallY = 0;
@@ -143,6 +147,7 @@ export class OrcaMotion {
     this.z = 0;
     this.yaw = yaw;
     this.pitch = 0;
+    this.avoidFor = 0;
     this.speed = this.cruise();
     this.filled = 0;
     this.dist = 0;
@@ -181,14 +186,12 @@ export class OrcaMotion {
     this.idle = 0;
   }
 
-  /** Swing away from a nearby pod mate without speeding up. */
-  avoid(x: number, y: number): void {
-    if (this.commit > 0) return;
-    this.hunting = false;
-    this.tgtX = x;
-    this.tgtY = y;
-    this.tgtTimer = Math.max(this.tgtTimer, 3);
-    this.commit = 2.5;
+  /** Collision steering takes priority over food, hunting, and cruise turns. */
+  avoid(x: number, y: number, z: number): void {
+    this.avoidX = x;
+    this.avoidY = y;
+    this.avoidZ = z;
+    this.avoidFor = 1.8;
   }
 
   /** A fast pointer passing close to the head: veer away briefly. */
@@ -240,6 +243,9 @@ export class OrcaMotion {
     const L = this.tpl.length;
     this.idle += dt;
     this.tgtTimer -= dt;
+    this.avoidFor = Math.max(0, this.avoidFor - dt);
+    const avoiding = this.avoidFor > 0;
+    const urgency = avoiding ? 0 : this.urgent;
 
     // A cruising waypoint can be rounded off; prey and dropped food must
     // be reached within biting distance before selecting another target.
@@ -289,14 +295,14 @@ export class OrcaMotion {
     }
     // Target selection and boundary avoidance above may have changed the
     // heading. Both yaw and pitch must use that final target this frame.
-    const dx = this.tgtX - this.x;
-    const dy = this.tgtY - this.y;
-    const dz = this.tgtZ - this.z;
+    const dx = (avoiding ? this.avoidX : this.tgtX) - this.x;
+    const dy = (avoiding ? this.avoidY : this.tgtY) - this.y;
+    const dz = (avoiding ? this.avoidZ : this.tgtZ) - this.z;
     const flat = Math.hypot(dx, dz);
     let err = wrap(Math.atan2(dz, dx) - this.yaw);
     // A turn rate limited by speed keeps the turning circle at least about
     // half a body length; any tighter and the trailing body coils on itself.
-    const maxRate = Math.min(0.9, this.speed / (L * (0.45 - this.urgent * 0.1)));
+    const maxRate = Math.min(0.9, this.speed / (L * (0.45 - urgency * 0.1)));
     const wantRate = clamp(err * 1.1, -maxRate, maxRate);
     this.yawRate = approach(this.yawRate, wantRate, 2.2, dt);
     this.yaw = wrap(this.yaw + this.yawRate * dt);
@@ -309,16 +315,17 @@ export class OrcaMotion {
     // proportional to speed, so speed settles instead of oscillating evenly.
     this.bout -= dt;
     if (this.bout <= 0) {
-      this.stroking = !this.stroking || this.urgent > 0.3;
+      this.stroking = !this.stroking || urgency > 0.3;
       this.bout = (this.stroking ? 3.5 + this.rand() * 3 : 1.6 + this.rand() * 1.8) * this.boutScale;
     }
-    const wantAmp = this.stroking ? 0.55 + this.urgent * 0.45 : 0.07;
+    const wantAmp = this.stroking ? 0.55 + urgency * 0.45 : 0.07;
     this.amp = approach(this.amp, wantAmp, this.stroking ? 1.6 : 0.9, dt);
     const freq = (0.42 + this.amp * 0.3) * this.tempo;
     this.phase += freq * TAU * dt;
     const pulse = 0.55 + 0.45 * Math.sin(this.phase - 0.6);
-    const thrust = this.cruise() * 1.35 * this.amp * pulse * (1 + this.urgent * 0.9);
+    const thrust = this.cruise() * 1.35 * this.amp * pulse * (1 + urgency * 0.9);
     this.speed += (thrust - this.speed * 0.42) * dt;
+    if (avoiding && this.speed > this.cruise() * 0.85) this.speed = approach(this.speed, this.cruise() * 0.85, 2, dt);
     this.speed = Math.max(this.speed, this.cruise() * 0.32);
     this.urgent = Math.max(0, this.urgent - dt * 0.12);
 

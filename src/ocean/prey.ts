@@ -20,7 +20,7 @@ export interface Prey {
   /** Seconds since spawn; prey fades in and wanders off when old. */
   age: number;
   life: number;
-  /** 0..1, set while fleeing; renderer shows a faster glyph. */
+  /** 0..1, set while fleeing; renderer quickens the tail/arm animation. */
   fear: number;
 }
 
@@ -110,6 +110,20 @@ export class PreyField {
       if (n > 1) {
         ax += (s[0] / n - p.x) * 0.6 + (s[2] / n - p.vx) * 0.9;
         ay += (s[1] / n - p.y) * 0.6 + (s[3] / n - p.vy) * 0.9;
+      }
+      // Leave room for the multi-cell silhouettes, rather than schooling
+      // directly on top of one another. Weaker cohesion still keeps a school
+      // together while this short-range force opens gaps between fish.
+      const spacing = this.w < 600 ? 34 : 48;
+      for (const other of this.list) {
+        if (other === p) continue;
+        const dx = p.x - other.x, dy = (p.y - other.y) * 1.4;
+        const d = Math.hypot(dx, dy);
+        if (d > 0 && d < spacing) {
+          const push = (1 - d / spacing) * 90;
+          ax += dx / d * push;
+          ay += dy / d * push;
+        }
       }
       // Wander
       const t = p.age * 0.7 + p.school;

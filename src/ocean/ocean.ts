@@ -6,10 +6,11 @@
  * Decorative only: the canvas is aria-hidden and never takes pointer events.
  */
 
-import { AsciiRenderer, K_FOOD, K_PREY, type Palette } from "./ascii-renderer";
+import { AsciiRenderer, K_FOOD, type Palette } from "./ascii-renderer";
 import { buildOrca, type OrcaTemplate } from "./orca-model";
 import { OrcaMotion } from "./orca-motion";
-import { PreyField, PREY_SQUID } from "./prey";
+import { PreyField } from "./prey";
+import { steerPod } from "./pod-motion";
 
 export interface OceanOptions {
   /**
@@ -135,36 +136,15 @@ export function startOcean(canvas: HTMLCanvasElement, opts: OceanOptions): () =>
     snowView.length = 0;
     for (const s of snow) snowView.push({ x: s.x, y: s.y, k: s.k });
     for (const f of food) snowView.push({ x: f.x, y: f.y, k: K_FOOD });
-    for (const p of prey.list) {
-      const g = p.fear > 0.5 ? 4 : p.kind === PREY_SQUID ? (p.vx >= 0 ? 2 : 3) : p.vx >= 0 ? 0 : 1;
-      snowView.push({ x: p.x, y: p.y, k: K_PREY + g });
-    }
     updateMask();
-    renderer.draw(pod.map((o) => ({ tpl: o.tpl, pose: o.motion.pose })), yToScreen, snowView, clock, dt);
+    renderer.draw(pod.map((o) => ({ tpl: o.tpl, pose: o.motion.pose })), yToScreen, snowView, clock, dt, prey.list);
   };
 
   const step = (dt: number): void => {
     if (!motion || !tpl) return;
     clock += dt;
+    steerPod(pod);
     for (const o of pod) o.motion.update(dt);
-    // Keep the pod spaced: when two heads get within a body length, the
-    // smaller one veers off, so they swim near each other instead of
-    // overlapping into one shape.
-    for (let i = 1; i < pod.length; i++) {
-      const a = pod[i]!;
-      if (a.leaving) continue;
-      for (let j = 0; j < pod.length; j++) {
-        if (j === i) continue;
-        const b2 = pod[j]!;
-        const dx = a.motion.x - b2.motion.x;
-        const dy = a.motion.y - b2.motion.y;
-        const min = (a.tpl.length + b2.tpl.length) * 0.55;
-        if (dx * dx + dy * dy < min * min) {
-          const zn = a.motion.zone;
-          a.motion.avoid(clamp(a.motion.x + Math.sign(dx || 1) * min * 1.5, zn.x0, zn.x1), clamp(a.motion.y + Math.sign(dy || 1) * min * 0.4, zn.y0, zn.y1));
-        }
-      }
-    }
     // Visitors: a smaller orca (a female or a juvenile) swims in from a side
     // edge every half minute or so, stays a while, then leaves the way it came.
     visitIn -= dt;

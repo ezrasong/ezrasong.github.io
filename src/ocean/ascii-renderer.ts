@@ -1,7 +1,8 @@
 /**
  * Character-grid rasterizer. Points are projected orthographically into
- * cells; a per-cell depth buffer keeps the nearest surface, which is lit and
- * mapped to one of a fixed set of tiles (background square + glyph). Tiles
+ * cells; whole animals are layered back-to-front, with a per-cell depth
+ * buffer keeping each animal's nearest surface. Lit surfaces map to a fixed
+ * set of tiles (background square + glyph). Tiles
  * are pre-rendered once per size into an atlas, so a frame is one
  * drawImage per lit cell and no text layout.
  *
@@ -12,6 +13,8 @@ import {
   GRP_FLUKE, GRP_PEC, MAT_BLACK, MAT_WHITE, type OrcaTemplate,
 } from "./orca-model";
 import type { Pose } from "./orca-motion";
+import type { Prey } from "./prey";
+import { PREY_GLYPHS, preySprite } from "./prey-sprite";
 
 const RAMP = "  .,:;t%SX8#@";
 const LEVELS = RAMP.length;
@@ -21,14 +24,12 @@ const T_SHADOW = LEVELS + 1;
 const T_SPECK0 = LEVELS + 2;
 const SPECKS = ["'", ",", "`", ".", "·"];
 const T_FOOD = T_SPECK0 + SPECKS.length;
-/** Prey glyphs: fish heading right / left, squid, and a dart (fleeing). */
-const PREY_GLYPHS = ['>', '<', '}', '{', '~'];
 const T_PREY0 = T_FOOD + 1;
 const TILE_COUNT = T_PREY0 + PREY_GLYPHS.length;
 /** Kind code for food pellets in the overlay list. */
 export const K_FOOD = SPECKS.length;
 /** Overlay kind codes for prey: K_PREY + glyph index. */
-export const K_PREY = K_FOOD + 1;
+const K_PREY = K_FOOD + 1;
 
 export interface Palette {
   bg: string;
@@ -88,6 +89,8 @@ export class AsciiRenderer {
   private depth = new Float32Array(0);
   private lum = new Float32Array(0);
   private kind = new Int16Array(0);
+  /** Whole-animal ownership prevents two crossing point clouds interleaving. */
+  private owner = new Int16Array(0);
   /** Cells drawn last frame, so they can be cleared without a full clear. */
   private drawn = new Int32Array(0);
   private drawnCount = 0;
@@ -138,6 +141,7 @@ export class AsciiRenderer {
     this.depth = new Float32Array(n);
     this.lum = new Float32Array(n);
     this.kind = new Int16Array(n);
+    this.owner = new Int16Array(n);
     this.drawn = new Int32Array(n);
     this.stamp = new Uint32Array(n);
     this.mask = new Uint8Array(n);
@@ -186,7 +190,7 @@ export class AsciiRenderer {
     tile(T_SHADOW, p.shadow, " ", p.speck);
     SPECKS.forEach((s, i) => tile(T_SPECK0 + i, null, s, p.speck));
     tile(T_FOOD, null, "*", p.food);
-    PREY_GLYPHS.forEach((g2, i) => tile(T_PREY0 + i, null, g2, i === 4 ? p.preyBright : p.prey));
+    PREY_GLYPHS.forEach((g2, i) => tile(T_PREY0 + i, null, g2, g2 === 'o' || g2 === '=' ? p.preyBright : p.prey));
     this.atlas = a;
   }
 
@@ -236,8 +240,8 @@ export class AsciiRenderer {
   }
 
   /**
-   * Rasterize one orca pose. World y is up; `yToScreen` converts it to CSS
-   * px from the top. Marine snow is passed in already in screen space.
+   * Rasterize the pod, then prey and marine snow behind it. World y is up;
+   * `yToScreen` converts it to CSS px from the top. Overlays use screen space.
    */
   draw(
     bodies: ReadonlyArray<{ tpl: OrcaTemplate; pose: Pose }>,
@@ -245,11 +249,13 @@ export class AsciiRenderer {
     snow: ReadonlyArray<{ x: number; y: number; k: number }>,
     t: number,
     dt = 0,
+    prey: ReadonlyArray<Prey> = [],
   ): void {
     if (!this.atlas) return;
     const f = ++this.frame;
-    const { stamp, depth, lum, kind, cols } = this;
+    const { stamp, depth, lum, kind, owner, cols } = this;
     const touched: number[] = [];
+    let animal = 0;
 
     const mark = (cell: number, z: number, l: number, k: number): void => {
       if (stamp[cell] !== f) {
@@ -257,14 +263,22 @@ export class AsciiRenderer {
         depth[cell] = -Infinity;
         touched.push(cell);
       }
-      if (z > depth[cell]!) {
+      // Later animals are in front as complete silhouettes. Within each
+      // animal, retain surface depth testing for fins, skin and markings.
+      if (owner[cell] !== animal || z > depth[cell]!) {
+        owner[cell] = animal;
         depth[cell] = z;
         lum[cell] = l;
         kind[cell] = k;
       }
     };
 
-    for (const { tpl, pose } of bodies) {
+    const layers = bodies.map((body) => ({
+      ...body,
+      z: body.pose.cz.reduce((sum, z) => sum + z, 0) / body.pose.cz.length,
+    })).sort((a, b) => a.z - b.z);
+    for (const { tpl, pose } of layers) {
+    animal++;
     const cosF = Math.cos(pose.fluke);
     const sinF = Math.sin(pose.fluke);
     const cosP = Math.cos(pose.pec);
@@ -342,10 +356,20 @@ export class AsciiRenderer {
       // The eye sits on the head's flank; a cell that also holds the snout
       // reports the snout's depth, which is nearer by up to the head radius.
       // Allow that much, so a head-on view shows both eyes steadily.
-      if (cell >= 0 && stamp[cell] === f && z >= depth[cell]! - tpl.length * 0.1) {
+      if (cell >= 0 && stamp[cell] === f && owner[cell] === animal && z >= depth[cell]! - tpl.length * 0.1) {
         kind[cell] = 2;
       }
     }
+    }
+
+    // A thin water-coloured contact edge on the rear silhouette keeps even
+    // same-coloured flanks distinct during an unavoidable screen crossing.
+    for (const c of touched) {
+      const col = c % cols;
+      const neighbors = [c - cols, c + cols];
+      if (col > 0) neighbors.push(c - 1);
+      if (col + 1 < cols) neighbors.push(c + 1);
+      if (neighbors.some((n) => n >= 0 && n < stamp.length && stamp[n] === f && owner[n]! > owner[c]!)) kind[c] = 3;
     }
 
     // Shadow cast down-right, and loose specks where the body meets water.
@@ -375,6 +399,23 @@ export class AsciiRenderer {
           depth[s] = -Infinity;
           kind[s] = 4 + ((h >>> 16) % SPECKS.length);
           touched.push(s);
+        }
+      }
+    }
+    // Prey occupy several character cells but stay behind every orca. Centre
+    // the sprite on the simulation's catch point, so bites match the visual.
+    for (const p of prey) {
+      const sprite = preySprite(p);
+      for (let row = 0; row < sprite.length; row++) {
+        const line = sprite[row]!;
+        for (let col = 0; col < line.length; col++) {
+          const glyph = PREY_GLYPHS.indexOf(line[col]!);
+          if (glyph < 0) continue;
+          const c = this.cellAt(p.x + (col - (line.length - 1) / 2) * this.cssCw, p.y + (row - 1) * this.cssCh);
+          if (c < 0 || stamp[c] === f) continue;
+          stamp[c] = f;
+          kind[c] = 4 + K_PREY + glyph;
+          touched.push(c);
         }
       }
     }
